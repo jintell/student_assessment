@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0",
+  "ratificationId": "ARCH-RAT-001",
+
+  "//status": "RATIFIED only when BOTH required approvals are true. PENDING otherwise. CI stage 4a BLOCKs on anything but RATIFIED.",
+  "status": "PENDING",
+
+  "baseline": {
+    "architectureVersion": "1.4",
+    "documentPath": "student_assessment/workspace/v3/be/architecture.md",
+    "gitTag": "arch-v1.4",
+    "//gitCommit": "Output of: git rev-list -n 1 arch-v1.4 -- full 40-char SHA. Pinned as well as the tag because a tag is a movable ref.",
+    "gitCommit": "<resolved-commit-sha>",
+    "//blobSha256": "Output of: git rev-parse arch-v1.4:student_assessment/workspace/v3/be/architecture.md -- detects an edit to the file itself.",
+    "blobSha256": "<git-blob-sha256-of-documentPath-at-gitCommit>"
+  },
+
+  "decisions": [
+    { "id": "ADR-001", "title": "Modular Monolith", "status": "Accepted" },
+    { "id": "ADR-002", "title": "Vertical Slice Architecture", "status": "Accepted" },
+    { "id": "ADR-003", "title": "PostgreSQL via R2DBC", "status": "Accepted" },
+    { "//": "All 25 ADRs and their §21.0 dispositions are enumerated here. Accepted | Accepted - conditional | Accepted - BLOCKED. The eight conditional and two BLOCKED dispositions MUST carry their gating verification or condition id." }
+  ],
+
+  "constraints": [
+    "Implementation SHALL conform to the architecture baseline at tag arch-v1.4.",
+    "Architectural decisions SHALL NOT be overridden without an approved ADR revision.",
+    "CI stage 4a SHALL validate this ratification before Phase 0 implementation (ARC-CICD-020..024).",
+    "A record over any earlier document blob is void against this baseline."
+  ],
+
+  "//approvals": "Identities live HERE and only here. The architecture document and the plan carry roles only, per architecture section 21.0 'Roles here, identities there'. The two approvers MUST be distinct -- the ARC-DATA-029 four-eyes construction.",
+  "approvals": {
+    "architectureOwner": {
+      "role": "Architecture Owner",
+      "identity": "Josiah Adetayo",
+      "approved": true,
+      "attestedAt": "<ISO-8601-UTC>",
+      "signature": "<detached-signature>"
+    },
+    "engineeringLead": {
+      "role": "Engineering Lead",
+      "identity": "Francis Okechukwu",
+      "approved": true,
+      "attestedAt": "2026-09-03T10:15:00Z",
+      "signature": "<detached-signature>"
+    }
+  },
+  "countersignedBy": "<role-and-identity-of-the-distinct-countersigning-approver>",
+
+  "//temporaryArchitectureGate": "OPTIONAL and NOT the default. Include ONLY when ratification cannot be completed by the deadline. Authorises preparatory, non-implementation work only; expires on allowedUntil without renewal by the same two roles. Omit this block entirely once status is RATIFIED.",
+  "temporaryArchitectureGate": {
+    "approved": false,
+    "reason": "<why formal ratification is not yet possible>",
+    "allowedUntil": "<YYYY-MM-DD>",
+    "approvedBy": ["Architecture Owner", "Engineering Lead"],
+    "implementationAllowed": false
+  }
+}
