@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+artifact="${repo_root}/ci/architecture-ratification.json"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+expected_decisions="${repo_root}/ci/architecture-ratification.expected-decisions.json"
+default_architecture_repository="${repo_root}/../student_assessment"
+architecture_repository="${ARCHITECTURE_REPOSITORY:-${default_architecture_repository}}"
+requested_gnupg_home=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --artifact)
+            artifact="$2"
+            shift 2
+            ;;
+        --architecture-repository)
+            architecture_repository="$2"
+            shift 2
+            ;;
+        --trusted-keys)
+            trusted_keys="$2"
+            shift 2
+            ;;
+        --expected-decisions)
+            expected_decisions="$2"
+            shift 2
+            ;;
+        --gnupg-home)
+            requested_gnupg_home="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown Stage 4a argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+terminate() {
+    local outcome="$1"
+    local step="$2"
+    local reason="$3"
+    echo "STAGE 4a: ${outcome}"
+    echo
+    echo "Step ${step}: ${reason}"
+    echo
+    echo "Pipeline terminated."
+    exit 1
+}
+
+missing_artifact() {
+    cat <<'EOF'
+STAGE 4a: BLOCKED
+
+architecture-ratification.json was not found.
+
+Required baseline:
+  Git tag:  arch-v1.4
+  Document: workspace/v3/be/architecture.md
+
+Related blocker:
+  PLAN-BLOCKER-001
+
+Resolution:
+  Produce and ratify architecture-ratification.json before Phase 0 implementation.
+
+Pipeline terminated.
+EOF
+    exit 1
+}
+
+secure_equals() {
+    local left="$1"
+    local right="$2"
+    local difference=0
+    local index
+    if [[ ${#left} -ne ${#right} ]]; then
+        return 1
+    fi
+    for ((index = 0; index < ${#left}; index++)); do
+        if [[ "${left:index:1}" != "${right:index:1}" ]]; then
+            difference=1
+        fi
+    done
+    return "${difference}"
+}
+
+json_value() {
+    jq -r "$1 // empty" "${artifact}"
+}
+
+if [[ ! -f "${artifact}" ]]; then
+    missing_artifact
+fi
+
+if ! jq -e '
+    type == "object"
+    and ((.baseline? // {}) | type == "object")
+    and ((.approvals? // {}) | type == "object")
+    and ((.decisions? // []) | type == "array")
+    and ([paths(scalars) as $path
+          | getpath($path)
+          | select(type == "string" and test("^<[^>]+>$"))] | length == 0)
+' "${artifact}" >/dev/null 2>&1; then
+    terminate "FAIL" 2 "ratification artifact is malformed or contains unresolved placeholders."
+fi
+
+status="$(json_value '.status')"
+if [[ "${status}" != "RATIFIED" ]]; then
+    if [[ -z "${status}" || "${status}" == "PENDING" ]]; then
+        terminate "BLOCKED" 3 "ratification status is not RATIFIED."
+    fi
+    terminate "FAIL" 3 "ratification status is unknown: ${status}."
+fi
+
+expected_version="1.4"
+architecture_version="$(json_value '.baseline.architectureVersion')"
+secure_equals "${architecture_version}" "${expected_version}" \
+    || terminate "FAIL" 4 "expected architecture version ${expected_version}."
+
+expected_tag="arch-v1.4"
+git_tag="$(json_value '.baseline.gitTag')"
+secure_equals "${git_tag}" "${expected_tag}" \
+    || terminate "FAIL" 5 "expected Git tag ${expected_tag}."
+
+expected_document="workspace/v3/be/architecture.md"
+document_path="$(json_value '.baseline.documentPath')"
+secure_equals "${document_path}" "${expected_document}" \
+    || terminate "FAIL" 6 "expected document path ${expected_document}."
+
+if [[ ! -d "${architecture_repository}/.git" ]]; then
+    terminate "FAIL" 7 "architecture repository is unavailable."
+fi
+resolved_commit="$(git -C "${architecture_repository}" rev-list -n 1 "${expected_tag}" 2>/dev/null || true)"
+if [[ ! "${resolved_commit}" =~ ^[0-9a-f]{40}$ ]]; then
+    terminate "FAIL" 7 "Git tag ${expected_tag} does not resolve to one commit."
+fi
+
+ratified_commit="$(json_value '.baseline.gitCommit')"
+if [[ ! "${ratified_commit}" =~ ^[0-9a-f]{40}$ ]] \
+    || ! secure_equals "${resolved_commit}" "${ratified_commit}"; then
+    terminate "FAIL" 8 "ratification commit does not match ${expected_tag}."
+fi
+
+hash_blob() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | awk '{print $1}'
+    else
+        return 1
+    fi
+}
+
+actual_blob_sha256="$(
+    git -C "${architecture_repository}" cat-file blob "${resolved_commit}:${document_path}" 2>/dev/null \
+        | hash_blob
+)" || terminate "FAIL" 9 "unable to hash the architecture document blob with SHA-256."
+ratified_blob_sha256="$(json_value '.baseline.blobSha256')"
+if [[ ! "${ratified_blob_sha256}" =~ ^[0-9a-f]{64}$ ]] \
+    || ! secure_equals "${actual_blob_sha256}" "${ratified_blob_sha256}"; then
+    terminate "FAIL" 9 "architecture document blob does not match the ratified SHA-256."
+fi
+
+generated_gnupg_home=""
+if [[ -n "${requested_gnupg_home}" ]]; then
+    gnupg_home="${requested_gnupg_home}"
+else
+    generated_gnupg_home="$(mktemp -d)"
+    gnupg_home="${generated_gnupg_home}"
+fi
+cleanup() {
+    if [[ -n "${generated_gnupg_home}" && -d "${generated_gnupg_home}" ]]; then
+        rm -rf -- "${generated_gnupg_home}"
+    fi
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+validate_approval() {
+    local approval_key="$1"
+    local expected_role="$2"
+    local step="$3"
+    local approved identity role attested_at signature_name trusted_identity trusted_fingerprint
+    local public_key_name public_key_path signature_path signature_status actual_fingerprint
+
+    approved="$(json_value ".approvals.${approval_key}.approved")"
+    if [[ "${approved}" != "true" ]]; then
+        terminate "BLOCKED" "${step}" "${expected_role} approval is missing or false."
+    fi
+
+    identity="$(json_value ".approvals.${approval_key}.identity")"
+    role="$(json_value ".approvals.${approval_key}.role")"
+    attested_at="$(json_value ".approvals.${approval_key}.attestedAt")"
+    signature_name="$(json_value ".approvals.${approval_key}.signature")"
+    if [[ -z "${identity}" || "${role}" != "${expected_role}" \
+        || ! "${attested_at}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ \
+        || ! "${signature_name}" =~ ^[A-Za-z0-9._-]+\.sig$ ]]; then
+        terminate "FAIL" "${step}" "${expected_role} approval evidence is malformed."
+    fi
+
+    trusted_identity="$(jq -r --arg role "${expected_role}" '.[$role].identity // empty' "${trusted_keys}" 2>/dev/null || true)"
+    trusted_fingerprint="$(jq -r --arg role "${expected_role}" '.[$role].fingerprint // empty' "${trusted_keys}" 2>/dev/null || true)"
+    public_key_name="$(jq -r --arg role "${expected_role}" '.[$role].publicKey // empty' "${trusted_keys}" 2>/dev/null || true)"
+    if [[ "${identity}" != "${trusted_identity}" \
+        || ! "${trusted_fingerprint}" =~ ^[0-9A-F]{40}$ \
+        || ! "${public_key_name}" =~ ^[A-Za-z0-9._-]+\.asc$ ]]; then
+        terminate "FAIL" "${step}" "${expected_role} does not match the trusted identity record."
+    fi
+
+    public_key_path="$(dirname "${trusted_keys}")/${public_key_name}"
+    signature_path="$(dirname "${artifact}")/${signature_name}"
+    if [[ ! -f "${public_key_path}" || ! -f "${signature_path}" ]]; then
+        terminate "FAIL" "${step}" "${expected_role} signature material is unavailable."
+    fi
+    gpg --homedir "${gnupg_home}" --batch --quiet --import "${public_key_path}" >/dev/null 2>&1 \
+        || terminate "FAIL" "${step}" "${expected_role} trusted key could not be imported."
+    signature_status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${artifact}" 2>/dev/null
+    )" || terminate "FAIL" "${step}" "${expected_role} detached signature is invalid."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${signature_status}")"
+    secure_equals "${actual_fingerprint}" "${trusted_fingerprint}" \
+        || terminate "FAIL" "${step}" "${expected_role} signature uses an untrusted key."
+    validated_fingerprint="${actual_fingerprint}"
+}
+
+validated_fingerprint=""
+validate_approval "architectureOwner" "Architecture Owner" 10
+owner_fingerprint="${validated_fingerprint}"
+owner_identity="$(json_value '.approvals.architectureOwner.identity')"
+
+validate_approval "engineeringLead" "Engineering Lead" 11
+engineering_fingerprint="${validated_fingerprint}"
+engineering_identity="$(json_value '.approvals.engineeringLead.identity')"
+if [[ "${owner_identity}" == "${engineering_identity}" \
+    || "${owner_fingerprint}" == "${engineering_fingerprint}" ]]; then
+    terminate "FAIL" 11 "Architecture Owner and Engineering Lead approvals are not distinct."
+fi
+if ! jq -e '
+    .countersignedBy
+        == ([.approvals.engineeringLead.role, .approvals.engineeringLead.identity] | join(" — "))
+' "${artifact}" >/dev/null; then
+    terminate "FAIL" 11 "countersignedBy does not match the Engineering Lead approver."
+fi
+
+if [[ ! -f "${expected_decisions}" ]] \
+    || ! jq -e 'type == "array" and length == 25' "${expected_decisions}" >/dev/null 2>&1; then
+    terminate "FAIL" 12 "trusted ADR disposition reference is unavailable or malformed."
+fi
+actual_decisions="$(jq -S -c '.decisions' "${artifact}")"
+trusted_decisions="$(jq -S -c '.' "${expected_decisions}")"
+secure_equals "${actual_decisions}" "${trusted_decisions}" \
+    || terminate "FAIL" 12 "ADR-001 through ADR-025 dispositions do not match the ratified baseline."
+
+echo "STAGE 4a: PASS"
+echo
+echo "Step 12: architecture baseline ${expected_tag} is ratified and verified."

@@ -1,0 +1,12 @@
+{
+  "Architecture Owner": {
+    "identity": "Josiah Adetayo",
+    "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+    "publicKey": "trusted-architecture-owner.asc"
+  },
+  "Engineering Lead": {
+    "identity": "Francis Okechukwu",
+    "fingerprint": "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124",
+    "publicKey": "trusted-engineering-lead.asc"
+  }
+}

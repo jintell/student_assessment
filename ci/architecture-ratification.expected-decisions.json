@@ -1,0 +1,194 @@
+[
+  {
+    "id": "ADR-001",
+    "title": "Modular monolith, single deployable",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-002",
+    "title": "Vertical slices as the unit of change",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-003",
+    "title": "Schema per module with per-module database roles",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-004",
+    "title": "Platform-issued candidate exam token",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-005",
+    "title": "Platform state is the sole authorization authority",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-006",
+    "title": "Two revocation classes with a fail-closed immediate class",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-007",
+    "title": "Dual cryptographic paths over the exam-access PIN",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-025"
+    ],
+    "gatingConditions": [
+      "A4"
+    ]
+  },
+  {
+    "id": "ADR-008",
+    "title": "PostgreSQL authoritative; Redis never authoritative",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-034"
+    ],
+    "gatingConditions": [
+      "A9"
+    ]
+  },
+  {
+    "id": "ADR-009",
+    "title": "Transactional outbox for all asynchronous cross-module and outbound propagation",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-010",
+    "title": "Row-Level Security as the tenant-isolation backstop",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-011",
+    "title": "Append-only, hash-chained audit written in the business transaction",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-031",
+      "ARC-VERIFY-032"
+    ],
+    "gatingConditions": [
+      "A6",
+      "A7"
+    ]
+  },
+  {
+    "id": "ADR-012",
+    "title": "Three runtime roles from one artifact",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-033"
+    ],
+    "gatingConditions": [
+      "A8"
+    ]
+  },
+  {
+    "id": "ADR-013",
+    "title": "Scoring as a pure function with normative fixtures",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-014",
+    "title": "Priority grading lane with schedule-driven pre-warmed capacity",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-027",
+      "ARC-VERIFY-033"
+    ],
+    "gatingConditions": [
+      "A8"
+    ]
+  },
+  {
+    "id": "ADR-015",
+    "title": "Grading claim lease with stale reclaim",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-016",
+    "title": "Platform-owned notification idempotency key",
+    "status": "Accepted - BLOCKED",
+    "gatingVerifications": [
+      "ARC-NOTF-010",
+      "ARC-VERIFY-026"
+    ],
+    "gatingConditions": [
+      "A5",
+      "DEP-002 condition 13"
+    ]
+  },
+  {
+    "id": "ADR-017",
+    "title": "Provider-supported webhook authentication",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-018",
+    "title": "Production sending gate as a configuration control",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-019",
+    "title": "Expand/contract migrations only",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-020",
+    "title": "Declarative retention engine with hold suspension",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-032"
+    ],
+    "gatingConditions": [
+      "A7"
+    ]
+  },
+  {
+    "id": "ADR-021",
+    "title": "SSE for provisional-feedback readiness",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-022",
+    "title": "No CQRS, no event sourcing, no separate read model at MVP",
+    "status": "Accepted"
+  },
+  {
+    "id": "ADR-023",
+    "title": "Synchronous cross-module transaction via an enumerated composite role",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-023"
+    ],
+    "gatingConditions": [
+      "A3"
+    ]
+  },
+  {
+    "id": "ADR-024",
+    "title": "Dedicated coordinator-distribution workload identity for the PIN-retrieval KEK",
+    "status": "Accepted - conditional",
+    "gatingVerifications": [
+      "ARC-VERIFY-025"
+    ],
+    "gatingConditions": [
+      "A4"
+    ]
+  },
+  {
+    "id": "ADR-025",
+    "title": "Notification submission semantics under a non-idempotent provider",
+    "status": "Accepted - BLOCKED",
+    "gatingVerifications": [
+      "ARC-NOTF-010",
+      "ARC-VERIFY-026"
+    ],
+    "gatingConditions": [
+      "A5",
+      "DEP-002 condition 13"
+    ]
+  }
+]

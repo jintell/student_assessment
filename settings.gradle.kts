@@ -1,1 +1,1 @@
-rootProject.name = "student-assessment"
+rootProject.name = "cbt-platform"

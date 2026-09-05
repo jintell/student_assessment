@@ -1,0 +1,23 @@
+{
+  "branch": "main",
+  "requiredSignatures": true,
+  "enforceAdmins": true,
+  "requiredStatusChecks": {
+    "strict": true,
+    "contexts": [
+      "build",
+      "static-analysis",
+      "stage-4a",
+      "arch-conformance",
+      "unit-tests",
+      "slice-tests",
+      "docs-conformance"
+    ]
+  },
+  "requiredPullRequestReviews": {
+    "dismissStaleReviews": true,
+    "requiredApprovingReviewCount": 1,
+    "requireCodeOwnerReviews": false
+  },
+  "restrictions": null
+}

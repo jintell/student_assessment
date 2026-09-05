@@ -9,7 +9,7 @@ pipeline stage; the pipeline owns the real implementation.
 | | |
 |---|---|
 | Baseline | architecture **v1.4** at tag **`arch-v1.4`** |
-| Document hashed | `student_assessment/workspace/v3/be/architecture.md` |
+| Document hashed | `workspace/v3/be/architecture.md` |
 | Artifact | `architecture-ratification.json` (template: `./architecture-ratification.template.json`) |
 | Outcomes | **PASS** or **BLOCK/FAIL**. There is no third outcome and no skip |
 
@@ -45,7 +45,7 @@ Stops at the first failure, so the reported reason is always the first thing act
 3. Require `status == RATIFIED` — **BLOCK** on `PENDING`.
 4. Require `baseline.architectureVersion == "1.4"`.
 5. Require `baseline.gitTag == "arch-v1.4"`.
-6. Require `baseline.documentPath == "student_assessment/workspace/v3/be/architecture.md"`.
+6. Require `baseline.documentPath == "workspace/v3/be/architecture.md"`.
 7. Resolve the tag: `git rev-list -n 1 arch-v1.4`.
 8. Compare the resolved commit with `baseline.gitCommit` — **FAIL** on mismatch.
 9. Recompute the document blob hash at that commit; compare with `baseline.blobSha256` — **FAIL** on mismatch.
@@ -91,7 +91,7 @@ architecture-ratification.json was not found.
 
 Required baseline:
   Git tag:  arch-v1.4
-  Document: student_assessment/workspace/v3/be/architecture.md
+  Document: workspace/v3/be/architecture.md
 
 Related blocker:
   PLAN-BLOCKER-001
@@ -110,25 +110,33 @@ set -euo pipefail
 
 FILE="architecture-ratification.json"
 EXPECTED_TAG="arch-v1.4"
-EXPECTED_DOC="student_assessment/workspace/v3/be/architecture.md"
+EXPECTED_DOC="workspace/v3/be/architecture.md"
 
 echo "Stage 4a - Architecture Ratification Gate"
 
 [ -f "$FILE" ] || { echo "BLOCKED: $FILE does not exist. PLAN-BLOCKER-001 unresolved."; exit 1; }
 jq empty "$FILE" || { echo "FAIL: Invalid architecture ratification JSON."; exit 1; }
 
-[ "$(jq -r '.status')" = "RATIFIED" ] <"$FILE" \
-  || { echo "BLOCKED: status is not RATIFIED."; exit 1; }
-[ "$(jq -r '.baseline.gitTag' "$FILE")" = "$EXPECTED_TAG" ] \
-  || { echo "FAIL: expected tag $EXPECTED_TAG."; exit 1; }
-[ "$(jq -r '.baseline.documentPath' "$FILE")" = "$EXPECTED_DOC" ] \
-  || { echo "FAIL: unexpected document path."; exit 1; }
+if [ "$(jq -r '.status' "$FILE")" != "RATIFIED" ]; then
+    echo "BLOCKED: status is not RATIFIED."
+    exit 1
+fi
+
+if [ "$(jq -r '.baseline.gitTag' "$FILE")" != "$EXPECTED_TAG" ]; then
+    echo "FAIL: expected tag $EXPECTED_TAG."
+    exit 1
+fi
+
+if [ "$(jq -r '.baseline.documentPath' "$FILE")" != "$EXPECTED_DOC" ]; then
+    echo "FAIL: unexpected document path."
+    exit 1
+fi
 
 ACTUAL_COMMIT=$(git rev-list -n 1 "$EXPECTED_TAG")
 [ "$(jq -r '.baseline.gitCommit' "$FILE")" = "$ACTUAL_COMMIT" ] \
   || { echo "FAIL: ratification commit does not match $EXPECTED_TAG (tag moved?)."; exit 1; }
 
-ACTUAL_BLOB=$(git rev-parse "$EXPECTED_TAG:$EXPECTED_DOC")
+ACTUAL_BLOB=$(git show "$EXPECTED_TAG:$EXPECTED_DOC" | sha256sum | awk '{print $1}')
 [ "$(jq -r '.baseline.blobSha256' "$FILE")" = "$ACTUAL_BLOB" ] \
   || { echo "FAIL: document blob does not match the ratified baseline."; exit 1; }
 

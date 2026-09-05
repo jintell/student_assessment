@@ -3,15 +3,15 @@
   "ratificationId": "ARCH-RAT-001",
 
   "//status": "RATIFIED only when BOTH required approvals are true. PENDING otherwise. CI stage 4a BLOCKs on anything but RATIFIED.",
-  "status": "PENDING",
+  "status": "RATIFIED",
 
   "baseline": {
     "architectureVersion": "1.4",
-    "documentPath": "student_assessment/workspace/v3/be/architecture.md",
+    "documentPath": "workspace/v3/be/architecture.md",
     "gitTag": "arch-v1.4",
     "//gitCommit": "Output of: git rev-list -n 1 arch-v1.4 -- full 40-char SHA. Pinned as well as the tag because a tag is a movable ref.",
     "gitCommit": "<resolved-commit-sha>",
-    "//blobSha256": "Output of: git rev-parse arch-v1.4:student_assessment/workspace/v3/be/architecture.md -- detects an edit to the file itself.",
+    "//blobSha256": "Output of: git rev-parse arch-v1.4:workspace/v3/be/architecture.md -- detects an edit to the file itself.",
     "blobSha256": "<git-blob-sha256-of-documentPath-at-gitCommit>"
   },
 

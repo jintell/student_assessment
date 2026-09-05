@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+gate="${repo_root}/ci/stage-4a"
+test_root="${STAGE4A_TEST_ROOT:-$(mktemp -d)}"
+if [[ "${STAGE4A_KEEP_FIXTURE:-false}" != "true" ]]; then
+    trap 'rm -rf -- "${test_root}"' EXIT
+fi
+
+architecture_repository="${test_root}/architecture"
+fixture_dir="${test_root}/fixture"
+gnupg_home="${test_root}/gnupg"
+mkdir -p "${architecture_repository}/workspace/v3/be" "${fixture_dir}" "${gnupg_home}"
+chmod 0700 "${gnupg_home}"
+
+git -C "${architecture_repository}" init -q
+git -C "${architecture_repository}" config user.name "Stage 4a Test"
+git -C "${architecture_repository}" config user.email "stage4a@example.invalid"
+printf '%s\n' "test architecture baseline" > "${architecture_repository}/workspace/v3/be/architecture.md"
+git -C "${architecture_repository}" add workspace/v3/be/architecture.md
+git -C "${architecture_repository}" commit -q -m "Test architecture"
+git -C "${architecture_repository}" tag arch-v1.4
+resolved_commit="$(git -C "${architecture_repository}" rev-list -n 1 arch-v1.4)"
+blob_sha256="$(git -C "${architecture_repository}" cat-file blob "${resolved_commit}:workspace/v3/be/architecture.md" | shasum -a 256 | awk '{print $1}')"
+
+gpg --homedir "${gnupg_home}" --batch --passphrase '' \
+    --quick-generate-key "Stage4a Owner <owner@example.invalid>" rsa2048 sign 0 >/dev/null 2>&1
+gpg --homedir "${gnupg_home}" --batch --passphrase '' \
+    --quick-generate-key "Stage4a Lead <lead@example.invalid>" rsa2048 sign 0 >/dev/null 2>&1
+owner_fingerprint="$(gpg --homedir "${gnupg_home}" --batch --with-colons --list-secret-keys "Stage4a Owner" | awk -F: '$1 == "fpr" {print $10; exit}')"
+lead_fingerprint="$(gpg --homedir "${gnupg_home}" --batch --with-colons --list-secret-keys "Stage4a Lead" | awk -F: '$1 == "fpr" {print $10; exit}')"
+gpg --homedir "${gnupg_home}" --batch --armor --export "${owner_fingerprint}" > "${fixture_dir}/owner.asc"
+gpg --homedir "${gnupg_home}" --batch --armor --export "${lead_fingerprint}" > "${fixture_dir}/lead.asc"
+
+jq -n \
+    --arg ownerFingerprint "${owner_fingerprint}" \
+    --arg leadFingerprint "${lead_fingerprint}" \
+    '{
+      "Architecture Owner": {
+        identity: "Stage4a Owner",
+        fingerprint: $ownerFingerprint,
+        publicKey: "owner.asc"
+      },
+      "Engineering Lead": {
+        identity: "Stage4a Lead",
+        fingerprint: $leadFingerprint,
+        publicKey: "lead.asc"
+      }
+    }' > "${fixture_dir}/trusted-keys.json"
+cp "${repo_root}/ci/architecture-ratification.expected-decisions.json" "${fixture_dir}/expected-decisions.json"
+
+valid_artifact="${fixture_dir}/valid.json"
+jq \
+    --arg commit "${resolved_commit}" \
+    --arg blob "${blob_sha256}" \
+    '.status = "RATIFIED"
+     | .baseline.architectureVersion = "1.4"
+     | .baseline.gitTag = "arch-v1.4"
+     | .baseline.documentPath = "workspace/v3/be/architecture.md"
+     | .baseline.gitCommit = $commit
+     | .baseline.blobSha256 = $blob
+     | .approvals.architectureOwner = {
+         role: "Architecture Owner",
+         identity: "Stage4a Owner",
+         approved: true,
+         attestedAt: "2026-09-03T10:15:00Z",
+         signature: "owner.sig"
+       }
+     | .approvals.engineeringLead = {
+         role: "Engineering Lead",
+         identity: "Stage4a Lead",
+         approved: true,
+         attestedAt: "2026-09-03T10:15:00Z",
+         signature: "lead.sig"
+       }
+     | .countersignedBy = "Engineering Lead — Stage4a Lead"' \
+    "${repo_root}/ci/architecture-ratification.json" > "${valid_artifact}"
+
+sign_artifact() {
+    local artifact="$1"
+    rm -f -- "${fixture_dir}/owner.sig" "${fixture_dir}/lead.sig"
+    gpg --homedir "${gnupg_home}" --batch --yes --passphrase '' \
+        --local-user "${owner_fingerprint}" --detach-sign \
+        --output "${fixture_dir}/owner.sig" "${artifact}"
+    gpg --homedir "${gnupg_home}" --batch --yes --passphrase '' \
+        --local-user "${lead_fingerprint}" --detach-sign \
+        --output "${fixture_dir}/lead.sig" "${artifact}"
+}
+
+run_gate() {
+    local expected_code="$1"
+    local expected_step="$2"
+    local artifact="$3"
+    local architecture_path="${4:-${architecture_repository}}"
+    local output code step_count
+    set +e
+    output="$(
+        "${gate}" \
+            --artifact "${artifact}" \
+            --architecture-repository "${architecture_path}" \
+            --trusted-keys "${fixture_dir}/trusted-keys.json" \
+            --expected-decisions "${fixture_dir}/expected-decisions.json" \
+            --gnupg-home "${gnupg_home}" 2>&1
+    )"
+    code=$?
+    set -e
+    if [[ "${code}" -ne "${expected_code}" ]]; then
+        echo "Expected exit ${expected_code} for step ${expected_step}, got ${code}." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+    if ! grep -q "^Step ${expected_step}:" <<<"${output}"; then
+        echo "Expected terminal step ${expected_step}." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+    step_count="$(grep -c '^Step [0-9]\+:' <<<"${output}")"
+    if [[ "${step_count}" -ne 1 ]]; then
+        echo "Gate did not stop after its first terminal result." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+}
+
+run_missing_artifact_case() {
+    local output code expected
+    set +e
+    output="$(
+        "${gate}" \
+            --artifact "${fixture_dir}/missing.json" \
+            --architecture-repository "${architecture_repository}" \
+            --trusted-keys "${fixture_dir}/trusted-keys.json" \
+            --expected-decisions "${fixture_dir}/expected-decisions.json" \
+            --gnupg-home "${gnupg_home}" 2>&1
+    )"
+    code=$?
+    set -e
+    expected="$(cat <<'EOF'
+STAGE 4a: BLOCKED
+
+architecture-ratification.json was not found.
+
+Required baseline:
+  Git tag:  arch-v1.4
+  Document: workspace/v3/be/architecture.md
+
+Related blocker:
+  PLAN-BLOCKER-001
+
+Resolution:
+  Produce and ratify architecture-ratification.json before Phase 0 implementation.
+
+Pipeline terminated.
+EOF
+)"
+    if [[ "${code}" -ne 1 || "${output}" != "${expected}" ]]; then
+        echo "Absent-artifact output or exit code did not match the Stage 4a contract." >&2
+        diff -u <(printf '%s\n' "${expected}") <(printf '%s\n' "${output}") >&2 || true
+        exit 1
+    fi
+    if grep -Eqi 'skipping|continuing' <<<"${output}"; then
+        echo "Absent-artifact output contains forbidden continuation language." >&2
+        exit 1
+    fi
+}
+
+fixture="${fixture_dir}/case.json"
+
+run_missing_artifact_case
+
+printf '{invalid\n' > "${fixture}"
+run_gate 1 2 "${fixture}"
+
+jq '.status = "PENDING"' "${valid_artifact}" > "${fixture}"
+run_gate 1 3 "${fixture}"
+
+jq '.baseline.architectureVersion = "1.3"' "${valid_artifact}" > "${fixture}"
+run_gate 1 4 "${fixture}"
+
+jq '.baseline.gitTag = "arch-v1.3"' "${valid_artifact}" > "${fixture}"
+run_gate 1 5 "${fixture}"
+
+jq '.baseline.documentPath = "architecture.md"' "${valid_artifact}" > "${fixture}"
+run_gate 1 6 "${fixture}"
+
+missing_tag_repository="${test_root}/missing-tag"
+git clone -q "${architecture_repository}" "${missing_tag_repository}"
+git -C "${missing_tag_repository}" tag -d arch-v1.4 >/dev/null
+cp "${valid_artifact}" "${fixture}"
+run_gate 1 7 "${fixture}" "${missing_tag_repository}"
+
+jq '.baseline.gitCommit = "0000000000000000000000000000000000000000"' "${valid_artifact}" > "${fixture}"
+run_gate 1 8 "${fixture}"
+
+jq '.baseline.blobSha256 = "0000000000000000000000000000000000000000000000000000000000000000"' "${valid_artifact}" > "${fixture}"
+run_gate 1 9 "${fixture}"
+
+jq '.approvals.architectureOwner.approved = false' "${valid_artifact}" > "${fixture}"
+run_gate 1 10 "${fixture}"
+
+jq '.approvals.engineeringLead.approved = false' "${valid_artifact}" > "${fixture}"
+sign_artifact "${fixture}"
+run_gate 1 11 "${fixture}"
+
+jq '.decisions[0].status = "Rejected"' "${valid_artifact}" > "${fixture}"
+sign_artifact "${fixture}"
+run_gate 1 12 "${fixture}"
+
+cp "${valid_artifact}" "${fixture}"
+sign_artifact "${fixture}"
+run_gate 0 12 "${fixture}"
+
+echo "Stage 4a unit tests passed: all twelve ordered steps and the PASS path were exercised."
