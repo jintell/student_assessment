@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${repo_root}"
+
+commit="$(git rev-parse HEAD)"
+branch="$(git branch --show-current)"
+mkdir -p build/reports/ci
+printf '{"commit":"%s","branch":"%s"}\n' "${commit}" "${branch}" \
+    > build/reports/ci/checkout-provenance.json
+
+if [[ "${branch}" == "main" ]]; then
+    git verify-commit "${commit}"
+fi
+
+echo "Checkout provenance recorded for ${commit} on ${branch:-detached HEAD}."

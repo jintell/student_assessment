@@ -1,0 +1,139 @@
+name: Platform CI
+
+on:
+  workflow_call:
+    secrets:
+      ARCHITECTURE_REPOSITORY_TOKEN:
+        required: false
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checkout-provenance:
+    name: checkout-provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-1
+
+  build:
+    name: build
+    needs: checkout-provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-2
+
+  static-analysis:
+    name: static-analysis
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-3
+
+  stage-4a:
+    name: stage-4a
+    needs: static-analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Checkout ratified architecture baseline
+        uses: actions/checkout@v6
+        with:
+          repository: jintell/sap_design
+          path: architecture-baseline
+          fetch-depth: 0
+          token: ${{ secrets.ARCHITECTURE_REPOSITORY_TOKEN || github.token }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew --no-daemon --console=plain ciStage4a
+        env:
+          ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
+      - name: Retain Stage 4a self-test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stage-4a-self-test-result
+          path: build/reports/stage-4a/self-test/**
+          if-no-files-found: error
+          retention-days: 90
+
+  arch-conformance:
+    name: arch-conformance
+    needs: stage-4a
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-4
+
+  unit-tests:
+    name: unit-tests
+    needs: arch-conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-5
+
+  slice-tests:
+    name: slice-tests
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-7
+
+  docs-conformance:
+    name: docs-conformance
+    needs: slice-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ci/stage-13

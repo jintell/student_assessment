@@ -1,13 +1,13 @@
 {
   "schemaVersion": "1.0",
   "ratificationId": "ARCH-RAT-001",
-  "status": "PENDING",
+  "status": "RATIFIED",
   "baseline": {
     "architectureVersion": "1.4",
-    "documentPath": "student_assessment/workspace/v3/be/architecture.md",
+    "documentPath": "workspace/v3/be/architecture.md",
     "gitTag": "arch-v1.4",
-    "gitCommit": null,
-    "blobSha256": null
+    "gitCommit": "aa7fdc5bd7b4a558e3fea19cf9c69b65ed64582b",
+    "blobSha256": "ccd77da4987288025c2a36661c5ceea3b0f4563a04c28dfc1e5ba8c99637f7b5"
   },
   "decisions": [
     {
@@ -168,15 +168,15 @@
       "identity": "Josiah Adetayo",
       "approved": true,
       "attestedAt": "2026-09-03T10:15:00Z",
-      "signature": null
+      "signature": "architecture-ratification.owner.sig"
     },
     "engineeringLead": {
       "role": "Engineering Lead",
       "identity": "Francis Okechukwu",
       "approved": true,
       "attestedAt": "2026-09-03T10:15:00Z",
-      "signature": null
+      "signature": "architecture-ratification.engineering.sig"
     }
   },
-  "countersignedBy": null
+  "countersignedBy": "Engineering Lead — Francis Okechukwu"
 }

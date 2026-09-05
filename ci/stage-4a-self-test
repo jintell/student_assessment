@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+gate="${repo_root}/ci/stage-4a"
+fixture_root="$(mktemp -d)"
+trap 'rm -rf -- "${fixture_root}"' EXIT
+
+start_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+report_dir="${repo_root}/build/reports/stage-4a/self-test/${run_id}"
+mkdir -p "${report_dir}/fixtures"
+
+STAGE4A_TEST_ROOT="${fixture_root}" STAGE4A_KEEP_FIXTURE=true \
+    "${repo_root}/ci/test-stage-4a-unit" >"${report_dir}/fixture-validation.log" 2>&1
+
+architecture_repository="${fixture_root}/architecture"
+fixture_dir="${fixture_root}/fixture"
+gnupg_home="${fixture_root}/gnupg"
+trusted_keys="${fixture_dir}/trusted-keys.json"
+expected_decisions="${fixture_dir}/expected-decisions.json"
+valid_artifact="${fixture_dir}/valid.json"
+case_artifact="${fixture_dir}/case.json"
+results_tsv="${fixture_root}/results.tsv"
+owner_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_keys}")"
+lead_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_keys}")"
+
+sign_case() {
+    local artifact="$1"
+    local signing_lead="${2:-${lead_fingerprint}}"
+    rm -f -- "${fixture_dir}/owner.sig" "${fixture_dir}/lead.sig"
+    gpg --homedir "${gnupg_home}" --batch --yes --passphrase '' \
+        --local-user "${owner_fingerprint}" --detach-sign \
+        --output "${fixture_dir}/owner.sig" "${artifact}"
+    gpg --homedir "${gnupg_home}" --batch --yes --passphrase '' \
+        --local-user "${signing_lead}" --detach-sign \
+        --output "${fixture_dir}/lead.sig" "${artifact}"
+}
+
+run_case() {
+    local name="$1"
+    local expected_outcome="$2"
+    local expected_code="$3"
+    local artifact="$4"
+    local expected_step="${5:-}"
+    local output code actual_outcome first_reason
+    set +e
+    output="$(
+        "${gate}" \
+            --artifact "${artifact}" \
+            --architecture-repository "${architecture_repository}" \
+            --trusted-keys "${trusted_keys}" \
+            --expected-decisions "${expected_decisions}" \
+            --gnupg-home "${gnupg_home}" 2>&1
+    )"
+    code=$?
+    set -e
+    printf '%s\n' "${output}" > "${report_dir}/${name}.log"
+
+    if grep -q '^STAGE 4a: PASS$' <<<"${output}"; then
+        actual_outcome="PASS"
+    elif grep -q '^STAGE 4a: BLOCKED$' <<<"${output}"; then
+        actual_outcome="BLOCK"
+    else
+        actual_outcome="FAIL"
+    fi
+    first_reason="$(grep -Em1 '^Step [0-9]+:|^architecture-ratification.json was not found\.$' <<<"${output}" || true)"
+    if [[ "${actual_outcome}" != "${expected_outcome}" || "${code}" -ne "${expected_code}" ]]; then
+        echo "${name}: expected ${expected_outcome}/${expected_code}, got ${actual_outcome}/${code}." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+    if [[ -n "${expected_step}" && ! "${output}" =~ Step[[:space:]]${expected_step}: ]]; then
+        echo "${name}: expected first terminal step ${expected_step}." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+    if [[ "$(grep -Ec '^Step [0-9]+:' <<<"${output}")" -gt 1 ]]; then
+        echo "${name}: gate continued after its first failure." >&2
+        exit 1
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "${name}" "${expected_outcome}" "${actual_outcome}" "${code}" "${first_reason}" \
+        >> "${results_tsv}"
+}
+
+printf '%s\n' "artifact intentionally absent" > "${report_dir}/fixtures/case-1.absent"
+run_case "case-1" "BLOCK" 1 "${fixture_dir}/missing.json"
+
+printf '{invalid\n' > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-2.json"
+run_case "case-2" "FAIL" 1 "${case_artifact}" 2
+
+jq '.status = "PENDING"' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-3.json"
+run_case "case-3" "BLOCK" 1 "${case_artifact}" 3
+
+jq '.baseline.gitTag = "arch-v1.3"' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-4.json"
+run_case "case-4" "FAIL" 1 "${case_artifact}" 5
+
+jq '.baseline.gitCommit = "0000000000000000000000000000000000000000"' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-5.json"
+run_case "case-5" "FAIL" 1 "${case_artifact}" 8
+
+jq '.baseline.blobSha256 = "0000000000000000000000000000000000000000000000000000000000000000"' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-6.json"
+run_case "case-6" "FAIL" 1 "${case_artifact}" 9
+
+jq 'del(.approvals.architectureOwner)' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7a-owner-missing.json"
+run_case "case-7a-owner-missing" "BLOCK" 1 "${case_artifact}" 10
+
+jq '.approvals.architectureOwner.approved = false' "${valid_artifact}" > "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7b-owner-false.json"
+run_case "case-7b-owner-false" "BLOCK" 1 "${case_artifact}" 10
+
+jq 'del(.approvals.engineeringLead)' "${valid_artifact}" > "${case_artifact}"
+sign_case "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7c-lead-missing.json"
+run_case "case-7c-lead-missing" "BLOCK" 1 "${case_artifact}" 11
+
+jq '.approvals.engineeringLead.approved = false' "${valid_artifact}" > "${case_artifact}"
+sign_case "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7d-lead-false.json"
+run_case "case-7d-lead-false" "BLOCK" 1 "${case_artifact}" 11
+
+cp "${trusted_keys}" "${fixture_dir}/trusted-keys.original.json"
+jq '."Engineering Lead".identity = "Stage4a Owner"
+    | ."Engineering Lead".fingerprint = ."Architecture Owner".fingerprint
+    | ."Engineering Lead".publicKey = ."Architecture Owner".publicKey' \
+    "${trusted_keys}" > "${fixture_dir}/trusted-keys.equal.json"
+mv "${fixture_dir}/trusted-keys.equal.json" "${trusted_keys}"
+jq '.approvals.engineeringLead.identity = "Stage4a Owner"
+    | .countersignedBy = "Engineering Lead — Stage4a Owner"' \
+    "${valid_artifact}" > "${case_artifact}"
+sign_case "${case_artifact}" "${owner_fingerprint}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7e-not-distinct.json"
+run_case "case-7e-not-distinct" "FAIL" 1 "${case_artifact}" 11
+mv "${fixture_dir}/trusted-keys.original.json" "${trusted_keys}"
+
+jq '.countersignedBy = "Architecture Owner — Stage4a Owner"' \
+    "${valid_artifact}" > "${case_artifact}"
+sign_case "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-7f-counter-signature.json"
+run_case "case-7f-counter-signature" "FAIL" 1 "${case_artifact}" 11
+
+cp "${valid_artifact}" "${case_artifact}"
+sign_case "${case_artifact}"
+cp "${case_artifact}" "${report_dir}/fixtures/case-8.json"
+run_case "case-8" "PASS" 0 "${case_artifact}" 12
+
+end_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+gate_digest="$(shasum -a 256 "${gate}" | awk '{print $1}')"
+architecture_digest="$(shasum -a 256 "${architecture_repository}/workspace/v3/be/architecture.md" | awk '{print $1}')"
+source_commit="$(git -C "${repo_root}" rev-parse HEAD)"
+jq -Rn \
+    --arg gateDigest "${gate_digest}" \
+    --arg sourceCommit "${source_commit}" \
+    --arg architectureFixtureDigest "${architecture_digest}" \
+    --arg startUtc "${start_utc}" \
+    --arg endUtc "${end_utc}" \
+    --arg bashVersion "${BASH_VERSION}" \
+    --arg gpgVersion "$(gpg --version | head -1)" \
+    --arg jqVersion "$(jq --version)" \
+    '[inputs | split("\t") | {
+        name: .[0],
+        expected: .[1],
+        actual: .[2],
+        exitCode: (.[3] | tonumber),
+        firstReason: .[4],
+        passed: (.[1] == .[2])
+      }] as $cases
+     | {
+         topLevelCaseCount: 8,
+         executedAssertions: ($cases | length),
+         gateDigest: $gateDigest,
+         sourceCommit: $sourceCommit,
+         architectureFixtureDigest: $architectureFixtureDigest,
+         startedAt: $startUtc,
+         completedAt: $endUtc,
+         tools: {bash: $bashVersion, gpg: $gpgVersion, jq: $jqVersion},
+         cases: $cases
+       }' < "${results_tsv}" > "${report_dir}/summary.json"
+
+test_count="$(wc -l < "${results_tsv}" | tr -d ' ')"
+{
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n'
+    printf '<testsuite name="stage-4a-self-test" tests="%s" failures="0">\n' "${test_count}"
+    while IFS=$'\t' read -r name expected actual code reason; do
+        printf '  <testcase classname="stage-4a" name="%s"/>\n' "${name}"
+    done < "${results_tsv}"
+    printf '</testsuite>\n'
+} > "${report_dir}/junit.xml"
+
+(
+    cd "${report_dir}"
+    find . -type f ! -name checksums.sha256 -print | sort \
+        | while IFS= read -r evidence_file; do
+            shasum -a 256 "${evidence_file}"
+        done
+) > "${report_dir}/checksums.sha256"
+
+echo "Stage 4a self-test passed; retained evidence: ${report_dir}"

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${repo_root}"
+
+source_root="src/main/java/org/meldtech/platform"
+missing=()
+
+while IFS= read -r slice_dir; do
+    if ! find "${slice_dir}" -maxdepth 1 -type f -name '*.java' -print -quit | grep -q .; then
+        continue
+    fi
+
+    relative="${slice_dir#src/main/java/}"
+    expected="src/test/java/${relative}/SliceTest.java"
+    if [[ ! -f "${expected}" ]]; then
+        missing+=("${relative}")
+    fi
+done < <(find "${source_root}" -mindepth 3 -maxdepth 3 -type d -path '*/slice/*' | sort)
+
+if (( ${#missing[@]} > 0 )); then
+    printf 'Slice test gate failed: %s has no SliceTest.\n' "${missing[@]}" >&2
+    exit 1
+fi
+
+echo "Slice test gate passed."

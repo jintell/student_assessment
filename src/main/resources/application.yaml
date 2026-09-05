@@ -1,3 +1,6 @@
 spring:
   application:
-    name: student-assessment
+    name: cbt-platform
+logging:
+  pattern:
+    level: "%5p [correlationId:%X{correlationId:-none}]"
