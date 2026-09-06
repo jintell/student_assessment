@@ -4,8 +4,8 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - 'tasks/**/tasks.md'
+    types:
+      - closed
 
   workflow_dispatch:
 
@@ -16,21 +16,31 @@ permissions:
 jobs:
   sync-tasks:
     name: Sync tasks.md to GitHub Issues
+
+    # "closed" also means rejected/closed-without-merge.
+    # Only execute when the PR was actually merged.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.merged == true
+
     runs-on: ubuntu-latest
 
     env:
       GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main after merge
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Sync tasks to GitHub Issues
+      - name: Sync tasks.md to GitHub Issues
         run: |
           python scripts/sync-github-tasks.py \
             --tasks tasks/foundation/baseline/tasks.md \
