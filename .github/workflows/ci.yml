@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          EXPECTED_FINGERPRINT="5DE3E0509C47EA3CF04A42D34AEE18F83AFDEB23"
+          EXPECTED_FINGERPRINT="968479A1AFF927E37D1A566BB5690EEEBB952194"
 
           mkdir -p "$HOME/.gnupg"
           chmod 700 "$HOME/.gnupg"
