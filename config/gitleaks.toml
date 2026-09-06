@@ -1,0 +1,15 @@
+title = "cbt-platform secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated outputs, local tool caches, public keys, and detached signatures"
+paths = [
+  '''(^|/)\.git/''',
+  '''(^|/)\.gradle/''',
+  '''(^|/)\.idea/''',
+  '''(^|/)build/''',
+  '''^ci/trusted-[^/]+\.asc$''',
+  '''^ci/architecture-ratification\.[^/]+\.sig$'''
+]

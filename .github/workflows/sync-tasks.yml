@@ -1,0 +1,12 @@
+name: Sync tasks to GitHub Issues
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'tasks/**/tasks.md'
+
+permissions:
+  contents: read
+  issues: write

@@ -1,0 +1,5 @@
+# action commit version
+actions/checkout d23441a48e516b6c34aea4fa41551a30e30af803 v6
+actions/setup-java b6effb05e454b25005698d916606bdc6ffcbf961 v5
+gradle/actions/setup-gradle 9c971963bec38e04b3d30dcc455b5382be2fdbfb v6
+actions/upload-artifact 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a v7

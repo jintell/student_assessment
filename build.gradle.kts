@@ -194,6 +194,20 @@ tasks.named("check") {
     dependsOn("spotlessCheck")
 }
 
+val secretScan =
+    tasks.register<Exec>("secretScan") {
+        description = "Scans Git history and the working tree for committed secrets."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/secret-scan")
+    }
+
+val workflowSecurityCheck =
+    tasks.register<Exec>("workflowSecurityCheck") {
+        description = "Verifies action pins, permissions, and pull-request secret isolation."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/verify-workflow-security")
+    }
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"
@@ -227,6 +241,7 @@ tasks.register("ciStage3") {
         "checkstyleTest",
         "checkstyleConformanceTest",
     )
+    dependsOn(secretScan, workflowSecurityCheck)
 }
 
 val stage4aUnitTest =
@@ -243,10 +258,17 @@ val stage4aSelfTest =
         commandLine("ci/stage-4a-self-test")
     }
 
+val stage4aBypassTest =
+    tasks.register<Exec>("stage4aBypassTest") {
+        description = "Proves Stage 4a cannot be downgraded or bypassed."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/test-stage-4a-bypass")
+    }
+
 tasks.register<Exec>("ciStage4a") {
     description = "CI stage 4a: validates the ratified architecture baseline."
     group = "ci"
-    dependsOn(stage4aSelfTest)
+    dependsOn(stage4aSelfTest, stage4aBypassTest)
     commandLine("ci/stage-4a")
 }
 

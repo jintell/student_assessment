@@ -1,6 +1,8 @@
 spring:
   application:
     name: cbt-platform
+  config:
+    import: optional:configtree:/run/secrets/
 logging:
   pattern:
     level: "%5p [correlationId:%X{correlationId:-none}]"

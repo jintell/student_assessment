@@ -1,0 +1,6 @@
+name: sync-issues-to-tasks.yml
+on:
+  issues:
+    types: [ closed, reopened ]
+
+jobs:

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+gate="${repo_root}/ci/stage-4a"
+workflow="${repo_root}/.github/workflows/ci.yml"
+report_dir="${repo_root}/build/reports/stage-4a"
+report="${report_dir}/bypass-review.txt"
+missing_artifact="${report_dir}/intentionally-absent-ratification.json"
+mkdir -p "${report_dir}"
+rm -f -- "${missing_artifact}"
+: > "${report}"
+
+record() {
+    printf '%s\n' "$1" | tee -a "${report}"
+}
+
+assert_blocked_environment_attempt() {
+    local variable="$1"
+    local output code
+    set +e
+    output="$(env "${variable}=true" "${gate}" --artifact "${missing_artifact}" 2>&1)"
+    code=$?
+    set -e
+    if [[ "${code}" -ne 1 ]] || ! grep -q '^STAGE 4a: BLOCKED$' <<<"${output}"; then
+        record "FAIL environment attempt ${variable}: exit=${code}"
+        exit 1
+    fi
+    record "REFUSED environment attempt ${variable}: BLOCKED exit=1"
+}
+
+assert_rejected_argument() {
+    local argument="$1"
+    local output code
+    set +e
+    output="$("${gate}" "${argument}" 2>&1)"
+    code=$?
+    set -e
+    if [[ "${code}" -ne 2 ]] || ! grep -q "^Unknown Stage 4a argument: ${argument}$" <<<"${output}"; then
+        record "FAIL argument attempt ${argument}: exit=${code}"
+        exit 1
+    fi
+    record "REFUSED argument attempt ${argument}: rejected exit=2"
+}
+
+assert_needs() {
+    local job="$1"
+    local dependency="$2"
+    if ! awk -v job="${job}" -v dependency="${dependency}" '
+        $0 == "  " job ":" { in_job = 1; next }
+        in_job && $0 ~ /^  [a-zA-Z0-9_-]+:$/ { exit 1 }
+        in_job && $0 == "    needs: " dependency { found = 1; exit 0 }
+        END { if (!found) exit 1 }
+    ' "${workflow}"; then
+        record "FAIL workflow dependency ${job} -> ${dependency}"
+        exit 1
+    fi
+    record "ENFORCED workflow dependency ${job} -> ${dependency}"
+}
+
+assert_rejected_argument "--skip"
+assert_rejected_argument "--advisory"
+assert_rejected_argument "--warn-only"
+assert_blocked_environment_attempt "STAGE4A_SKIP"
+assert_blocked_environment_attempt "STAGE4A_ADVISORY"
+assert_blocked_environment_attempt "STAGE4A_WARN_ONLY"
+
+if grep -Eq 'continue-on-error:|ciStage4a.*\|\|[[:space:]]*true' "${workflow}"; then
+    record "FAIL workflow contains a Stage 4a failure downgrade"
+    exit 1
+fi
+record "REFUSED workflow downgrade: no continue-on-error or ignored Stage 4a exit"
+
+assert_needs "arch-conformance" "stage-4a"
+assert_needs "unit-tests" "arch-conformance"
+assert_needs "slice-tests" "unit-tests"
+assert_needs "docs-conformance" "slice-tests"
+
+record "PASS Stage 4a bypass review"

@@ -3,13 +3,16 @@ package org.meldtech.platform.platform.slice.getConformanceReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyResolver;
 import org.meldtech.platform.shared.api.RequestCarrier;
 import org.meldtech.platform.shared.api.RequestTenantId;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -99,13 +102,14 @@ class SliceTest {
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .expectHeader()
                 .valueEquals("Cache-Control", "no-store")
-                .expectBody()
-                .jsonPath("$.status")
-                .isEqualTo(403)
-                .jsonPath("$.code")
-                .isEqualTo("ACCESS_DENIED")
-                .jsonPath("$.correlationId")
-                .isEqualTo(TENANT_REQUEST.correlationId());
+                .expectBody(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .value(
+                        body -> {
+                            assertEquals(Set.of("status", "code", "correlationId"), body.keySet());
+                            assertEquals(403, body.get("status"));
+                            assertEquals("ACCESS_DENIED", body.get("code"));
+                            assertEquals(TENANT_REQUEST.correlationId(), body.get("correlationId"));
+                        });
     }
 
     @Test
