@@ -1,6 +1,6 @@
 name: Sync issues to tasks
 
-'on':
+on:
   issues:
     types: [closed, reopened]
 

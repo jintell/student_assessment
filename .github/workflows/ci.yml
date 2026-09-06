@@ -27,7 +27,37 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-      - run: ci/stage-1
+      - name: Import trusted GitHub signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXPECTED_FINGERPRINT="5DE3E0509C47EA3CF04A42D34AEE18F83AFDEB23"
+
+          mkdir -p "$HOME/.gnupg"
+          chmod 700 "$HOME/.gnupg"
+
+          gpg --batch --import ci/keys/github-web-flow.gpg
+
+          ACTUAL_FINGERPRINT="$(
+            gpg --batch \
+                --with-colons \
+                --fingerprint B5690EEEBB952194 \
+              | awk -F: '$1 == "fpr" { print $10; exit }'
+          )"
+
+          if [[ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]]; then
+            echo "::error::Unexpected GitHub signing-key fingerprint"
+            echo "Expected: $EXPECTED_FINGERPRINT"
+            echo "Actual:   $ACTUAL_FINGERPRINT"
+            exit 1
+          fi
+
+          echo "Trusted GitHub signing key imported successfully."
+
+      - name: Run CI Stage 1
+        run: ci/stage-1
+#      - run: ci/stage-1
 
   build:
     name: build
