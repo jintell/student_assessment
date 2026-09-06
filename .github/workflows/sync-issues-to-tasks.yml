@@ -1,6 +1,21 @@
-name: sync-issues-to-tasks.yml
-on:
+name: Sync issues to tasks
+
+'on':
   issues:
-    types: [ closed, reopened ]
+    types: [closed, reopened]
+
+permissions:
+  contents: write
+  issues: read
 
 jobs:
+  sync-issues-to-tasks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync issue to task
+        run: |
+          echo "Issue ${{ github.event.issue.number }} was ${{ github.event.action }}"
