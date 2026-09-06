@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workflow="${repo_root}/.github/workflows/ci.yml"
+action_lock="${repo_root}/config/ci-actions.lock"
+report_dir="${repo_root}/build/reports/security"
+report="${report_dir}/workflow-review.txt"
+mkdir -p "${report_dir}"
+: > "${report}"
+
+record() {
+    printf '%s\n' "$1" | tee -a "${report}"
+}
+
+uses_refs="$(
+    awk '
+        $1 == "-" && $2 == "uses:" { print $3 }
+        $1 == "uses:" { print $2 }
+    ' "${workflow}"
+)"
+
+while IFS=' ' read -r action commit version; do
+    [[ -z "${action}" || "${action}" == \#* ]] && continue
+    if ! grep -Fq "${action}@${commit}" <<<"${uses_refs}"; then
+        record "FAIL missing locked action ${action}@${commit} (${version})"
+        exit 1
+    fi
+    record "PINNED ${action}@${commit} (${version})"
+done < "${action_lock}"
+
+while IFS= read -r uses_ref; do
+    if [[ ! "${uses_ref}" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]; then
+        record "FAIL mutable or malformed action reference: ${uses_ref}"
+        exit 1
+    fi
+done <<<"${uses_refs}"
+
+if grep -Eq 'permissions:[[:space:]]+write-all|:[[:space:]]+write([[:space:]]|$)' "${workflow}"; then
+    record "FAIL workflow grants write permission"
+    exit 1
+fi
+if ! grep -Fq '  contents: read' "${workflow}"; then
+    record "FAIL workflow does not declare read-only contents permission"
+    exit 1
+fi
+record "LEAST PRIVILEGE contents: read; all unspecified permissions: none"
+
+checkout_count="$(grep -c 'uses: actions/checkout@' "${workflow}")"
+non_persisted_count="$(grep -c 'persist-credentials: false' "${workflow}")"
+if [[ "${checkout_count}" -ne "${non_persisted_count}" ]]; then
+    record "FAIL ${checkout_count} checkouts but ${non_persisted_count} disable credential persistence"
+    exit 1
+fi
+record "NON-PERSISTENT all ${checkout_count} checkout credentials"
+
+if grep -q 'pull_request_target:' "${workflow}"; then
+    record "FAIL pull_request_target can expose secrets to untrusted code"
+    exit 1
+fi
+if ! grep -Fq "    if: github.event_name != 'pull_request'" "${workflow}"; then
+    record "FAIL Stage 4a lacks its pull-request secret boundary"
+    exit 1
+fi
+
+secret_references="$(grep -c '\${{ secrets\.' "${workflow}")"
+if [[ "${secret_references}" -ne 1 ]]; then
+    record "FAIL expected one guarded secret reference, found ${secret_references}"
+    exit 1
+fi
+if ! awk '
+    $0 == "  stage-4a:" { in_stage4a = 1; next }
+    in_stage4a && $0 ~ /^  [a-zA-Z0-9_-]+:$/ { exit found ? 0 : 1 }
+    in_stage4a && /\$\{\{ secrets\.ARCHITECTURE_REPOSITORY_TOKEN \}\}/ { found = 1 }
+    END { if (!found) exit 1 }
+' "${workflow}"; then
+    record "FAIL architecture token is referenced outside guarded Stage 4a"
+    exit 1
+fi
+record "PR BOUNDARY architecture token exists only in Stage 4a, which never runs for pull_request"
+
+record "PASS workflow supply-chain security review"

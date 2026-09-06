@@ -107,6 +107,31 @@ if ! jq -e '
     terminate "FAIL" 2 "ratification artifact is malformed or contains unresolved placeholders."
 fi
 
+if jq -e 'has("temporaryArchitectureGate")' "${artifact}" >/dev/null; then
+    if ! jq -e '
+        .temporaryArchitectureGate
+        | type == "object"
+        and .approved == true
+        and (.reason | type == "string" and length > 0)
+        and (.allowedUntil | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+        and (.approvedBy | sort == ["Architecture Owner", "Engineering Lead"])
+    ' "${artifact}" >/dev/null 2>&1; then
+        terminate "FAIL" 3 "temporary architecture gate is malformed or lacks both approvals."
+    fi
+    implementation_allowed="$(
+        jq -r '.temporaryArchitectureGate.implementationAllowed | tostring' "${artifact}"
+    )"
+    if [[ "${implementation_allowed}" != "false" ]]; then
+        terminate "FAIL" 3 "temporary architecture gate must set implementationAllowed to false."
+    fi
+    allowed_until="$(json_value '.temporaryArchitectureGate.allowedUntil')"
+    current_date="$(date -u +%Y-%m-%d)"
+    if [[ "${allowed_until}" < "${current_date}" ]]; then
+        terminate "BLOCKED" 3 "temporary architecture gate expired on ${allowed_until}."
+    fi
+    terminate "BLOCKED" 3 "temporary architecture gate permits preparatory work only; implementation remains blocked."
+fi
+
 status="$(json_value '.status')"
 if [[ "${status}" != "RATIFIED" ]]; then
     if [[ -z "${status}" || "${status}" == "PENDING" ]]; then

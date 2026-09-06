@@ -93,6 +93,7 @@ run_gate() {
     local expected_step="$2"
     local artifact="$3"
     local architecture_path="${4:-${architecture_repository}}"
+    local expected_reason="${5:-}"
     local output code step_count
     set +e
     output="$(
@@ -112,6 +113,12 @@ run_gate() {
     fi
     if ! grep -q "^Step ${expected_step}:" <<<"${output}"; then
         echo "Expected terminal step ${expected_step}." >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+    if [[ -n "${expected_reason}" ]] \
+        && ! grep -Fq "Step ${expected_step}: ${expected_reason}" <<<"${output}"; then
+        echo "Expected reason was not emitted for step ${expected_step}." >&2
         echo "${output}" >&2
         exit 1
     fi
@@ -174,6 +181,39 @@ run_gate 1 2 "${fixture}"
 
 jq '.status = "PENDING"' "${valid_artifact}" > "${fixture}"
 run_gate 1 3 "${fixture}"
+
+jq '.status = "PENDING"
+    | .temporaryArchitectureGate = {
+        approved: true,
+        reason: "Ratification is delayed",
+        allowedUntil: "2999-12-31",
+        approvedBy: ["Architecture Owner", "Engineering Lead"],
+        implementationAllowed: true
+      }' "${valid_artifact}" > "${fixture}"
+run_gate 1 3 "${fixture}" "${architecture_repository}" \
+    "temporary architecture gate must set implementationAllowed to false."
+
+jq '.status = "PENDING"
+    | .temporaryArchitectureGate = {
+        approved: true,
+        reason: "Ratification is delayed",
+        allowedUntil: "2000-01-01",
+        approvedBy: ["Architecture Owner", "Engineering Lead"],
+        implementationAllowed: false
+      }' "${valid_artifact}" > "${fixture}"
+run_gate 1 3 "${fixture}" "${architecture_repository}" \
+    "temporary architecture gate expired on 2000-01-01."
+
+jq '.status = "PENDING"
+    | .temporaryArchitectureGate = {
+        approved: true,
+        reason: "Ratification is delayed",
+        allowedUntil: "2999-12-31",
+        approvedBy: ["Architecture Owner", "Engineering Lead"],
+        implementationAllowed: false
+      }' "${valid_artifact}" > "${fixture}"
+run_gate 1 3 "${fixture}" "${architecture_repository}" \
+    "temporary architecture gate permits preparatory work only; implementation remains blocked."
 
 jq '.baseline.architectureVersion = "1.3"' "${valid_artifact}" > "${fixture}"
 run_gate 1 4 "${fixture}"
