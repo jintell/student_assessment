@@ -2,7 +2,7 @@
 
 Reactive backend foundation for a student assessment and computer-based testing platform. The project is intended to become a single-deployable modular monolith built from clean-architecture vertical slices.
 
-> **Current status:** this repository is an initial Spring Boot scaffold, not a functional assessment API. Architecture ratification is `PENDING`, the foundation task list remains open, and the documented Stage 4a gate is reference material rather than an executable CI check. Do not treat planned modules or endpoints as implemented.
+> **Current status:** this repository is an initial Spring Boot scaffold, not a functional assessment API. Architecture ratification is `RATIFIED`, the foundation task list remains open, and the documented Stage 4a gate is reference material rather than an executable CI check. Do not treat planned modules or endpoints as implemented.
 
 ## What Exists Today
 

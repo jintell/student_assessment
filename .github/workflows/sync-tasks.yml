@@ -1,4 +1,4 @@
-name: Sync tasks to GitHub Issues
+name: Sync Tasks to GitHub Issues
 
 on:
   push:
@@ -7,6 +7,31 @@ on:
     paths:
       - 'tasks/**/tasks.md'
 
+  workflow_dispatch:
+
 permissions:
   contents: read
   issues: write
+
+jobs:
+  sync-tasks:
+    name: Sync tasks.md to GitHub Issues
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync tasks to GitHub Issues
+        run: |
+          python scripts/sync-github-tasks.py \
+            --tasks tasks/foundation/baseline/tasks.md \
+            --repo "${{ github.repository }}"

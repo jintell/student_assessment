@@ -432,6 +432,22 @@ def create_issue(
             body=managed_body(task),
         )
 
+    issue_url = run_gh(
+        "issue",
+        "create",
+        "--repo",
+        repo,
+        "--title",
+        task.title,
+        "--body",
+        managed_body(task),
+    )
+
+    match = re.search(r"/issues/(\d+)$", issue_url)
+
+    if not match:
+        fail(f"Could not determine issue number from GitHub response: {issue_url}")
+
     number_raw = run_gh(
         "issue",
         "create",
@@ -446,6 +462,7 @@ def create_issue(
         "--jq",
         ".number",
     )
+
 
     issue = Issue(
         number=int(number_raw),
