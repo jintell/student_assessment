@@ -188,10 +188,12 @@ jobs:
     name: docs-conformance
     needs: slice-tests
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+
       - name: Checkout ratified architecture baseline
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -199,19 +201,51 @@ jobs:
           path: architecture-baseline
           fetch-depth: 1
           persist-credentials: false
+
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
+
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-      - run: ci/stage-13
+
+      - name: Run and retain documentation conformance
+        shell: bash
         env:
           ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
+        run: |
+          set -euo pipefail
+
+          REPORT_DIR="build/reports/documentation-conformance/self-test"
+
+          mkdir -p "${REPORT_DIR}"
+
+          ci/stage-13 2>&1 \
+            | tee "${REPORT_DIR}/run.log"
+
+          test -s "${REPORT_DIR}/run.log"
+
+          sha256sum "${REPORT_DIR}/run.log" \
+            > "${REPORT_DIR}/checksums.sha256"
+
+      - name: Verify documentation-conformance evidence exists
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT_DIR="build/reports/documentation-conformance/self-test"
+
+          echo "Documentation-conformance evidence:"
+          find "${REPORT_DIR}" -type f -print
+
+          test -s "${REPORT_DIR}/run.log"
+          test -s "${REPORT_DIR}/checksums.sha256"
+
       - name: Retain documentation-conformance self-test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: documentation-conformance-self-test
-          path: build/reports/documentation-conformance/self-test/**
+          path: build/reports/documentation-conformance/self-test/
           if-no-files-found: error
           retention-days: 90
