@@ -17,7 +17,7 @@
   "requiredPullRequestReviews": {
     "dismissStaleReviews": true,
     "requiredApprovingReviewCount": 0,
-    "requireCodeOwnerReviews": true
+    "requireCodeOwnerReviews": false
   },
   "restrictions": null
 }
