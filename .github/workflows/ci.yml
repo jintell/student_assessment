@@ -85,6 +85,21 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: Install documentation-conformance tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+
+          command -v rg >/dev/null 2>&1 || {
+            echo "::error::Required command 'rg' is unavailable"
+            exit 1
+          }
+
+          echo "Using $(rg --version | head -n 1)"
+
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - run: ci/stage-3
 
