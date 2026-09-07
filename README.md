@@ -1,4 +1,4 @@
-# Student Assessment Platform
+# Student Assessment Platform (SAP)
 
 Reactive backend foundation for a student assessment and computer-based testing platform. The project is intended to become a single-deployable modular monolith built from clean-architecture vertical slices.
 
