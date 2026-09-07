@@ -14,3 +14,19 @@
 | `CONSTRAINT-PLAT-004` is satisfied clause by clause per §7.3 | `P1.1`, `P1.2`, `P2.8`, `P2.14`, `P4.2`, `P4.7`-`P4.9`, `P4.19`, `P4.20`, `P4.24`, `P7.1`-`P7.11` | `constraint-plat-004.md`, API conventions, module map/descriptors, reactive-context tests, R1-R8 suite | VERIFIED FOR THIS FEATURE: API-first structure, bounded-context ownership, static no-cross-schema and outbox-only rules, and request-local reactive context are enforced. Runtime outbox is assigned to `FEAT-PLAT-004`; roles/grants/RLS to `FEAT-PLAT-002`; released-OpenAPI diff to `FEAT-OPS-*`; replica/no-affinity drill to `FEAT-PLAT-006`. |
 
 This verification does not claim the universal Definition of Done items explicitly assigned to later features: database tenant isolation, runtime audit persistence, the final shared error contract, OpenAPI release comparison, migration verification, runtime telemetry, or deployment topology.
+
+## P8.4 Rollback Statement
+
+`FEAT-PLAT-001` is code and build configuration only. At verification time, the feature branch diverges from
+`origin/main` after `1b10ec0498b8735a7ddfed5b59390d77ab8d0e8b`; its committed foundation range ends at
+`baa3f825836ad481a17d8e5e4429a4bf54c6aa97`, with the Phase 8 and later completion commits appended before
+merge.
+
+Rollback is a reviewed, signed revert on `main` of the feature's merge or squash commit. If the feature is
+integrated as individual commits, revert the foundation commit range in reverse order through one reviewed
+pull request. Re-run every required check, then redeploy the immediately preceding known-good application
+artifact. Do not rewrite shared history or force push.
+
+There are no Flyway migrations, database schemas, tables, or persisted feature state in this scope. Rollback
+therefore requires no data migration, down migration, or state conversion. Later features that add schemas or
+state must provide their own forward-compatible rollback procedure.

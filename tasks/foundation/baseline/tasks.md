@@ -225,21 +225,21 @@ The distinguishing obligation of this feature: every gate must be **proven to bi
 This feature produces no deployable business capability; deployment mechanics belong to `FEAT-PLAT-006` (runtime
 roles) and `FEAT-OPS-*` (image signing, SBOM, canary). Only what this feature must fix is listed.
 
-1. [ ] Verify the build is reproducible: two clean builds of the same commit produce identical artifact digests. Deliverable: reproducibility evidence.
-2. [ ] Confirm the artifact is a single deployable with no module-specific packaging, preserving `ARC-PLAT-001`. Deliverable: packaging review note.
-3. [ ] Confirm branch protection and required checks from `P3.9` are active on `main` and cannot be bypassed by force push. Deliverable: protection verification.
-4. [ ] State the rollback path for this feature — revert the skeleton commit range; no data or schema exists to migrate — and record it in the feature's DoD evidence. Deliverable: rollback statement.
-5. [ ] Record the deferrals explicitly: image signing, SBOM attachment, immutable digest tagging, the three runtime profiles and the canary sequence, each with its owning feature. Deliverable: deferral register.
+1. [*] Verify the build is reproducible: two clean builds of the same commit produce identical artifact digests. Deliverable: reproducibility evidence.
+2. [*] Confirm the artifact is a single deployable with no module-specific packaging, preserving `ARC-PLAT-001`. Deliverable: packaging review note.
+3. [*] Confirm branch protection and required checks from `P3.9` are active on `main` and cannot be bypassed by force push. Deliverable: protection verification.
+4. [*] State the rollback path for this feature — revert the skeleton commit range; no data or schema exists to migrate — and record it in the feature's DoD evidence. Deliverable: rollback statement.
+5. [*] Record the deferrals explicitly: image signing, SBOM attachment, immutable digest tagging, the three runtime profiles and the canary sequence, each with its owning feature. Deliverable: deferral register.
 
 ---
 
 # Phase 9 – Monitoring and Operations
 
-1. [ ] Register the span-per-slice naming convention from `P2.9` as the platform tracing contract, and confirm the reference slice emits one span at its boundary. Deliverable: span contract plus evidence from a trace.
-2. [ ] Publish the correlation-identifier field name and log-field contract for `FEAT-OBS-001` to consume, and confirm it carries no personal data. Deliverable: log field contract.
-3. [ ] Confirm the correlation identifier propagates end to end through the reference slice, from filter to log line to span. Deliverable: propagation evidence (Phase 0 exit criterion).
-4. [ ] Route conformance-gate and stage 4a failures to the engineering channel with the failing rule and the first-failure reason in the notification. Deliverable: CI notification configuration. Acceptance: a blocking failure is visible without opening the pipeline UI.
-5. [ ] Confirm statelessness is structural in the skeleton: no in-memory state survives a request, and no session affinity is configured (`ARC-VERIFY-007` static half; the staging drill is `FEAT-PLAT-006`). Deliverable: statelessness review note.
+1. [*] Register the span-per-slice naming convention from `P2.9` as the platform tracing contract, and confirm the reference slice emits one span at its boundary. Deliverable: span contract plus evidence from a trace.
+2. [*] Publish the correlation-identifier field name and log-field contract for `FEAT-OBS-001` to consume, and confirm it carries no personal data. Deliverable: log field contract.
+3. [*] Confirm the correlation identifier propagates end to end through the reference slice, from filter to log line to span. Deliverable: propagation evidence (Phase 0 exit criterion).
+4. [*] Route conformance-gate and stage 4a failures to the engineering channel with the failing rule and the first-failure reason in the notification. Deliverable: CI notification configuration. Acceptance: a blocking failure is visible without opening the pipeline UI.
+5. [*] Confirm statelessness is structural in the skeleton: no in-memory state survives a request, and no session affinity is configured (`ARC-VERIFY-007` static half; the staging drill is `FEAT-PLAT-006`). Deliverable: statelessness review note.
 
 ---
 
