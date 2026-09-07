@@ -237,6 +237,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
 
+      - name: Install documentation-conformance tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+
+          command -v rg >/dev/null 2>&1 || {
+            echo "::error::Required command 'rg' is unavailable"
+            exit 1
+          }
+
+          echo "Using $(rg --version | head -n 1)"
+
       - name: Run documentation conformance
         shell: bash
         env:
@@ -253,9 +268,6 @@ jobs:
           ci/stage-13 2>&1 \
             | tee "${REPORT_DIR}/run.log"
 
-          # IMPORTANT:
-          # Capture the entire PIPESTATUS array in one operation.
-          # Reading PIPESTATUS[0] separately resets PIPESTATUS.
           PIPE_RESULTS=("${PIPESTATUS[@]}")
 
           STAGE_STATUS="${PIPE_RESULTS[0]:-1}"
