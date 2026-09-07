@@ -187,6 +187,7 @@ jobs:
   docs-conformance:
     name: docs-conformance
     needs: slice-tests
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     steps:

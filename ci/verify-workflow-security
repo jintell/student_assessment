@@ -4,79 +4,334 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 workflow="${repo_root}/.github/workflows/ci.yml"
 action_lock="${repo_root}/config/ci-actions.lock"
+
 report_dir="${repo_root}/build/reports/security"
 report="${report_dir}/workflow-review.txt"
+
 mkdir -p "${report_dir}"
 : > "${report}"
+
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
 
 record() {
     printf '%s\n' "$1" | tee -a "${report}"
 }
 
+fail() {
+    record "FAIL $1"
+    exit 1
+}
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight
+# ---------------------------------------------------------------------------
+
+[[ -f "${workflow}" ]] || fail "workflow does not exist: ${workflow}"
+[[ -f "${action_lock}" ]] || fail "action lock does not exist: ${action_lock}"
+
+
+# ---------------------------------------------------------------------------
+# Helper: return one job block from the workflow
+#
+# Assumption:
+#   GitHub jobs are top-level entries under `jobs:` using two-space
+#   indentation, which is the format enforced by this repository.
+# ---------------------------------------------------------------------------
+
+job_block() {
+    local target_job="$1"
+
+    awk -v target="${target_job}" '
+        $0 == "jobs:" {
+            in_jobs = 1
+            next
+        }
+
+        !in_jobs {
+            next
+        }
+
+        $0 == "  " target ":" {
+            in_target = 1
+            print
+            next
+        }
+
+        in_target && /^  [A-Za-z0-9_-]+:$/ {
+            exit
+        }
+
+        in_target {
+            print
+        }
+    ' "${workflow}"
+}
+
+
+# ---------------------------------------------------------------------------
+# 1. Verify all required actions are pinned to locked commits
+# ---------------------------------------------------------------------------
+
 uses_refs="$(
     awk '
-        $1 == "-" && $2 == "uses:" { print $3 }
-        $1 == "uses:" { print $2 }
+        $1 == "-" && $2 == "uses:" {
+            print $3
+        }
+
+        $1 == "uses:" {
+            print $2
+        }
     ' "${workflow}"
 )"
 
 while IFS=' ' read -r action commit version; do
     [[ -z "${action}" || "${action}" == \#* ]] && continue
+
     if ! grep -Fq "${action}@${commit}" <<<"${uses_refs}"; then
-        record "FAIL missing locked action ${action}@${commit} (${version})"
-        exit 1
+        fail "missing locked action ${action}@${commit} (${version})"
     fi
+
     record "PINNED ${action}@${commit} (${version})"
+
 done < "${action_lock}"
 
+
+# ---------------------------------------------------------------------------
+# 2. Reject mutable action references
+#
+# Every external action must use an immutable 40-character commit SHA.
+# ---------------------------------------------------------------------------
+
 while IFS= read -r uses_ref; do
+    [[ -z "${uses_ref}" ]] && continue
+
     if [[ ! "${uses_ref}" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]; then
-        record "FAIL mutable or malformed action reference: ${uses_ref}"
-        exit 1
+        fail "mutable or malformed action reference: ${uses_ref}"
     fi
+
 done <<<"${uses_refs}"
 
-if grep -Eq 'permissions:[[:space:]]+write-all|:[[:space:]]+write([[:space:]]|$)' "${workflow}"; then
-    record "FAIL workflow grants write permission"
-    exit 1
+
+# ---------------------------------------------------------------------------
+# 3. Verify least-privilege workflow permissions
+# ---------------------------------------------------------------------------
+
+if grep -Eq \
+    'permissions:[[:space:]]+write-all|:[[:space:]]+write([[:space:]]|$)' \
+    "${workflow}"
+then
+    fail "workflow grants write permission"
 fi
+
 if ! grep -Fq '  contents: read' "${workflow}"; then
-    record "FAIL workflow does not declare read-only contents permission"
-    exit 1
+    fail "workflow does not declare read-only contents permission"
 fi
+
 record "LEAST PRIVILEGE contents: read; all unspecified permissions: none"
 
-checkout_count="$(grep -c 'uses: actions/checkout@' "${workflow}")"
-non_persisted_count="$(grep -c 'persist-credentials: false' "${workflow}")"
+
+# ---------------------------------------------------------------------------
+# 4. Verify checkout credentials are never persisted
+# ---------------------------------------------------------------------------
+
+checkout_count="$(
+    grep -c 'uses: actions/checkout@' "${workflow}" || true
+)"
+
+non_persisted_count="$(
+    grep -c 'persist-credentials: false' "${workflow}" || true
+)"
+
 if [[ "${checkout_count}" -ne "${non_persisted_count}" ]]; then
-    record "FAIL ${checkout_count} checkouts but ${non_persisted_count} disable credential persistence"
-    exit 1
+    fail \
+        "${checkout_count} checkouts but ${non_persisted_count} disable credential persistence"
 fi
+
 record "NON-PERSISTENT all ${checkout_count} checkout credentials"
 
+
+# ---------------------------------------------------------------------------
+# 5. pull_request_target is forbidden
+#
+# It can expose repository secrets to code originating from an
+# untrusted pull request.
+# ---------------------------------------------------------------------------
+
 if grep -q 'pull_request_target:' "${workflow}"; then
-    record "FAIL pull_request_target can expose secrets to untrusted code"
-    exit 1
-fi
-if ! grep -Fq "    if: github.event_name != 'pull_request'" "${workflow}"; then
-    record "FAIL Stage 4a lacks its pull-request secret boundary"
-    exit 1
+    fail "pull_request_target can expose secrets to untrusted code"
 fi
 
-secret_references="$(grep -c '\${{ secrets\.' "${workflow}")"
-if [[ "${secret_references}" -ne 1 ]]; then
-    record "FAIL expected one guarded secret reference, found ${secret_references}"
-    exit 1
-fi
-if ! awk '
-    $0 == "  stage-4a:" { in_stage4a = 1; next }
-    in_stage4a && $0 ~ /^  [a-zA-Z0-9_-]+:$/ { exit found ? 0 : 1 }
-    in_stage4a && /\$\{\{ secrets\.ARCHITECTURE_REPOSITORY_TOKEN \}\}/ { found = 1 }
-    END { if (!found) exit 1 }
-' "${workflow}"; then
-    record "FAIL architecture token is referenced outside guarded Stage 4a"
-    exit 1
-fi
-record "PR BOUNDARY architecture token exists only in Stage 4a, which never runs for pull_request"
+record "SAFE EVENT no pull_request_target trigger"
 
-record "PASS workflow supply-chain security review"
+
+# ---------------------------------------------------------------------------
+# 6. Determine every job that directly references a GitHub secret
+#
+# Security policy:
+#
+#   Secret count is NOT the control.
+#
+#   Every job which consumes a secret must:
+#
+#       1. be explicitly approved below;
+#       2. contain a job-level:
+#
+#            if: github.event_name != 'pull_request'
+#
+#   This prevents secret exposure to PR-triggered execution.
+# ---------------------------------------------------------------------------
+
+secret_jobs="$(
+    awk '
+        $0 == "jobs:" {
+            in_jobs = 1
+            next
+        }
+
+        !in_jobs {
+            next
+        }
+
+        /^  [A-Za-z0-9_-]+:$/ {
+            job = $0
+            sub(/^  /, "", job)
+            sub(/:$/, "", job)
+            next
+        }
+
+        /\$\{\{[[:space:]]*secrets\./ {
+            if (job != "") {
+                print job
+            }
+        }
+    ' "${workflow}" \
+        | sort -u
+)"
+
+
+# ---------------------------------------------------------------------------
+# 7. Explicit secret-bearing job allowlist
+#
+# These jobs legitimately need access to the private architecture
+# repository.
+#
+# Adding another secret-bearing job requires a deliberate security
+# review and update to this allowlist.
+# ---------------------------------------------------------------------------
+
+approved_secret_jobs=(
+    "stage-4a"
+    "docs-conformance"
+)
+
+
+# ---------------------------------------------------------------------------
+# 8. Reject secret references outside approved jobs
+# ---------------------------------------------------------------------------
+
+while IFS= read -r job; do
+    [[ -z "${job}" ]] && continue
+
+    approved=false
+
+    for allowed_job in "${approved_secret_jobs[@]}"; do
+        if [[ "${job}" == "${allowed_job}" ]]; then
+            approved=true
+            break
+        fi
+    done
+
+    if [[ "${approved}" != "true" ]]; then
+        fail "secret referenced from unapproved job '${job}'"
+    fi
+
+done <<<"${secret_jobs}"
+
+
+# ---------------------------------------------------------------------------
+# 9. Verify each approved secret-bearing job
+# ---------------------------------------------------------------------------
+
+for job in "${approved_secret_jobs[@]}"; do
+    block="$(job_block "${job}")"
+
+    if [[ -z "${block}" ]]; then
+        fail "approved secret-bearing job '${job}' does not exist"
+    fi
+
+    # Explicit job-level PR boundary.
+    if ! grep -Eq \
+        "^[[:space:]]+if:[[:space:]]*github\\.event_name[[:space:]]*!=[[:space:]]*'pull_request'[[:space:]]*$" \
+        <<<"${block}"
+    then
+        fail \
+            "secret-bearing job '${job}' lacks explicit pull-request boundary"
+    fi
+
+    # The architecture token must occur exactly once inside each
+    # approved job.
+    token_count="$(
+        grep -c \
+            '\${{[[:space:]]*secrets\.ARCHITECTURE_REPOSITORY_TOKEN[[:space:]]*}}' \
+            <<<"${block}" \
+            || true
+    )"
+
+    if [[ "${token_count}" -ne 1 ]]; then
+        fail \
+            "expected one architecture token reference in '${job}', found ${token_count}"
+    fi
+
+    record \
+        "PR BOUNDARY ${job}: architecture token guarded from pull_request"
+
+done
+
+
+# ---------------------------------------------------------------------------
+# 10. Verify there are no unsupported secret types
+# ---------------------------------------------------------------------------
+
+unsupported_secret_refs="$(
+    grep -Eo \
+        '\${{[[:space:]]*secrets\.[A-Za-z0-9_]+[[:space:]]*}}' \
+        "${workflow}" \
+        | grep -v \
+            'secrets\.ARCHITECTURE_REPOSITORY_TOKEN' \
+        || true
+)"
+
+if [[ -n "${unsupported_secret_refs}" ]]; then
+    record "Unsupported secret references:"
+    record "${unsupported_secret_refs}"
+    fail "workflow references a secret not approved by the security policy"
+fi
+
+
+# ---------------------------------------------------------------------------
+# 11. Verify all expected secret-bearing jobs were actually discovered
+#
+# This catches accidental deletion of the private architecture checkout.
+# ---------------------------------------------------------------------------
+
+for expected_job in "${approved_secret_jobs[@]}"; do
+    if ! grep -Fxq "${expected_job}" <<<"${secret_jobs}"; then
+        fail \
+            "expected secret-bearing job '${expected_job}' has no secret reference"
+    fi
+done
+
+
+# ---------------------------------------------------------------------------
+# PASS
+# ---------------------------------------------------------------------------
+
+record \
+    "SECRET POLICY all architecture-token uses are explicitly guarded"
+
+record \
+    "PASS workflow supply-chain security review"
