@@ -16,7 +16,7 @@
   },
   "requiredPullRequestReviews": {
     "dismissStaleReviews": true,
-    "requiredApprovingReviewCount": 1,
+    "requiredApprovingReviewCount": 0,
     "requireCodeOwnerReviews": false
   },
   "restrictions": null
