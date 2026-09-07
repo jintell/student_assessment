@@ -187,10 +187,35 @@ jobs:
   docs-conformance:
     name: docs-conformance
     needs: slice-tests
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      # Create the evidence location FIRST.
+      # This guarantees upload-artifact always has at least one file,
+      # even if a later checkout/setup step fails.
+      - name: Initialize documentation-conformance evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT_DIR="${RUNNER_TEMP}/documentation-conformance-self-test"
+
+          rm -rf "${REPORT_DIR}"
+          mkdir -p "${REPORT_DIR}"
+
+          {
+            echo "stage=documentation-conformance"
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "commit=${GITHUB_SHA}"
+            echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } > "${REPORT_DIR}/run-metadata.txt"
+
+          test -s "${REPORT_DIR}/run-metadata.txt"
+
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
@@ -201,15 +226,18 @@ jobs:
           path: architecture-baseline
           fetch-depth: 1
           persist-credentials: false
+          token: ${{ secrets.ARCHITECTURE_REPOSITORY_TOKEN }}
 
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
 
-      - name: Run and retain documentation conformance
+      - name: Run documentation conformance
         shell: bash
         env:
           ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
@@ -218,32 +246,41 @@ jobs:
 
           REPORT_DIR="${RUNNER_TEMP}/documentation-conformance-self-test"
 
-          rm -rf "${REPORT_DIR}"
-          mkdir -p "${REPORT_DIR}"
-
           echo "Running CI Stage 13..."
 
-          # Do not terminate immediately if Stage 13 fails.
-          # We must retain its evidence first.
           set +e
 
           ci/stage-13 2>&1 \
             | tee "${REPORT_DIR}/run.log"
 
-          STAGE_STATUS=${PIPESTATUS[0]}
-          TEE_STATUS=${PIPESTATUS[1]}
+          # IMPORTANT:
+          # Capture the entire PIPESTATUS array in one operation.
+          # Reading PIPESTATUS[0] separately resets PIPESTATUS.
+          PIPE_RESULTS=("${PIPESTATUS[@]}")
+
+          STAGE_STATUS="${PIPE_RESULTS[0]:-1}"
+          TEE_STATUS="${PIPE_RESULTS[1]:-1}"
 
           set -e
 
           printf '%s\n' "${STAGE_STATUS}" \
             > "${REPORT_DIR}/stage-exit-code.txt"
 
+          printf '%s\n' "${TEE_STATUS}" \
+            > "${REPORT_DIR}/tee-exit-code.txt"
+
           sha256sum "${REPORT_DIR}/run.log" \
             > "${REPORT_DIR}/checksums.sha256"
 
+          {
+            echo "stage_exit_code=${STAGE_STATUS}"
+            echo "tee_exit_code=${TEE_STATUS}"
+            echo "completed_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "${REPORT_DIR}/run-metadata.txt"
+
           echo
           echo "Documentation-conformance evidence:"
-          find "${REPORT_DIR}" -type f -maxdepth 1 -print
+          find "${REPORT_DIR}" -maxdepth 1 -type f -print
 
           test -s "${REPORT_DIR}/run.log"
           test -s "${REPORT_DIR}/checksums.sha256"
@@ -260,6 +297,21 @@ jobs:
           fi
 
           echo "CI Stage 13 completed successfully."
+
+      - name: Show retained evidence
+        if: always()
+        shell: bash
+        run: |
+          REPORT_DIR="${RUNNER_TEMP}/documentation-conformance-self-test"
+
+          echo "Evidence directory: ${REPORT_DIR}"
+
+          if [[ -d "${REPORT_DIR}" ]]; then
+            find "${REPORT_DIR}" -maxdepth 1 -type f -ls
+          else
+            echo "::error::Evidence directory does not exist"
+            exit 1
+          fi
 
       - name: Retain documentation-conformance self-test evidence
         if: always()
