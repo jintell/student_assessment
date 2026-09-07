@@ -214,38 +214,58 @@ jobs:
         env:
           ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
-          REPORT_DIR="build/reports/documentation-conformance/self-test"
+          REPORT_DIR="${RUNNER_TEMP}/documentation-conformance-self-test"
 
+          rm -rf "${REPORT_DIR}"
           mkdir -p "${REPORT_DIR}"
+
+          echo "Running CI Stage 13..."
+
+          # Do not terminate immediately if Stage 13 fails.
+          # We must retain its evidence first.
+          set +e
 
           ci/stage-13 2>&1 \
             | tee "${REPORT_DIR}/run.log"
 
-          test -s "${REPORT_DIR}/run.log"
+          STAGE_STATUS=${PIPESTATUS[0]}
+          TEE_STATUS=${PIPESTATUS[1]}
+
+          set -e
+
+          printf '%s\n' "${STAGE_STATUS}" \
+            > "${REPORT_DIR}/stage-exit-code.txt"
 
           sha256sum "${REPORT_DIR}/run.log" \
             > "${REPORT_DIR}/checksums.sha256"
 
-      - name: Verify documentation-conformance evidence exists
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          REPORT_DIR="build/reports/documentation-conformance/self-test"
-
+          echo
           echo "Documentation-conformance evidence:"
-          find "${REPORT_DIR}" -type f -print
+          find "${REPORT_DIR}" -type f -maxdepth 1 -print
 
           test -s "${REPORT_DIR}/run.log"
           test -s "${REPORT_DIR}/checksums.sha256"
+          test -s "${REPORT_DIR}/stage-exit-code.txt"
+
+          if [[ "${TEE_STATUS}" -ne 0 ]]; then
+            echo "::error::Failed to retain Stage 13 output"
+            exit "${TEE_STATUS}"
+          fi
+
+          if [[ "${STAGE_STATUS}" -ne 0 ]]; then
+            echo "::error::CI Stage 13 failed with exit code ${STAGE_STATUS}"
+            exit "${STAGE_STATUS}"
+          fi
+
+          echo "CI Stage 13 completed successfully."
 
       - name: Retain documentation-conformance self-test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: documentation-conformance-self-test
-          path: build/reports/documentation-conformance/self-test/
+          path: ${{ runner.temp }}/documentation-conformance-self-test/
           if-no-files-found: error
           retention-days: 90
