@@ -42,11 +42,44 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pattern='(?<!REV[0-9]{1,3}-)(ARCH-REVIEW-[0-9]{3}|SPEC-CONFLICT-[0-9]{3})'
-while IFS=: read -r document line identifier; do
-    printf '%s:%s:%s\n' "$(basename "${document}")" "${line}" "${identifier}"
-done < <(rg --with-filename --no-heading --line-number --only-matching --pcre2 \
-    "${pattern}" "${requirements}" "${architecture}" || true) | sort -u > "${actual}"
+# Detect candidate identifiers first, then explicitly check whether each one is
+# immediately prefixed with REV<n>-. Avoid a PCRE2 variable-length lookbehind:
+# (?<!REV[0-9]+-) is not portable because lookbehind must be fixed length.
+python3 - "${requirements}" "${architecture}" <<'PYSCAN' | sort -u > "${actual}"
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+identifier_pattern = re.compile(
+    r"(ARCH-REVIEW-[0-9]{3}|SPEC-CONFLICT-[0-9]{3})"
+)
+qualified_prefix_pattern = re.compile(r"REV[0-9]+-$")
+
+for raw_path in sys.argv[1:]:
+    path = Path(raw_path)
+
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        print(
+            f"ARC-VERIFY-016: unable to read {path}: {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    for line_number, line in enumerate(content.splitlines(), start=1):
+        for match in identifier_pattern.finditer(line):
+            prefix = line[: match.start()]
+
+            # Qualified citations such as REV1-ARCH-REVIEW-001 and
+            # REV12-SPEC-CONFLICT-123 are conformant.
+            if qualified_prefix_pattern.search(prefix):
+                continue
+
+            print(f"{path.name}:{line_number}:{match.group(1)}")
+PYSCAN
 
 sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "${allowlist}" | sort -u > "${expected}"
 
