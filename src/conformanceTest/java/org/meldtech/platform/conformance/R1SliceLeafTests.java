@@ -1,10 +1,11 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -12,15 +13,30 @@ import org.junit.jupiter.api.Test;
 
 class R1SliceLeafTests {
 
-    private static final String BASE_PACKAGE = "org.meldtech.platform";
-
     @Test
     void slicePackagesAreDependencyLeaves() {
-        List<String> violations = new ArrayList<>();
         Iterable<JavaClass> classes =
+                new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
+
+        assertSlicePackagesAreDependencyLeaves(classes);
+    }
+
+    @Test
+    void rejectsAnImportFromOutsideTheTargetSlice() {
+        Iterable<JavaClass> fixture =
                 new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages(BASE_PACKAGE);
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r1");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertSlicePackagesAreDependencyLeaves(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("R1 slice leaf violated:"));
+    }
+
+    private static void assertSlicePackagesAreDependencyLeaves(Iterable<JavaClass> classes) {
+        List<String> violations = new ArrayList<>();
 
         for (JavaClass origin : classes) {
             for (var dependency : origin.getDirectDependenciesFromSelf()) {

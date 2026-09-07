@@ -2,6 +2,7 @@ package org.meldtech.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.tngtech.archunit.core.importer.ImportOption;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,9 @@ import org.springframework.modulith.core.ApplicationModule;
 import org.springframework.modulith.core.ApplicationModules;
 
 class ContextModuleStructureTests {
+
+    private static final ImportOption PRODUCTION_CLASSES =
+            location -> !location.toString().contains("/classes/java/conformanceTest/");
 
     private static final Set<String> CONTEXT_MODULES =
             Set.of(
@@ -30,7 +34,8 @@ class ContextModuleStructureTests {
 
     @Test
     void verifiesExactlyTwelveContextModules() {
-        ApplicationModules modules = ApplicationModules.of(CbtPlatformApplication.class);
+        ApplicationModules modules =
+                ApplicationModules.of(CbtPlatformApplication.class, PRODUCTION_CLASSES);
 
         modules.verify();
         Set<String> discovered =

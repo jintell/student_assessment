@@ -1,13 +1,14 @@
 package org.meldtech.platform.conformance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -36,11 +37,29 @@ class R3SchemaOwnershipTests {
 
     @Test
     void tenantQueriesReferenceOnlyTheirOwningSchema() throws Exception {
-        List<String> violations = new ArrayList<>();
         Iterable<JavaClass> classes =
+                new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
+
+        assertTenantQueriesReferenceOnlyTheirOwningSchema(classes);
+    }
+
+    @Test
+    void rejectsAQueryNamingAForeignSchema() {
+        Iterable<JavaClass> fixture =
                 new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages(BASE_PACKAGE);
+                        .importPackages("org.meldtech.platform.platform.slice.r3fixture");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertTenantQueriesReferenceOnlyTheirOwningSchema(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("R3 schema ownership violated:"));
+    }
+
+    private static void assertTenantQueriesReferenceOnlyTheirOwningSchema(
+            Iterable<JavaClass> classes) throws Exception {
+        List<String> violations = new ArrayList<>();
 
         for (JavaClass javaClass : classes) {
             if (!isQueryType(javaClass)) {

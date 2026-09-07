@@ -192,31 +192,31 @@ so numbering stays comparable across sibling task files.
 
 The distinguishing obligation of this feature: every gate must be **proven to bite**, not merely to exist.
 
-1. [ ] Assert `ApplicationModules.verify()` passes and reports exactly the twelve context modules, matching the §6.2 context map. Deliverable: Modulith verification test (`ARC-VERIFY-001`).
-2. [ ] Assert the permitted-dependency matrix from `P1.2` holds: every declared allowed dependency exists and no undeclared cross-module dependency does. Deliverable: dependency assertion test.
-3. [ ] Assert the reference slice satisfies the full §5.1 anatomy, file by file. Deliverable: anatomy test (`ARC-VERIFY-003`).
-4. [ ] Introduce a deliberate R1 violation — import a `slice` class from outside its slice — and assert the build fails. Deliverable: negative test with the violation reverted and the failure retained as evidence.
-5. [ ] Introduce a deliberate R2 violation — import another module's `domain` — and assert the build fails. Deliverable: negative test plus evidence.
-6. [ ] Introduce a deliberate R3 violation — a `Queries` SQL string naming a foreign schema — and assert the build fails. Deliverable: negative test plus evidence.
-7. [ ] Introduce a deliberate R4 violation — a handler calling another handler, and a second transaction inside one handler — and assert the build fails for both. Deliverable: negative test plus evidence.
-8. [ ] Introduce a deliberate R5 violation — a tenant-scoped query method without the tenant parameter — and assert the build fails. Deliverable: negative test plus evidence.
-9. [ ] Introduce deliberate R6 violations — a Spring import in `domain`, an ambient time call outside the clock, and a `double` in a scoring package — and assert the build fails for each. Deliverable: three negative tests plus evidence.
-10. [ ] Introduce a deliberate R7 violation — a direct cross-module write outside the enumerated flow table — and assert the build fails. Deliverable: negative test plus evidence.
-11. [ ] Introduce a deliberate R8 violation — a mutating handler emitting no audit event — and assert the build fails. Deliverable: negative test plus evidence.
-12. [ ] Assert startup fails when a route resolves to no `Policy`. Deliverable: startup negative test (`ARC-VERIFY-008` structural limb).
-13. [ ] Assert stage 4a **BLOCKS** when `architecture-ratification.json` is absent, with the mandated output and a non-zero exit code. Deliverable: self-test case 1.
-14. [ ] Assert stage 4a **FAILS** on invalid JSON. Deliverable: self-test case 2.
-15. [ ] Assert stage 4a **BLOCKS** when `status` is `PENDING`. Deliverable: self-test case 3.
-16. [ ] Assert stage 4a **FAILS** on a wrong Git tag. Deliverable: self-test case 4.
-17. [ ] Assert stage 4a **FAILS** on a commit mismatch, simulating a moved tag. Deliverable: self-test case 5.
-18. [ ] Assert stage 4a **FAILS** on a blob-hash mismatch, simulating an edit to the document at an unchanged commit. Deliverable: self-test case 6.
-19. [ ] Assert stage 4a **BLOCKS** when either required approval is missing or `false`, and when the two approvers are not distinct. Deliverable: self-test case 7.
-20. [ ] Assert stage 4a **PASSES** on a fully valid ratification and on nothing less. Deliverable: self-test case 8.
-21. [ ] Retain the stage 4a self-test result and the green stage 4a run as release evidence per §19.9 and plan §14.6, and register both in the verification evidence register. Deliverable: two retained artifacts with their register entries. Acceptance: retained, not merely observed — this is launch condition `L11`'s evidence requirement.
-22. [ ] Implement the `ARC-VERIFY-016` documentation-conformance check as CI stage 13: any occurrence of `ARCH-REVIEW-###` or `SPEC-CONFLICT-###` in `requirements.md` or `architecture.md` that is not `REV<n>-` prefixed fails the build, with the §19.8 placeholder and grandfathered allowlists enumerated, not inferred. Deliverable: check plus its allowlist. Acceptance: the allowlist cannot be extended without review.
-23. [ ] Assert the `ARC-VERIFY-016` check itself bites: introduce an unqualified citation and assert the build fails. Deliverable: negative test plus evidence.
-24. [ ] Run the full pipeline on a clean checkout and confirm stages 1, 2, 3, 4a, 4, 5, 7 and 13 are blocking and green. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
-25. [ ] Verify each acceptance outcome in the `FEAT-PLAT-001` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
+1. [*] Assert `ApplicationModules.verify()` passes and reports exactly the twelve context modules, matching the §6.2 context map. Deliverable: Modulith verification test (`ARC-VERIFY-001`).
+2. [*] Assert the permitted-dependency matrix from `P1.2` holds: every declared allowed dependency exists and no undeclared cross-module dependency does. Deliverable: dependency assertion test.
+3. [*] Assert the reference slice satisfies the full §5.1 anatomy, file by file. Deliverable: anatomy test (`ARC-VERIFY-003`).
+4. [*] Introduce a deliberate R1 violation — import a `slice` class from outside its slice — and assert the build fails. Deliverable: negative test with the violation reverted and the failure retained as evidence.
+5. [*] Introduce a deliberate R2 violation — import another module's `domain` — and assert the build fails. Deliverable: negative test plus evidence.
+6. [*] Introduce a deliberate R3 violation — a `Queries` SQL string naming a foreign schema — and assert the build fails. Deliverable: negative test plus evidence.
+7. [*] Introduce a deliberate R4 violation — a handler calling another handler, and a second transaction inside one handler — and assert the build fails for both. Deliverable: negative test plus evidence.
+8. [*] Introduce a deliberate R5 violation — a tenant-scoped query method without the tenant parameter — and assert the build fails. Deliverable: negative test plus evidence.
+9. [*] Introduce deliberate R6 violations — a Spring import in `domain`, an ambient time call outside the clock, and a `double` in a scoring package — and assert the build fails for each. Deliverable: three negative tests plus evidence.
+10. [*] Introduce a deliberate R7 violation — a direct cross-module write outside the enumerated flow table — and assert the build fails. Deliverable: negative test plus evidence.
+11. [*] Introduce a deliberate R8 violation — a mutating handler emitting no audit event — and assert the build fails. Deliverable: negative test plus evidence.
+12. [*] Assert startup fails when a route resolves to no `Policy`. Deliverable: startup negative test (`ARC-VERIFY-008` structural limb).
+13. [*] Assert stage 4a **BLOCKS** when `architecture-ratification.json` is absent, with the mandated output and a non-zero exit code. Deliverable: self-test case 1.
+14. [*] Assert stage 4a **FAILS** on invalid JSON. Deliverable: self-test case 2.
+15. [*] Assert stage 4a **BLOCKS** when `status` is `PENDING`. Deliverable: self-test case 3.
+16. [*] Assert stage 4a **FAILS** on a wrong Git tag. Deliverable: self-test case 4.
+17. [*] Assert stage 4a **FAILS** on a commit mismatch, simulating a moved tag. Deliverable: self-test case 5.
+18. [*] Assert stage 4a **FAILS** on a blob-hash mismatch, simulating an edit to the document at an unchanged commit. Deliverable: self-test case 6.
+19. [*] Assert stage 4a **BLOCKS** when either required approval is missing or `false`, and when the two approvers are not distinct. Deliverable: self-test case 7.
+20. [*] Assert stage 4a **PASSES** on a fully valid ratification and on nothing less. Deliverable: self-test case 8.
+21. [*] Retain the stage 4a self-test result and the green stage 4a run as release evidence per §19.9 and plan §14.6, and register both in the verification evidence register. Deliverable: two retained artifacts with their register entries. Acceptance: retained, not merely observed — this is launch condition `L11`'s evidence requirement.
+22. [*] Implement the `ARC-VERIFY-016` documentation-conformance check as CI stage 13: any occurrence of `ARCH-REVIEW-###` or `SPEC-CONFLICT-###` in `requirements.md` or `architecture.md` that is not `REV<n>-` prefixed fails the build, with the §19.8 placeholder and grandfathered allowlists enumerated, not inferred. Deliverable: check plus its allowlist. Acceptance: the allowlist cannot be extended without review.
+23. [*] Assert the `ARC-VERIFY-016` check itself bites: introduce an unqualified citation and assert the build fails. Deliverable: negative test plus evidence.
+24. [*] Run the full pipeline on a clean checkout and confirm stages 1, 2, 3, 4a, 4, 5, 7 and 13 are blocking and green. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
+25. [*] Verify each acceptance outcome in the `FEAT-PLAT-001` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
 
 ---
 

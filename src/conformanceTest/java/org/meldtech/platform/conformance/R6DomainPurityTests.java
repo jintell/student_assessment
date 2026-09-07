@@ -1,13 +1,14 @@
 package org.meldtech.platform.conformance;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +29,24 @@ class R6DomainPurityTests {
 
     @Test
     void domainCodeHasNoFrameworkOrAdapterDependencies() {
-        JavaClasses classes = productionClasses();
+        assertDomainCodeHasNoFrameworkOrAdapterDependencies(productionClasses());
+    }
+
+    @Test
+    void rejectsASpringDependencyInDomainCode() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.people.domain.r6fixture");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertDomainCodeHasNoFrameworkOrAdapterDependencies(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("R6 domain purity violated:"));
+    }
+
+    private static void assertDomainCodeHasNoFrameworkOrAdapterDependencies(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .that()
@@ -50,8 +68,26 @@ class R6DomainPurityTests {
 
     @Test
     void productionCodeUsesNoAmbientClockOutsideTheClockAbstraction() {
+        assertUsesNoAmbientClockOutsideTheClockAbstraction(productionClasses());
+    }
+
+    @Test
+    void rejectsAnAmbientTimeCallOutsideTheClockAbstraction() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r6.time");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertUsesNoAmbientClockOutsideTheClockAbstraction(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("uses ambient time source"));
+    }
+
+    private static void assertUsesNoAmbientClockOutsideTheClockAbstraction(JavaClasses classes) {
         List<String> violations = new ArrayList<>();
-        for (JavaClass origin : productionClasses()) {
+        for (JavaClass origin : classes) {
             if (isClockAbstraction(origin)) {
                 continue;
             }
@@ -74,8 +110,26 @@ class R6DomainPurityTests {
 
     @Test
     void gradingDomainUsesNoFloatingPointTypes() {
+        assertGradingDomainUsesNoFloatingPointTypes(productionClasses());
+    }
+
+    @Test
+    void rejectsFloatingPointInTheGradingDomain() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.grading.domain.r6fixture");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertGradingDomainUsesNoFloatingPointTypes(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("forbidden floating-point type"));
+    }
+
+    private static void assertGradingDomainUsesNoFloatingPointTypes(JavaClasses classes) {
         List<String> violations = new ArrayList<>();
-        for (JavaClass javaClass : productionClasses()) {
+        for (JavaClass javaClass : classes) {
             if (!javaClass.getPackageName().startsWith("org.meldtech.platform.grading.domain")) {
                 continue;
             }
@@ -132,9 +186,7 @@ class R6DomainPurityTests {
     }
 
     private static JavaClasses productionClasses() {
-        return new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("org.meldtech.platform");
+        return new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
     }
 
     private static boolean isClockAbstraction(JavaClass javaClass) {
