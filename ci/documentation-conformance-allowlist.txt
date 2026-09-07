@@ -1,0 +1,14 @@
+# ARC-VERIFY-016 reviewed grandfathered occurrences.
+# Format: document:line:identifier. Additions require the protected-branch review.
+requirements.md:23:SPEC-CONFLICT-001
+requirements.md:24:SPEC-CONFLICT-002
+requirements.md:31:ARCH-REVIEW-001
+requirements.md:35:ARCH-REVIEW-001
+requirements.md:38:SPEC-CONFLICT-007
+requirements.md:1665:SPEC-CONFLICT-002
+requirements.md:1665:SPEC-CONFLICT-003
+requirements.md:1678:SPEC-CONFLICT-007
+requirements.md:1728:SPEC-CONFLICT-001
+requirements.md:1730:SPEC-CONFLICT-002
+requirements.md:1799:SPEC-CONFLICT-007
+requirements.md:1805:SPEC-CONFLICT-007

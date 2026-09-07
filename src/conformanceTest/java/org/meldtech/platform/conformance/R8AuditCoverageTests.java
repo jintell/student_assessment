@@ -1,11 +1,12 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -16,11 +17,31 @@ class R8AuditCoverageTests {
 
     @Test
     void everyMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod() {
-        List<String> violations = new ArrayList<>();
         Iterable<JavaClass> classes =
+                new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
+
+        assertEveryMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod(classes);
+    }
+
+    @Test
+    void rejectsAMutatingHandlerWithoutAnAuditEvent() {
+        Iterable<JavaClass> fixture =
                 new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages("org.meldtech.platform");
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r8");
+        System.out.println("fixture: "+ fixture);
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () ->
+                                assertEveryMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod(
+                                        fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("R8 audit coverage violated:"));
+    }
+
+    private static void assertEveryMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod(
+            Iterable<JavaClass> classes) {
+        List<String> violations = new ArrayList<>();
 
         for (JavaClass handler : classes) {
             if (!isProductionHandler(handler)) {
@@ -46,8 +67,7 @@ class R8AuditCoverageTests {
 
     private static boolean isProductionHandler(JavaClass javaClass) {
         return javaClass.getSimpleName().equals("Handler")
-                && javaClass.getPackageName().contains(".slice.")
-                && !javaClass.getPackageName().startsWith("org.meldtech.platform.conformance");
+                && javaClass.getPackageName().contains(".slice.");
     }
 
     private static boolean emitsAuditEvent(JavaMethod method) {

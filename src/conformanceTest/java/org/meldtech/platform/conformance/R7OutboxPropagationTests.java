@@ -1,12 +1,13 @@
 package org.meldtech.platform.conformance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,13 +40,28 @@ class R7OutboxPropagationTests {
 
     @Test
     void crossModulePropagationUsesOnlyReviewedPortsAndFlows() {
+        assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(productionClasses());
+    }
+
+    @Test
+    void rejectsAnUnenumeratedDirectCrossModuleWrite() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r7");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("R7 propagation violated:"));
+    }
+
+    private static void assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(
+            JavaClasses classes) {
         List<String> violations = new ArrayList<>();
-        JavaClasses classes = productionClasses();
 
         for (JavaClass origin : classes) {
-            if (origin.getPackageName().startsWith("org.meldtech.platform.conformance")) {
-                continue;
-            }
             rejectDirectBrokerDependencies(origin, violations);
             rejectOutboxImplementationsOutsideAdapter(origin, violations);
             validateSynchronousWriteFlow(origin, violations);
@@ -110,9 +126,7 @@ class R7OutboxPropagationTests {
     }
 
     private static JavaClasses productionClasses() {
-        return new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("org.meldtech.platform");
+        return new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
     }
 
     private static String violation(JavaClass origin, String detail) {

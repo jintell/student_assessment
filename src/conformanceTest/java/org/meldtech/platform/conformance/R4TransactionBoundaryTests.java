@@ -1,11 +1,12 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -17,11 +18,49 @@ class R4TransactionBoundaryTests {
 
     @Test
     void handlersOwnOneReactiveTransactionAndNeverCallAnotherHandler() {
-        List<String> violations = new ArrayList<>();
         Iterable<JavaClass> classes =
+                new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
+
+        assertHandlersOwnOneReactiveTransactionAndNeverCallAnotherHandler(classes);
+    }
+
+    @Test
+    void rejectsAHandlerCallingAnotherHandler() {
+        Iterable<JavaClass> fixture =
                 new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages("org.meldtech.platform");
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r4.calling");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () ->
+                                assertHandlersOwnOneReactiveTransactionAndNeverCallAnotherHandler(
+                                        fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("must not invoke handler"));
+    }
+
+    @Test
+    void rejectsASecondTransactionInOneHandler() {
+        Iterable<JavaClass> fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.conformance.fixtures.r4.nested");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () ->
+                                assertHandlersOwnOneReactiveTransactionAndNeverCallAnotherHandler(
+                                        fixture));
+
+        assertTrue(
+                String.valueOf(failure.getMessage())
+                        .contains("must declare exactly one transactional entry method"));
+    }
+
+    private static void assertHandlersOwnOneReactiveTransactionAndNeverCallAnotherHandler(
+            Iterable<JavaClass> classes) {
+        List<String> violations = new ArrayList<>();
 
         for (JavaClass handler : classes) {
             if (!isHandler(handler)) {

@@ -290,8 +290,16 @@ tasks.register("ciStage7") {
     dependsOn(sliceTest, verifySliceTests)
 }
 
+val documentationConformanceSelfTest =
+    tasks.register<Exec>("documentationConformanceSelfTest") {
+        description = "Proves Stage 13 rejects unqualified review citations."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/test-documentation-conformance")
+    }
+
 tasks.register<Exec>("ciStage13") {
     description = "CI stage 13: verifies documentation citation conformance."
     group = "ci"
+    dependsOn(documentationConformanceSelfTest)
     commandLine("ci/verify-documentation-conformance")
 }

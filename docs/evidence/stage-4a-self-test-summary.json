@@ -1,0 +1,20 @@
+{
+  "evidenceId": "FEAT-PLAT-001-P7.21-STAGE-4A-SELF-TEST",
+  "executedAt": "2026-09-06T20:26:58Z",
+  "sourceCommit": "05e5828cf503614b30ad0b94cdbde92846eff702",
+  "gateSha256": "1cf8f606e20e1883f044d04f4d03a8fd3b5c4f9cebf71b7d1ad93c91357de065",
+  "generatedSummarySha256": "03a19fa28a493dc63487cc5a656e18a8ad509e44eacc79e24a0724c6b4639d57",
+  "topLevelCaseCount": 8,
+  "executedAssertions": 13,
+  "result": "PASS",
+  "cases": {
+    "artifactAbsent": "BLOCK",
+    "invalidJson": "FAIL",
+    "pendingStatus": "BLOCK",
+    "wrongTag": "FAIL",
+    "commitMismatch": "FAIL",
+    "blobHashMismatch": "FAIL",
+    "approvalMatrix": "PASS",
+    "fullyValid": "PASS"
+  }
+}

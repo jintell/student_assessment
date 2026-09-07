@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+checker="${repo_root}/ci/verify-documentation-conformance"
+fixture_root="$(mktemp -d)"
+report_dir="${repo_root}/build/reports/documentation-conformance/self-test"
+cleanup() {
+    rm -rf -- "${fixture_root}"
+}
+trap cleanup EXIT
+
+mkdir -p "${report_dir}"
+requirements="${fixture_root}/requirements.md"
+architecture="${fixture_root}/architecture.md"
+allowlist="${fixture_root}/allowlist.txt"
+
+printf '%s\n' 'Namespaced: REV1-ARCH-REVIEW-001 and REV2-SPEC-CONFLICT-001.' > "${requirements}"
+printf '%s\n' 'Convention placeholders: ARCH-REVIEW-### and SPEC-CONFLICT-###.' > "${architecture}"
+printf '%s\n' '# No grandfathered fixture occurrences.' > "${allowlist}"
+
+"${checker}" \
+    --requirements "${requirements}" \
+    --architecture "${architecture}" \
+    --allowlist "${allowlist}" >/dev/null
+
+run_rejection() {
+    local name="$1"
+    local document="$2"
+    local citation="$3"
+    local output code
+
+    printf '%s\n' "Unqualified citation: ${citation}." >> "${document}"
+    set +e
+    output="$("${checker}" \
+        --requirements "${requirements}" \
+        --architecture "${architecture}" \
+        --allowlist "${allowlist}" 2>&1)"
+    code=$?
+    set -e
+    printf '%s\n' "${output}" > "${report_dir}/${name}.log"
+
+    if [[ ${code} -eq 0 ]] \
+        || ! grep -q 'ARC-VERIFY-016: unqualified review citation differs' <<<"${output}" \
+        || ! grep -q "${citation}" <<<"${output}"; then
+        echo "${name}: documentation conformance did not reject ${citation}." >&2
+        exit 1
+    fi
+
+    printf '%s\t%s\t%s\n' "${name}" "${citation}" "REJECTED"
+}
+
+{
+    run_rejection "architecture-review" "${requirements}" "ARCH-REVIEW-999"
+    printf '%s\n' 'Namespaced: REV1-ARCH-REVIEW-001 and REV2-SPEC-CONFLICT-001.' > "${requirements}"
+    run_rejection "spec-conflict" "${architecture}" "SPEC-CONFLICT-999"
+} > "${report_dir}/summary.tsv"
+
+(
+    cd "${report_dir}"
+    shasum -a 256 architecture-review.log spec-conflict.log summary.tsv > checksums.sha256
+)
+
+echo "ARC-VERIFY-016 self-test passed; retained evidence: ${report_dir}"

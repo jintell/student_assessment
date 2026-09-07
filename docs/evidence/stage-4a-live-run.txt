@@ -1,0 +1,15 @@
+Evidence: FEAT-PLAT-001-P7.21-STAGE-4A-LIVE
+Executed: 2026-09-06
+Source commit: 05e5828cf503614b30ad0b94cdbde92846eff702
+Architecture tag: arch-v1.4
+Architecture commit: aa7fdc5bd7b4a558e3fea19cf9c69b65ed64582b
+Gate SHA-256: 1cf8f606e20e1883f044d04f4d03a8fd3b5c4f9cebf71b7d1ad93c91357de065
+Ratification artifact SHA-256: 15a3de037b5d075a52fd743756c7326d79672932090df1d3f6d5ae21a92e98c8
+Owner signature SHA-256: b8f0993efaca75f95420f89b109b19f2bad67076515fb84775a5c5101fec8c25
+Engineering signature SHA-256: c8506460fd99513493c5399240b4f7ec64874974663f6231f971a393ac96d3ad
+Command: ARCHITECTURE_REPOSITORY=<architecture-repository> ci/stage-4a
+Exit code: 0
+
+STAGE 4a: PASS
+
+Step 12: architecture baseline arch-v1.4 is ratified and verified.
