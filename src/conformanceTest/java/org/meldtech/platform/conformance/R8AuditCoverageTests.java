@@ -28,7 +28,6 @@ class R8AuditCoverageTests {
         Iterable<JavaClass> fixture =
                 new ClassFileImporter()
                         .importPackages("org.meldtech.platform.conformance.fixtures.r8");
-        System.out.println("fixture: "+ fixture);
         AssertionError failure =
                 assertThrows(
                         AssertionError.class,
