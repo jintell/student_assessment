@@ -6,8 +6,8 @@
     "architectureVersion": "1.4",
     "documentPath": "workspace/v3/be/architecture.md",
     "gitTag": "arch-v1.4",
-    "gitCommit": "aa7fdc5bd7b4a558e3fea19cf9c69b65ed64582b",
-    "blobSha256": "ccd77da4987288025c2a36661c5ceea3b0f4563a04c28dfc1e5ba8c99637f7b5"
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da"
   },
   "decisions": [
     {
