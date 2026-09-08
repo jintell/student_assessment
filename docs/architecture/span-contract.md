@@ -1,6 +1,7 @@
 # Slice Span Contract
 
-Status: normative design for `FEAT-PLAT-001` (`P2.9`), consumed by `FEAT-OBS-001`. Source: architecture §16.3.
+Status: registered platform tracing contract for `FEAT-PLAT-001` (`P2.9`, `P9.1`), consumed by
+`FEAT-OBS-001`. Source: architecture §16.3.
 
 ## Boundary and Name
 
@@ -37,3 +38,9 @@ Sampling follows architecture §16.3: retain 100% of errors and exam-entry/gradi
 ## Verification Contract
 
 Tests assert exact span naming, required attributes on success/denial/error/cancellation, one slice span per invocation, parentage under HTTP and broker spans, correlation equality with response/log/problem fields, and absence of every forbidden secret/personal-data key.
+
+The conformance reference endpoint implements the boundary with a Micrometer observation covering the full
+reactive publisher lifecycle. `SliceTest.emitsOneSpanAtTheSliceBoundary` attaches a tracing handler and proves
+that one invocation finishes exactly one `platform.getConformanceReference` span with its required safe tags.
+Exporter selection, sampling, dashboards, and production telemetry infrastructure remain with
+`FEAT-OBS-001`.

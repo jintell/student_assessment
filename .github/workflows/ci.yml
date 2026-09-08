@@ -108,6 +108,9 @@ jobs:
     needs: static-analysis
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    outputs:
+      failing_rule: ${{ steps.stage.outputs.failing_rule }}
+      failure_reason: ${{ steps.stage.outputs.failure_reason }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -127,14 +130,41 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - name: Run and retain Stage 4a
+        id: stage
         shell: bash
         run: |
+          set -uo pipefail
           mkdir -p build/reports/stage-4a/live
-          set -o pipefail
+
+          set +e
           ./gradlew --no-daemon --console=plain ciStage4a 2>&1 \
             | tee build/reports/stage-4a/live/run.log
+          STAGE_STATUS="${PIPESTATUS[0]}"
+          set -e
+
           shasum -a 256 build/reports/stage-4a/live/run.log \
             > build/reports/stage-4a/live/checksums.sha256
+
+          FAILURE_REASON="$(
+            awk '
+              /^Step [0-9]+:/ { print; exit }
+              /architecture-ratification.json was not found/ { print; exit }
+            ' build/reports/stage-4a/live/run.log
+          )"
+          FAILING_RULE="$(
+            sed -nE 's/^Step ([0-9]+):.*/Stage 4a step \1/p' \
+              <<<"${FAILURE_REASON}"
+          )"
+          if [[ "${STAGE_STATUS}" -eq 0 ]]; then
+            FAILURE_REASON="Stage 4a passed."
+            FAILING_RULE="none"
+          else
+            FAILURE_REASON="${FAILURE_REASON:-Stage 4a failed before a gate reason was emitted.}"
+            FAILING_RULE="${FAILING_RULE:-Stage 4a ratification contract}"
+          fi
+          echo "failing_rule=${FAILING_RULE}" >> "${GITHUB_OUTPUT}"
+          echo "failure_reason=${FAILURE_REASON}" >> "${GITHUB_OUTPUT}"
+          exit "${STAGE_STATUS}"
         env:
           ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
       - name: Retain Stage 4a self-test evidence
@@ -158,6 +188,9 @@ jobs:
     name: arch-conformance
     needs: stage-4a
     runs-on: ubuntu-latest
+    outputs:
+      failing_rule: ${{ steps.stage.outputs.failing_rule }}
+      failure_reason: ${{ steps.stage.outputs.failure_reason }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -167,7 +200,84 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
-      - run: ci/stage-4
+      - name: Run architecture conformance
+        id: stage
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p build/reports/conformance-notification
+
+          set +e
+          ci/stage-4 2>&1 \
+            | tee build/reports/conformance-notification/run.log
+          STAGE_STATUS="${PIPESTATUS[0]}"
+          set -e
+
+          FAILURE_REASON="$(
+            awk '
+              /R[1-8].*violated:/ {
+                sub(/^[[:space:]]*/, "")
+                print
+                exit
+              }
+              /^FAILURE: Build failed/ { print; exit }
+            ' build/reports/conformance-notification/run.log
+          )"
+          FAILING_RULE="$(
+            sed -nE 's/.*(R[1-8]).*/\1/p' <<<"${FAILURE_REASON}"
+          )"
+          if [[ "${STAGE_STATUS}" -eq 0 ]]; then
+            FAILURE_REASON="Architecture conformance passed."
+            FAILING_RULE="none"
+          else
+            FAILURE_REASON="${FAILURE_REASON:-Architecture conformance failed before a rule diagnostic was emitted.}"
+            FAILING_RULE="${FAILING_RULE:-architecture conformance}"
+          fi
+          echo "failing_rule=${FAILING_RULE}" >> "${GITHUB_OUTPUT}"
+          echo "failure_reason=${FAILURE_REASON}" >> "${GITHUB_OUTPUT}"
+          exit "${STAGE_STATUS}"
+
+  engineering-notification:
+    name: engineering-notification
+    needs: [stage-4a, arch-conformance]
+    if: >-
+      ${{ always() && !cancelled() &&
+          (needs.stage-4a.result == 'failure' || needs.arch-conformance.result == 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish blocking failure to the engineering channel
+        shell: bash
+        env:
+          STAGE_4A_RESULT: ${{ needs.stage-4a.result }}
+          STAGE_4A_RULE: ${{ needs.stage-4a.outputs.failing_rule }}
+          STAGE_4A_REASON: ${{ needs.stage-4a.outputs.failure_reason }}
+          CONFORMANCE_RULE: ${{ needs.arch-conformance.outputs.failing_rule }}
+          CONFORMANCE_REASON: ${{ needs.arch-conformance.outputs.failure_reason }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${STAGE_4A_RESULT}" == "failure" ]]; then
+            STAGE="stage-4a"
+            FAILING_RULE="${STAGE_4A_RULE:-Stage 4a ratification contract}"
+            FAILURE_REASON="${STAGE_4A_REASON:-Stage 4a failed before a gate reason was emitted.}"
+          else
+            STAGE="arch-conformance"
+            FAILING_RULE="${CONFORMANCE_RULE:-architecture conformance}"
+            FAILURE_REASON="${CONFORMANCE_REASON:-Architecture conformance failed before a rule diagnostic was emitted.}"
+          fi
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo "::error title=CI BLOCK ${STAGE} ${FAILING_RULE}::${FAILURE_REASON}"
+          {
+            echo "# Blocking architecture failure"
+            echo
+            echo "- Stage: \`${STAGE}\`"
+            echo "- Failing rule: \`${FAILING_RULE}\`"
+            echo "- First-failure reason: ${FAILURE_REASON}"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Ref: \`${GITHUB_REF}\`"
+            echo "- Run: ${RUN_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   unit-tests:
     name: unit-tests
