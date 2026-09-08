@@ -11,7 +11,7 @@
     "gitTag": "arch-v1.4",
     "//gitCommit": "Output of: git rev-list -n 1 arch-v1.4 -- full 40-char SHA. Pinned as well as the tag because a tag is a movable ref.",
     "gitCommit": "<resolved-commit-sha>",
-    "//blobSha256": "Output of: git rev-parse arch-v1.4:workspace/v3/be/architecture.md -- detects an edit to the file itself.",
+    "//blobSha256": "SHA-256 of raw blob contents from: git cat-file blob <commit>:workspace/v3/be/architecture.md | sha256sum.",
     "blobSha256": "<git-blob-sha256-of-documentPath-at-gitCommit>"
   },
 

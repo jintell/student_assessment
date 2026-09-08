@@ -65,7 +65,9 @@ No code path may emit `Skipping`, `Continuing`, or an advisory success for an ab
 
 `ci/stage-4a.md` remains useful for the intended flow and exact missing-artifact message, but its embedded shell is explicitly non-normative because it:
 
-1. uses `git rev-parse` (a Git object id) instead of SHA-256 over blob bytes;
+1. the copy retained at tag `arch-v1.4` uses `git rev-parse` (a Git object id)
+   instead of SHA-256 over blob bytes; the local reference copy has been
+   corrected, but remains non-normative;
 2. omits the architecture-version check in step 4;
 3. does not validate record shape, detached signatures, distinct identities/keys, or `countersignedBy` completely;
 4. omits the complete `ADR-001`-`ADR-025` disposition check in step 12;
