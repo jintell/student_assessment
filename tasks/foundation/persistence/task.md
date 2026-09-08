@@ -36,7 +36,7 @@ by the database, and a defect in the grant matrix is caught by row-level securit
 ### Assumptions
 
 1. **Fifteen schemas, twelve module schemas.** Architecture §9.2 enumerates fifteen schemas; §7.3 asserts
-   "12 modules ≡ 12 contexts ≡ 12 schemas". Resolution adopted here, consistent with `task-plat-1.md` `P1.3`:
+   "12 modules ≡ 12 contexts ≡ 12 schemas". Resolution adopted here, consistent with `tasks.md` `P1.3`:
    twelve **module** schemas (`tenancy`, `iam`, `academic`, `people`, `questionbank`, `authoring`,
    `examaccess`, `delivery`, `grading`, `result`, `correction`, `notification`) plus three **platform**
    schemas (`audit`, `outbox`, `platform`). Recorded as `TASK-PLAT2-DEFECT-003`.
@@ -44,7 +44,7 @@ by the database, and a defect in the grant matrix is caught by row-level securit
    This feature creates schemas, roles, grants, default privileges, the RLS convention and its gate, and the
    single `platform.tenant_scope_probe` proving table.
 3. **`TenantId` and `ActorContext` are `FEAT-PLAT-003`'s types.** The `SecurityContextInitializer` decorator is
-   built against `FEAT-PLAT-001`'s placeholder carrier (`task-plat-1.md` `P4.6`) and adopts the real types when
+   built against `FEAT-PLAT-001`'s placeholder carrier (`tasks.md` `P4.6`) and adopts the real types when
    `FEAT-PLAT-003` lands. Track (b) runs in parallel per plan §11.2, so the adoption point must be explicit.
 4. **Flyway is the migration engine, on a separate JDBC datasource** (`ARC-PLAT-007`, plan L660). This feature
    authors its own migrations and the `--migrate-only` entrypoint's role wiring, but the expand/contract
@@ -58,7 +58,7 @@ by the database, and a defect in the grant matrix is caught by row-level securit
 
 | ID                       | Statement                                                                                                                                                                                                                                                                                                                            | Owning task       |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-| `PLAN-BLOCKER-001`       | `ci/architecture-ratification.json` is `status: PENDING` with `baseline.gitCommit`, `baseline.blobSha256` and `countersignedBy` all `null`. Per plan §10 Phase 0 entry criteria this gates Phase 0 **implementation**, not merely release. Discharged by `task-plat-1.md` `P0.1`–`P0.7`; not restated here                            | `P0.1`            |
+| `PLAN-BLOCKER-001`       | `ci/architecture-ratification.json` is `status: PENDING` with `baseline.gitCommit`, `baseline.blobSha256` and `countersignedBy` all `null`. Per plan §10 Phase 0 entry criteria this gates Phase 0 **implementation**, not merely release. Discharged by `tasks.md` `P0.1`–`P0.7`; not restated here                            | `P0.1`            |
 | `TASK-PLAT2-DEFECT-001`  | The plan's `FEAT-PLAT-002` card (§8.1) attributes "RLS returns zero rows when a tenant predicate is missing" to `ARC-VERIFY-018`. Architecture §19.8 defines `ARC-VERIFY-018` as *out-of-range configuration fails startup*; the RLS-backstop scenario is **`ARC-VERIFY-005`**. This task list implements `-005` and raises the mis-citation | `P1.7`, `P10.8`   |
 | `TASK-PLAT2-DEFECT-002`  | The outbox table is `outbox.outbox_event` in §9.2, the grant matrix and `ARC-EXAM-014`, but `outbox.event` in §8.4 `OutboxWriter`. `outbox.outbox_event` adopted                                                                                                                                                                      | `P1.2`, `P10.8`   |
 | `TASK-PLAT2-DEFECT-003`  | §7.3 asserts twelve schemas; §9.2 enumerates fifteen. Twelve module plus three platform schemas adopted                                                                                                                                                                                                                              | `P1.1`, `P10.8`   |
@@ -70,12 +70,12 @@ by the database, and a defect in the grant matrix is caught by row-level securit
 
 # Phase 0 – Gate Prerequisites
 
-`PLAN-BLOCKER-001` is discharged by `task-plat-1.md` `P0.1`–`P0.7` and is **not** restated here. Only this
+`PLAN-BLOCKER-001` is discharged by `tasks.md` `P0.1`–`P0.7` and is **not** restated here. Only this
 feature's own entry conditions appear below. Under a `temporaryArchitectureGate` (`implementationAllowed:
 false`) only Phase 1 and Phase 2 tasks are authorised — no Phase 3 or Phase 4 work.
 
-1. [ ] Confirm `task-plat-1.md` `P0.5` or `P0.6` has completed and record which authorisation scope is in force. Deliverable: one-line entry in the phase log naming the tasks unblocked. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
-2. [ ] Confirm `FEAT-PLAT-001` has delivered the twelve module boundaries and the `Queries` / `TenantScopedQuery` marker types this feature enforces against. Deliverable: dependency-satisfied record. Depends on `task-plat-1.md` `P4.2`, `P4.5`.
+1. [ ] Confirm `tasks.md` `P0.5` or `P0.6` has completed and record which authorisation scope is in force. Deliverable: one-line entry in the phase log naming the tasks unblocked. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
+2. [ ] Confirm `FEAT-PLAT-001` has delivered the twelve module boundaries and the `Queries` / `TenantScopedQuery` marker types this feature enforces against. Deliverable: dependency-satisfied record. Depends on `tasks.md` `P4.2`, `P4.5`.
 3. [ ] Obtain agreement on the §9.2 ownership table and grant matrix from the Architecture Owner and Security, as the feature's additional Definition of Ready. Deliverable: signed DoR record.
 4. [ ] Obtain written confirmation that the `ARC-DATA-027` enumerated atomic-flow list is closed with exactly one MVP entry, and that adding a row is an ADR amendment rather than a configuration change. Deliverable: signed closure statement.
 5. [ ] Raise the PostgreSQL-17 `PLAN-RECOMMENDATION` (`TASK-PLAT2-DEFECT-005`) for approval before any Phase 3 task runs. Deliverable: approval record or a named alternative version.
@@ -91,7 +91,7 @@ the atomic-flow list is confirmed closed.
 2. [ ] Transcribe the §9.2 grant matrix: `app_<module>` (twelve), `app_txn_<flow>` (one), the pool login roles `app_api` / `app_worker` / `app_pindist`, `app_migrator` and `app_readonly_ops`, with the exact grant set of each. Deliverable: grant matrix — the feature's durable artifact. Acceptance: pool login roles are recorded as holding **no direct object grants of any kind**, only role membership (`ARC-DATA-026`); the outbox table is named `outbox.outbox_event`.
 3. [ ] Transcribe the `ARC-DATA-027` composite-role row for exam entry: `app_txn_examentry` with its explicit minimum privilege list across `examaccess`, `delivery`, `people`, `authoring`, `tenancy`, `audit` and `outbox`, and the enumerated list of what it is deliberately **not** granted. Deliverable: composite-role grant card. Acceptance: the card states the set is strictly narrower than the union of the four module roles it replaces.
 4. [ ] Enumerate the §12.3 three isolation layers with, for each, its mechanism, the failure mode it defeats, and the task that implements it. Deliverable: three-layer card. Acceptance: layer 1 is `FEAT-PLAT-001`'s R5 signature rule, layer 2 is this feature's forced RLS, layer 3 is `FEAT-IAM-003`'s object-level check — ownership is explicit per layer.
-5. [ ] Enumerate rules R3, R5, R7, R9 and R10 from §5.1 with, for each, the verbatim statement, its enforcement mechanism and its owning task. Deliverable: rule card. Acceptance: R9 and R10 are attributed to this feature, per `task-plat-1.md` assumption 3; R3, R5 and R7 are `FEAT-PLAT-001` rules that this feature backs with database grants.
+5. [ ] Enumerate rules R3, R5, R7, R9 and R10 from §5.1 with, for each, the verbatim statement, its enforcement mechanism and its owning task. Deliverable: rule card. Acceptance: R9 and R10 are attributed to this feature, per `tasks.md` assumption 3; R3, R5 and R7 are `FEAT-PLAT-001` rules that this feature backs with database grants.
 6. [ ] Enumerate the per-workload connection-pool figures from §17.1 and `ARC-PERF-003`: `cbt-api` pool 14 with 8 reserved for exam-path routes, `cbt-worker` pool 10, `cbt-pindist`, and the login role each uses. Deliverable: pool-to-role mapping — the input `FEAT-PLAT-006` consumes.
 7. [ ] Map each `ARC-VERIFY` scenario this feature owns or contributes to — `-002` (owned, CI 4 + integration), `-005` (owned, integration), `-024` (owned, integration + staging), `-004` (contributed, CI 10, co-owned with `FEAT-SEC-001`), `-006` (contributed, the granted-composite-roles limb), `-023` (contributed, grant list only; owned by `FEAT-EXAM-007`) — to its CI stage. Deliverable: verification-ownership table. Acceptance: no new verification identifier is created, and `TASK-PLAT2-DEFECT-001` is recorded against the `ARC-VERIFY-018` mis-citation.
 8. [ ] Enumerate the tenant-scoped versus platform-scoped table distinction per `ARC-TEN-003`, and the criterion the RLS gate uses to classify a table. Deliverable: classification rule. Acceptance: the criterion is mechanical (presence of a `tenant_id` column), not a maintained list, and platform-scope slices are enumerated rather than inferred.
@@ -139,7 +139,7 @@ the atomic-flow list is confirmed closed.
 14. [ ] Configure the per-workload connection pools from `P1.6` — `cbt-api` 14 connections with 8 reserved for exam-path routes (`ARC-PERF-003`), `cbt-worker` 10, `cbt-pindist` — each bound to its own login role. Deliverable: pool configuration. Acceptance: the reserved exam-path pool is a separate pool, not a soft reservation; the figures are the input `FEAT-PLAT-006` and `FEAT-OPS-005` consume.
 15. [ ] Configure the `search_path` per module datasource per `P2.12`. Deliverable: datasource configuration.
 16. [ ] Source every role password from the external secret manager, with no credential in source or in a committed configuration file. Deliverable: secret-resolution configuration. Acceptance: `P6.6` confirms the tree is clean.
-17. [ ] Add the CI stage 8 entry point running the integration suite against Testcontainers PostgreSQL, runnable standalone on a developer machine. Deliverable: Gradle task plus `ci/` script, consistent with `task-plat-1.md` `P3.7`.
+17. [ ] Add the CI stage 8 entry point running the integration suite against Testcontainers PostgreSQL, runnable standalone on a developer machine. Deliverable: Gradle task plus `ci/` script, consistent with `tasks.md` `P3.7`.
 
 ---
 
@@ -193,7 +193,7 @@ The distinguishing obligation of this feature: every isolation layer must be **p
 not merely observed to pass. All integration tests run against real PostgreSQL 17 with real migrations and
 real RLS (plan §14.1).
 
-1. [ ] Assert `ARC-VERIFY-002` static limb holds with the composite role in place: no slice SQL references a foreign schema. Deliverable: CI stage 4 assertion, extending `task-plat-1.md` `P4.20`.
+1. [ ] Assert `ARC-VERIFY-002` static limb holds with the composite role in place: no slice SQL references a foreign schema. Deliverable: CI stage 4 assertion, extending `tasks.md` `P4.20`.
 2. [ ] Assert `ARC-VERIFY-002` database limb: no module role holds any foreign-schema grant, and the live grant set equals the declared matrix. Deliverable: integration assertion using `P4.16`.
 3. [ ] Assert `ARC-VERIFY-005`: with the tenant predicate deliberately removed from a probe-table query, the result set is empty. Deliverable: integration test.
 4. [ ] Assert a statement issued before its transaction installs context is **refused for want of privilege**, not silently executed — tested at the database level with the decorator's own refusal disabled, so the grant matrix is proven to be the backstop. Deliverable: integration test.
@@ -243,7 +243,7 @@ real RLS (plan §14.1).
 1. [ ] Publish the §9.2 ownership table from `P1.1` as the normative module→schema→tables map. Deliverable: `docs/schema-ownership.md`.
 2. [ ] Publish the grant matrix from `P1.2` as the feature's durable artifact, including the pool-login-roles-hold-nothing rule. Deliverable: `docs/grant-matrix.md`.
 3. [ ] Publish the three-layer isolation model from `P1.4` with the failure mode each layer defeats and the feature owning each. Deliverable: `docs/tenant-isolation.md`.
-4. [ ] Publish the R9/R10 rule card from `P1.5` with enforcement mechanism and failure message per rule, extending `task-plat-1.md`'s `docs/conformance-rules.md`. Deliverable: updated rule card.
+4. [ ] Publish the R9/R10 rule card from `P1.5` with enforcement mechanism and failure message per rule, extending `tasks.md`'s `docs/conformance-rules.md`. Deliverable: updated rule card.
 5. [ ] Write the composite-role amendment procedure: adding a flow is an ADR amendment with a Solution Architect, Engineering Lead and Security approval, not a configuration change. Deliverable: `docs/composite-role-amendment.md`. Acceptance: states that a second composite role is a meaningful architectural event.
 6. [ ] Write the tenant-scoped table authoring guide: the RLS DDL template, the `tenant_id` column convention, and what the catalogue gate will reject. Deliverable: `docs/tenant-scoped-tables.md` — the guide every later feature follows.
 7. [ ] Write the migration authoring note for module owners: own-schema only, per-module Flyway location, no cross-schema foreign key, no DDL from the application. Deliverable: `docs/module-migrations.md`.
@@ -285,7 +285,7 @@ real RLS (plan §14.1).
 | `ARC-RISK-013` cross-schema coupling creep                        | §22.2                      | `P4.13`, `P4.16`, `P7.1`, `P7.2`         | Blocking gate rather than review convention             |
 | Observability: isolation failures are not silent                  | §16.2, §16.4               | `P4.17`, `P9.1`–`P9.4`                   | P1 and P2 alerts fired in a drill                       |
 | Launch condition `L9`                                             | §24.3                      | `P7.17`, `P7.18`                         | Retained adversarial report                             |
-| `PLAN-BLOCKER-001`                                                | plan §10, §18.3            | `P0.1`                                   | Discharged by `task-plat-1.md` `P0.1`–`P0.7`            |
+| `PLAN-BLOCKER-001`                                                | plan §10, §18.3            | `P0.1`                                   | Discharged by `tasks.md` `P0.1`–`P0.7`            |
 
 ---
 
