@@ -43,5 +43,5 @@ jobs:
       - name: Sync tasks.md to GitHub Issues
         run: |
           python scripts/sync-github-tasks.py \
-            --tasks tasks/foundation/baseline/tasks.md \
+            --tasks tasks/foundation/persistence/tasks.md \
             --repo "${{ github.repository }}"
