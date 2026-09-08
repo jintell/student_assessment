@@ -245,15 +245,17 @@ roles) and `FEAT-OPS-*` (image signing, SBOM, canary). Only what this feature mu
 
 # Phase 10 – Documentation and Knowledge Transfer
 
-1. [ ] Write the slice authoring guide: how to add a slice, which files are mandatory, which rules apply, and how to run the conformance suite locally. Deliverable: `docs/slice-authoring.md` pointing at the reference slice as the worked example.
-2. [ ] Publish the R1–R10 rule card from `P1.4`, stating for each rule its enforcement mechanism, owning feature and failure message. Deliverable: `docs/conformance-rules.md`.
-3. [ ] Publish the module map: twelve context modules with their schemas, aggregates and permitted dependencies, plus the platform-module category. Deliverable: `docs/module-map.md`.
-4. [ ] Publish the API conventions document from `P2.8` as the normative shape for every later feature. Deliverable: `docs/api-conventions.md`.
-5. [ ] Write the stage 4a runbook: what BLOCK means, what FAIL means, who resolves each, and how to re-ratify after a baseline change. Deliverable: `docs/runbook-stage-4a.md`.
-6. [ ] Record the `P1.3` decision note on the twelve-versus-fourteen module count where later features will find it. Deliverable: decision note in `docs/decisions/`.
-7. [ ] Raise `TASK-PLAT1-DEFECT-001` — the §18.3 Git-blob-SHA-256 versus SHA-1 discrepancy — to the Architecture Owner as a documentation defect for the next baseline, with the resolution this feature adopted. Deliverable: defect record.
-8. [ ] Update the plan §19 traceability matrix with this feature's evidence: task ranges, test ids and retained artifacts. Deliverable: updated matrix rows.
+1. [*] Write the slice authoring guide: how to add a slice, which files are mandatory, which rules apply, and how to run the conformance suite locally. Deliverable: `docs/slice-authoring.md` pointing at the reference slice as the worked example.
+2. [*] Publish the R1–R10 rule card from `P1.4`, stating for each rule its enforcement mechanism, owning feature and failure message. Deliverable: `docs/conformance-rules.md`.
+3. [*] Publish the module map: twelve context modules with their schemas, aggregates and permitted dependencies, plus the platform-module category. Deliverable: `docs/module-map.md`.
+4. [*] Publish the API conventions document from `P2.8` as the normative shape for every later feature. Deliverable: `docs/api-conventions.md`.
+5. [*] Write the stage 4a runbook: what BLOCK means, what FAIL means, who resolves each, and how to re-ratify after a baseline change. Deliverable: `docs/runbook-stage-4a.md`.
+6. [*] Record the `P1.3` decision note on the twelve-versus-fourteen module count where later features will find it. Deliverable: decision note in `docs/decisions/`.
+7. [*] Raise `TASK-PLAT1-DEFECT-001` — the §18.3 Git-blob-SHA-256 versus SHA-1 discrepancy — to the Architecture Owner as a documentation defect for the next baseline, with the resolution this feature adopted. Deliverable: defect record.
+8. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, test ids and retained artifacts. Deliverable: updated matrix rows.
 9. [ ] Run a walkthrough with the engineering team covering the slice anatomy, the conformance suite and the local gate scripts. Deliverable: session record plus attendance.
+
+   **Blocked 2026-09-08:** no verifiable walkthrough date, facilitator, or attendee record is available. This task requires live engineering-team participation and must remain open until the session occurs and its attendance and outcomes are recorded.
 
 ---
 
@@ -313,23 +315,23 @@ oversight.
 
 ### Feature-specific (plan §8.1, verbatim obligations)
 
-1. [ ] CI stage 4 is BLOCKING and green.
-2. [ ] `ARC-VERIFY-001` is green.
-3. [ ] `ARC-VERIFY-003` is green.
-4. [ ] A deliberately introduced violation fails the build — the gate is proven to bite, not merely to exist — for every one of R1 through R8.
-5. [ ] CI stage 4a is implemented to the §18.3 contract, with the hash algorithm unambiguously defined.
-6. [ ] The eight-case stage 4a self-test passes and its result is retained as release evidence.
-7. [ ] Twelve module boundaries exist and match the §6.2 context map exactly, under the `P1.3` resolution.
-8. [ ] No module imports another module's internals.
-9. [ ] Every slice satisfies the §5.1 anatomy.
-10. [ ] `CONSTRAINT-PLAT-004` is satisfied clause by clause per §7.3, or the discharging feature is named.
+1. [*] CI stage 4 is BLOCKING and green.
+2. [*] `ARC-VERIFY-001` is green.
+3. [*] `ARC-VERIFY-003` is green.
+4. [*] A deliberately introduced violation fails the build — the gate is proven to bite, not merely to exist — for every one of R1 through R8.
+5. [*]CI stage 4a is implemented to the §18.3 contract, with the hash algorithm unambiguously defined.
+6. [*] The eight-case stage 4a self-test passes and its result is retained as release evidence.
+7. [*] Twelve module boundaries exist and match the §6.2 context map exactly, under the `P1.3` resolution.
+8. [*] No module imports another module's internals.
+9. [*] Every slice satisfies the §5.1 anatomy.
+10. [*] `CONSTRAINT-PLAT-004` is satisfied clause by clause per §7.3, or the discharging feature is named.
 
 ### Universal (plan §8.0), as far as this feature can discharge it
 
-11. [ ] All mapped acceptance outcomes verified (`P7.25`).
-12. [ ] Unit and slice tests pass; the conformance suite passes.
-13. [ ] No credential, secret or token exists in source (`P6.2`).
-14. [ ] The rollback path is stated (`P8.4`).
-15. [ ] Peer or AI review complete; no unresolved Critical or High defect remains.
-16. [ ] The plan §19 traceability matrix is updated with the evidence (`P10.8`).
+11. [*] All mapped acceptance outcomes verified (`P7.25`).
+12. [*] Unit and slice tests pass; the conformance suite passes.
+13. [*] No credential, secret or token exists in source (`P6.2`).
+14. [*] The rollback path is stated (`P8.4`).
+15. [*] Peer or AI review complete; no unresolved Critical or High defect remains.
+16. [*] The plan §19 traceability matrix is updated with the evidence (`P10.8`).
 17. [ ] **Not dischargeable by this feature, and recorded as such:** tenant isolation and the isolation matrix (`FEAT-PLAT-002`); in-transaction audit emission (`FEAT-AUD-001` — the R8 *rule* is green here, the emitter it checks for is not yet built); the error-contract correlation identifier (`FEAT-PLAT-003`); the OpenAPI breaking-change diff (CI 9); migration verification (CI 12).
