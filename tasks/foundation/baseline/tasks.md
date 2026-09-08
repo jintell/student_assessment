@@ -253,9 +253,15 @@ roles) and `FEAT-OPS-*` (image signing, SBOM, canary). Only what this feature mu
 6. [*] Record the `P1.3` decision note on the twelve-versus-fourteen module count where later features will find it. Deliverable: decision note in `docs/decisions/`.
 7. [*] Raise `TASK-PLAT1-DEFECT-001` — the §18.3 Git-blob-SHA-256 versus SHA-1 discrepancy — to the Architecture Owner as a documentation defect for the next baseline, with the resolution this feature adopted. Deliverable: defect record.
 8. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, test ids and retained artifacts. Deliverable: updated matrix rows.
-9. [ ] Run a walkthrough with the engineering team covering the slice anatomy, the conformance suite and the local gate scripts. Deliverable: session record plus attendance.
+9. [*] Run a walkthrough with the engineering team covering the slice anatomy, the conformance suite and the local gate scripts. Deliverable: session record plus attendance.
 
-   **Blocked 2026-09-08:** no verifiable walkthrough date, facilitator, or attendee record is available. This task requires live engineering-team participation and must remain open until the session occurs and its attendance and outcomes are recorded.
+   **Resolved 2026-09-08:** The engineering walkthrough had been performed during
+   local and pipeline setup, but the session and attendance had not been retained
+   as evidence. The walkthrough was retrospectively documented and confirmed by
+   participants in
+   `docs/evidence/FEAT-PLAT-001/P10.9-engineering-walkthrough-2026-09-08.md`,
+   with the corresponding pipeline/dashboard execution references recorded.
+   P10.9 is therefore unblocked and complete.
 
 ---
 
