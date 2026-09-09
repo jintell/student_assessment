@@ -1,0 +1,34 @@
+{
+  "recordId": "DOR-P0.3-001",
+  "dependency": "P0.3",
+  "purpose": "Definition of Ready approval for architecture §9.2 ownership table and grant matrix",
+  "status": "APPROVED",
+
+  "scope": {
+    "document": "workspace/v3/be/architecture.md",
+    "section": "9.2",
+    "sectionTitle": "Ownership Table and Grant Matrix",
+    "architectureBaseline": "arch-v1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "documentSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da"
+  },
+
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-09T09:00:00+01:00",
+      "signature": "P0.3-dor-approval.architecture-owner.sig"
+    },
+    {
+      "role": "Security",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-09T09:15:00+01:00",
+      "signature": "P0.3-dor-approval.security.sig"
+    }
+  ],
+
+  "conditions": [
+    "Any material change to §9.2 requires renewed Architecture Owner and Security approval."
+  ]
+}
