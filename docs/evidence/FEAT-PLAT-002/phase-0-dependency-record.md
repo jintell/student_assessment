@@ -30,10 +30,29 @@ Verification:
 BUILD SUCCESSFUL
 ```
 
-## P0.3 - Blocked pending Security approval
+## P0.3 — RESOLVED
 
-`ci/architecture-ratification.json` records approval by the Architecture Owner
-and Engineering Lead. No repository artifact records Security's agreement to
-the architecture section 9.2 ownership table and grant matrix. Because `P0.3`
-requires an approval from both the Architecture Owner and Security, it remains
-open. No `P0.4` or Phase 1 task was started.
+Definition of Ready for architecture §9.2 Ownership Table and
+Grant Matrix approved by Architecture Owner and Security.
+
+Evidence:
+- ci/dor/P0.3-dor-approval.json
+- ci/dor/P0.3-dor-approval.architecture-owner.sig
+- ci/dor/P0.3-dor-approval.security.sig
+
+Architecture baseline:
+arch-v1.4
+
+CI gate:
+verifyP03DefinitionOfReady
+
+Result: PASS (2026-09-09)
+
+P0.4 and Phase 1 work may proceed only when this verification passes.
+
+## P0.5 - PostgreSQL version decision pending
+
+The PostgreSQL 17 recommendation was raised in
+`P0.5-postgresql-version-recommendation.md`. No Architecture Owner approval or
+named alternative version is currently recorded, so `P0.5` remains open and
+Phase 3 work remains blocked by this feature-specific prerequisite.

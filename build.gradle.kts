@@ -210,6 +210,12 @@ val workflowSecurityCheck =
         commandLine("ci/verify-workflow-security")
     }
 
+tasks.register<Exec>("verifyP03DefinitionOfReady") {
+    description = "Verifies the signed FEAT-PLAT-002 ownership and grant-matrix approvals."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-p03-definition-of-ready")
+}
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"

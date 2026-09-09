@@ -76,8 +76,8 @@ false`) only Phase 1 and Phase 2 tasks are authorised — no Phase 3 or Phase 4 
 
 1. [*] Confirm `tasks.md` `P0.5` or `P0.6` has completed and record which authorisation scope is in force. Deliverable: one-line entry in the phase log naming the tasks unblocked. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
 2. [*] Confirm `FEAT-PLAT-001` has delivered the twelve module boundaries and the `Queries` / `TenantScopedQuery` marker types this feature enforces against. Deliverable: dependency-satisfied record. Depends on `tasks.md` `P4.2`, `P4.5`.
-3. [ ] Obtain agreement on the §9.2 ownership table and grant matrix from the Architecture Owner and Security, as the feature's additional Definition of Ready. Deliverable: signed DoR record.
-4. [ ] Obtain written confirmation that the `ARC-DATA-027` enumerated atomic-flow list is closed with exactly one MVP entry, and that adding a row is an ADR amendment rather than a configuration change. Deliverable: signed closure statement.
+3. [*] Obtain agreement on the §9.2 ownership table and grant matrix from the Architecture Owner and Security, as the feature's additional Definition of Ready. Deliverable: signed DoR record.
+4. [*] Obtain written confirmation that the `ARC-DATA-027` enumerated atomic-flow list is closed with exactly one MVP entry, and that adding a row is an ADR amendment rather than a configuration change. Deliverable: signed closure statement.
 5. [ ] Raise the PostgreSQL-17 `PLAN-RECOMMENDATION` (`TASK-PLAT2-DEFECT-005`) for approval before any Phase 3 task runs. Deliverable: approval record or a named alternative version.
 
 ---
