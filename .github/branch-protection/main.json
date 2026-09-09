@@ -8,6 +8,7 @@
       "build",
       "static-analysis",
       "stage-4a",
+      "postgresql-baseline",
       "arch-conformance",
       "unit-tests",
       "slice-tests",

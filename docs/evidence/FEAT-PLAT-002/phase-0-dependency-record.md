@@ -50,9 +50,34 @@ Result: PASS (2026-09-09)
 
 P0.4 and Phase 1 work may proceed only when this verification passes.
 
-## P0.5 - PostgreSQL version decision pending
+## P0.5 — RESOLVED
 
-The PostgreSQL 17 recommendation was raised in
-`P0.5-postgresql-version-recommendation.md`. No Architecture Owner approval or
-named alternative version is currently recorded, so `P0.5` remains open and
-Phase 3 work remains blocked by this feature-specific prerequisite.
+Decision:
+PostgreSQL 17 approved as the persistence baseline.
+
+Decision owner:
+Architecture Owner
+
+Evidence:
+docs/decisions/P0.5-postgresql-version-approval.md
+
+Related tracking:
+TASK-PLAT2-DEFECT-005
+
+Implementation requirement:
+P3.1 SHALL pin one reviewed PostgreSQL 17 image digest across
+local development, Testcontainers, CI and staging.
+
+Required compatibility evidence:
+- migrations
+- forced RLS
+- transaction-local context installation
+- current_setting(..., false)
+- transaction-scoped advisory locks
+
+CI gate:
+verifyPostgresqlBaseline
+
+Result: PASS (2026-09-09)
+
+Phase 3 may proceed.
