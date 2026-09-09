@@ -216,6 +216,12 @@ tasks.register<Exec>("verifyP03DefinitionOfReady") {
     commandLine("ci/verify-p03-definition-of-ready")
 }
 
+tasks.register<Exec>("verifyPostgresqlBaseline") {
+    description = "Verifies the approved PostgreSQL image baseline and database behavior."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-postgresql-baseline")
+}
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"

@@ -95,7 +95,7 @@ To start the application with the test runtime and the Testcontainers configurat
 ./gradlew bootTestRun
 ```
 
-Both development paths currently use `postgres:latest`. Pin and review the PostgreSQL version before relying on version-specific behavior or deploying to production.
+Both development paths use the approved PostgreSQL 17 image and immutable digest declared by `postgresqlImage` in `gradle.properties`. The `verifyPostgresqlBaseline` task checks local, Testcontainers, and CI alignment.
 
 ## Build And Test
 

@@ -58,7 +58,7 @@ Do not edit or commit generated content under `build/` or `.gradle/`.
 - A working Docker-compatible daemon for the current integration tests, `bootTestRun`, Docker Compose development services, and OCI image builds.
 - Initial dependency resolution and container image pulls require network access.
 
-Both `compose.yaml` and the Testcontainers configuration currently use `postgres:latest`. Keep local and production database versions compatible, and prefer a reviewed pinned tag before relying on version-specific PostgreSQL behavior.
+Both `compose.yaml` and the Testcontainers configuration use the approved PostgreSQL 17 image and immutable digest declared by `postgresqlImage` in `gradle.properties`. Keep local, CI, staging, and production database versions aligned with that baseline.
 
 ## Build And Run Commands
 

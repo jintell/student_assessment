@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+properties="${repo_root}/gradle.properties"
+decision="${repo_root}/docs/decisions/P0.5-postgresql-version-approval.md"
+testcontainers_config="${repo_root}/src/test/java/org/meldtech/platform/TestcontainersConfiguration.java"
+workflow="${repo_root}/.github/workflows/ci.yml"
+
+fail() {
+    echo "POSTGRESQL BASELINE: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk docker rg; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+property_value() {
+    local key="$1"
+    awk -F= -v key="${key}" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "${properties}"
+}
+
+[[ -f "${decision}" ]] || fail "Approved Architecture Owner decision is missing."
+grep -Fqx 'Status: APPROVED' "${decision}" \
+    || fail "PostgreSQL architecture decision is not approved."
+grep -Fqx 'Decision owner: Architecture Owner' "${decision}" \
+    || fail "PostgreSQL decision owner is not the Architecture Owner."
+grep -Fq 'PostgreSQL 17 is the approved persistence baseline' "${decision}" \
+    || fail "Approved decision does not establish PostgreSQL 17."
+
+major_version="$(property_value postgresqlMajorVersion)"
+approved_image="$(property_value postgresqlImage)"
+[[ "${major_version}" == "17" ]] || fail "Approved PostgreSQL major version must be 17."
+[[ "${approved_image}" =~ ^postgres:17@sha256:[0-9a-f]{64}$ ]] \
+    || fail "Approved image must be PostgreSQL 17 with an immutable sha256 digest."
+
+grep -Fq "DockerImageName.parse(" "${testcontainers_config}" \
+    || fail "Testcontainers PostgreSQL image declaration is missing."
+grep -Fq "\"${approved_image}\"" "${testcontainers_config}" \
+    || fail "Testcontainers does not use the approved PostgreSQL image."
+
+compose_image="$(
+    awk '$1 == "image:" {gsub(/^['"'"']|['"'"']$/, "", $2); print $2; exit}' \
+        "${repo_root}/compose.yaml"
+)"
+[[ "${compose_image}" == "${approved_image}" ]] \
+    || fail "Local Compose does not use the approved PostgreSQL image."
+
+workflow_job="$(
+    awk '
+        $0 == "  postgresql-baseline:" {inside = 1}
+        inside && /^  [A-Za-z0-9_-]+:$/ && $0 != "  postgresql-baseline:" {exit}
+        inside {print}
+    ' "${workflow}"
+)"
+[[ -n "${workflow_job}" ]] || fail "CI PostgreSQL baseline job is missing."
+grep -Fq "image: ${approved_image}" <<<"${workflow_job}" \
+    || fail "CI database does not use the approved PostgreSQL image."
+grep -Fq 'verifyPostgresqlBaseline' <<<"${workflow_job}" \
+    || fail "CI does not execute the PostgreSQL baseline gate."
+
+mutable_tag_pattern='postgres:'"latest"
+latest_references="$(
+    rg -I -n --hidden \
+        --glob '!build/**' \
+        --glob '!.gradle/**' \
+        --glob '!.git/**' \
+        "${mutable_tag_pattern}" "${repo_root}" || true
+)"
+[[ -z "${latest_references}" ]] || fail "Mutable PostgreSQL latest-tag reference found: ${latest_references}"
+
+while IFS= read -r version_reference; do
+    [[ -z "${version_reference}" ]] && continue
+    referenced_major="${version_reference#*:}"
+    [[ "${referenced_major}" == "${major_version}" ]] \
+        || fail "Conflicting PostgreSQL image major found: ${version_reference}"
+done < <(
+    rg -I -o --no-filename --hidden \
+        --glob '!build/**' \
+        --glob '!.gradle/**' \
+        --glob '!.git/**' \
+        'postgres:[0-9]+' "${repo_root}" | sort -u
+)
+
+while IFS= read -r version_reference; do
+    [[ -z "${version_reference}" ]] && continue
+    referenced_major="${version_reference##* }"
+    [[ "${referenced_major}" == "${major_version}" ]] \
+        || fail "Conflicting documented PostgreSQL major found: ${version_reference}"
+done < <(
+    rg -I -o --no-filename --hidden \
+        --glob '!build/**' \
+        --glob '!.gradle/**' \
+        --glob '!.git/**' \
+        'PostgreSQL [0-9]+' "${repo_root}" | sort -u
+)
+
+container_name="student-assessment-postgresql-baseline-$$"
+cleanup() {
+    docker rm --force "${container_name}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+docker info >/dev/null 2>&1 || fail "Docker is required for the PostgreSQL behavior probe."
+docker run --detach --rm \
+    --name "${container_name}" \
+    --env POSTGRES_HOST_AUTH_METHOD=trust \
+    --env POSTGRES_USER=postgres \
+    "${approved_image}" >/dev/null \
+    || fail "Approved PostgreSQL image could not be started."
+
+ready=false
+for _ in {1..30}; do
+    if docker exec "${container_name}" pg_isready --username postgres >/dev/null 2>&1; then
+        ready=true
+        break
+    fi
+    sleep 1
+done
+[[ "${ready}" == "true" ]] || fail "Approved PostgreSQL image did not become ready."
+
+server_version_num="$(
+    docker exec "${container_name}" psql --username postgres --quiet --tuples-only --no-align \
+        --command 'SHOW server_version_num;'
+)"
+[[ "$((server_version_num / 10000))" == "${major_version}" ]] \
+    || fail "Running database major does not match PostgreSQL ${major_version}."
+
+if docker exec "${container_name}" psql --username postgres \
+    --command "SELECT current_setting('app.tenant_id', false);" >/dev/null 2>&1; then
+    fail "Missing tenant context did not raise as required."
+fi
+
+tenant_id="00000000-0000-0000-0000-000000000017"
+installed_tenant="$(
+    docker exec "${container_name}" psql --username postgres --quiet --tuples-only --no-align \
+        --command "BEGIN; SET LOCAL app.tenant_id = '${tenant_id}'; SELECT current_setting('app.tenant_id', false); COMMIT;" \
+        | awk 'NF {value = $0} END {print value}'
+)"
+[[ "${installed_tenant}" == "${tenant_id}" ]] \
+    || fail "Transaction-local tenant context was not installed."
+if docker exec "${container_name}" psql --username postgres \
+    --command "SELECT current_setting('app.tenant_id', false);" >/dev/null 2>&1; then
+    fail "Transaction-local tenant context survived commit."
+fi
+
+rls_count="$(
+    docker exec "${container_name}" psql --username postgres --quiet --tuples-only --no-align \
+        --set ON_ERROR_STOP=1 --command "
+            CREATE ROLE baseline_owner NOLOGIN;
+            CREATE TABLE baseline_rls_probe (tenant_id uuid NOT NULL);
+            INSERT INTO baseline_rls_probe VALUES
+                ('${tenant_id}'),
+                ('00000000-0000-0000-0000-000000000018');
+            ALTER TABLE baseline_rls_probe OWNER TO baseline_owner;
+            ALTER TABLE baseline_rls_probe ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE baseline_rls_probe FORCE ROW LEVEL SECURITY;
+            CREATE POLICY tenant_scope ON baseline_rls_probe
+                USING (tenant_id = current_setting('app.tenant_id', false)::uuid);
+            SET ROLE baseline_owner;
+            BEGIN;
+            SET LOCAL app.tenant_id = '${tenant_id}';
+            SELECT count(*) FROM baseline_rls_probe;
+            COMMIT;
+            RESET ROLE;
+        " | awk '/^[0-9]+$/ {value = $0} END {print value}'
+)"
+[[ "${rls_count}" == "1" ]] || fail "Forced RLS did not isolate the tenant-scoped row."
+
+echo "POSTGRESQL BASELINE: PASS"
+echo "Approved PostgreSQL ${major_version} image and runtime isolation behavior verified."
