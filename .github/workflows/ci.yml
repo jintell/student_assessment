@@ -216,7 +216,7 @@ jobs:
 
   arch-conformance:
     name: arch-conformance
-    needs: postgresql-baseline
+    needs: [stage-4a, postgresql-baseline]
     runs-on: ubuntu-latest
     outputs:
       failing_rule: ${{ steps.stage.outputs.failing_rule }}
