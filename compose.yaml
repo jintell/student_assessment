@@ -1,10 +1,25 @@
 services:
   postgres:
     image: 'postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675'
+    command:
+      - 'postgres'
+      - '-c'
+      - 'row_security=on'
+      - '-c'
+      - 'default_transaction_isolation=read committed'
+      - '-c'
+      - 'idle_in_transaction_session_timeout=30s'
+      - '-c'
+      - 'statement_timeout=30s'
     environment:
       - 'POSTGRES_DB=cbt_platform'
       - 'POSTGRES_HOST_AUTH_METHOD=trust'
       - 'POSTGRES_USER=cbt_platform'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready --username cbt_platform --dbname cbt_platform']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     ports:
       - '127.0.0.1::5432'
     tmpfs:

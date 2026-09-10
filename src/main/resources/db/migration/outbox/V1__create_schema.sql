@@ -1,0 +1,1 @@
+CREATE SCHEMA outbox AUTHORIZATION app_migrator;

@@ -1,0 +1,1 @@
+CREATE SCHEMA people AUTHORIZATION app_migrator;

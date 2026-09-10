@@ -13,7 +13,9 @@ Reactive backend foundation for a student assessment and computer-based testing 
 - A JUnit smoke test backed by a PostgreSQL Testcontainer.
 - Architecture-ratification artifacts and the `FEAT-PLAT-001` foundation task list.
 
-There are currently no business endpoints, domain modules, database migrations, or production-ready security settings.
+There are currently no business endpoints or business tables. Module boundaries,
+persistence-foundation migrations, and infrastructure security controls exist,
+but the platform is not yet a functional assessment API.
 
 ## Architecture Direction
 
@@ -63,7 +65,9 @@ Within a slice, the intended components are `Endpoint`, `Request`, `Response`, `
 | Observability | Actuator, Prometheus, and OTLP metrics |
 | Testing | JUnit Jupiter and Testcontainers |
 
-The PostgreSQL JDBC driver is present for Flyway. A PostgreSQL R2DBC driver has not yet been added, so reactive persistence is not currently wired.
+The PostgreSQL JDBC driver is restricted to the migration-only path. PostgreSQL
+R2DBC and bounded workload pools are configured for reactive serving profiles;
+business persistence adapters have not yet been implemented.
 
 ## Prerequisites
 
