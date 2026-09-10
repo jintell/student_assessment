@@ -134,27 +134,39 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          mkdir -p build/reports/stage-4a/live
+
+          LIVE_DIR="build/reports/stage-4a/live"
+          SELF_TEST_DIR="build/reports/stage-4a/self-test"
+
+          mkdir -p "${LIVE_DIR}" "${SELF_TEST_DIR}"
+
+          printf 'started_at=%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            > "${SELF_TEST_DIR}/run-metadata.txt"
 
           set +e
           ./gradlew --no-daemon --console=plain ciStage4a 2>&1 \
-            | tee build/reports/stage-4a/live/run.log
+            | tee "${LIVE_DIR}/run.log"
           STAGE_STATUS="${PIPESTATUS[0]}"
           set -e
 
-          shasum -a 256 build/reports/stage-4a/live/run.log \
-            > build/reports/stage-4a/live/checksums.sha256
+          cp "${LIVE_DIR}/run.log" "${SELF_TEST_DIR}/run.log"
+          printf '%s\n' "${STAGE_STATUS}" > "${SELF_TEST_DIR}/exit-code.txt"
+
+          shasum -a 256 "${LIVE_DIR}/run.log" \
+            > "${LIVE_DIR}/checksums.sha256"
 
           FAILURE_REASON="$(
             awk '
               /^Step [0-9]+:/ { print; exit }
               /architecture-ratification.json was not found/ { print; exit }
-            ' build/reports/stage-4a/live/run.log
+            ' "${LIVE_DIR}/run.log"
           )"
+
           FAILING_RULE="$(
             sed -nE 's/^Step ([0-9]+):.*/Stage 4a step \1/p' \
               <<<"${FAILURE_REASON}"
           )"
+
           if [[ "${STAGE_STATUS}" -eq 0 ]]; then
             FAILURE_REASON="Stage 4a passed."
             FAILING_RULE="none"
@@ -162,8 +174,10 @@ jobs:
             FAILURE_REASON="${FAILURE_REASON:-Stage 4a failed before a gate reason was emitted.}"
             FAILING_RULE="${FAILING_RULE:-Stage 4a ratification contract}"
           fi
+
           echo "failing_rule=${FAILING_RULE}" >> "${GITHUB_OUTPUT}"
           echo "failure_reason=${FAILURE_REASON}" >> "${GITHUB_OUTPUT}"
+
           exit "${STAGE_STATUS}"
         env:
           ARCHITECTURE_REPOSITORY: ${{ github.workspace }}/architecture-baseline
