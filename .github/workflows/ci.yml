@@ -388,7 +388,9 @@ jobs:
 
   docs-conformance:
     name: docs-conformance
-    needs: integration-tests
+    needs:
+      - slice-tests
+      - integration-tests
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
