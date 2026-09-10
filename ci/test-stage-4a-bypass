@@ -46,15 +46,63 @@ assert_rejected_argument() {
 assert_needs() {
     local job="$1"
     local dependency="$2"
+
     if ! awk -v job="${job}" -v dependency="${dependency}" '
-        $0 == "  " job ":" { in_job = 1; next }
-        in_job && $0 ~ /^  [a-zA-Z0-9_-]+:$/ { exit 1 }
-        in_job && $0 == "    needs: " dependency { found = 1; exit 0 }
-        END { if (!found) exit 1 }
+        $0 == "  " job ":" {
+            in_job = 1
+            in_needs = 0
+            next
+        }
+
+        # Stop when the next job begins.
+        in_job && $0 ~ /^  [a-zA-Z0-9_-]+:$/ {
+            exit(found ? 0 : 1)
+        }
+
+        # Scalar form: needs: stage-4a
+        in_job && $0 == "    needs: " dependency {
+            found = 1
+            exit 0
+        }
+
+        # Inline-list form: needs: [stage-4a, other-job]
+        in_job && $0 ~ /^    needs: \[/ {
+            line = $0
+            gsub(/[\[\],]/, " ", line)
+            if (line ~ "(^|[[:space:]])" dependency "([[:space:]]|$)") {
+                found = 1
+                exit 0
+            }
+        }
+
+        # Start block-list form.
+        in_job && $0 == "    needs:" {
+            in_needs = 1
+            next
+        }
+
+        # Block-list entry: - stage-4a
+        in_job && in_needs && $0 ~ /^      - / {
+            value = $0
+            sub(/^      - /, "", value)
+
+            if (value == dependency) {
+                found = 1
+                exit 0
+            }
+
+            next
+        }
+
+        END {
+            if (!found)
+                exit 1
+        }
     ' "${workflow}"; then
         record "FAIL workflow dependency ${job} -> ${dependency}"
         exit 1
     fi
+
     record "ENFORCED workflow dependency ${job} -> ${dependency}"
 }
 
