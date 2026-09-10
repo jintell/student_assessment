@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 properties="${repo_root}/gradle.properties"
 decision="${repo_root}/docs/decisions/P0.5-postgresql-version-approval.md"
-testcontainers_config="${repo_root}/src/test/java/org/meldtech/platform/TestcontainersConfiguration.java"
+testcontainers_source="${repo_root}/src/test/java/org/meldtech/platform/PostgreSqlTestContainer.java"
 workflow="${repo_root}/.github/workflows/ci.yml"
 
 fail() {
@@ -13,9 +13,18 @@ fail() {
     exit 1
 }
 
-for command in awk docker rg; do
+for command in awk docker git grep sort; do
     command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
 done
+
+repository_grep() {
+    while IFS= read -r -d '' file; do
+        case "${file}" in
+            build/* | .gradle/*) continue ;;
+        esac
+        grep "$@" "${repo_root}/${file}" || true
+    done < <(git -C "${repo_root}" ls-files --cached --others --exclude-standard -z)
+}
 
 property_value() {
     local key="$1"
@@ -36,9 +45,9 @@ approved_image="$(property_value postgresqlImage)"
 [[ "${approved_image}" =~ ^postgres:17@sha256:[0-9a-f]{64}$ ]] \
     || fail "Approved image must be PostgreSQL 17 with an immutable sha256 digest."
 
-grep -Fq "DockerImageName.parse(" "${testcontainers_config}" \
+grep -Fq "DockerImageName.parse(" "${testcontainers_source}" \
     || fail "Testcontainers PostgreSQL image declaration is missing."
-grep -Fq "\"${approved_image}\"" "${testcontainers_config}" \
+grep -Fq "\"${approved_image}\"" "${testcontainers_source}" \
     || fail "Testcontainers does not use the approved PostgreSQL image."
 
 compose_image="$(
@@ -63,11 +72,7 @@ grep -Fq 'verifyPostgresqlBaseline' <<<"${workflow_job}" \
 
 mutable_tag_pattern='postgres:'"latest"
 latest_references="$(
-    rg -I -n --hidden \
-        --glob '!build/**' \
-        --glob '!.gradle/**' \
-        --glob '!.git/**' \
-        "${mutable_tag_pattern}" "${repo_root}" || true
+    repository_grep -IHn -F "${mutable_tag_pattern}"
 )"
 [[ -z "${latest_references}" ]] || fail "Mutable PostgreSQL latest-tag reference found: ${latest_references}"
 
@@ -77,11 +82,7 @@ while IFS= read -r version_reference; do
     [[ "${referenced_major}" == "${major_version}" ]] \
         || fail "Conflicting PostgreSQL image major found: ${version_reference}"
 done < <(
-    rg -I -o --no-filename --hidden \
-        --glob '!build/**' \
-        --glob '!.gradle/**' \
-        --glob '!.git/**' \
-        'postgres:[0-9]+' "${repo_root}" | sort -u
+    repository_grep -Iho -E 'postgres:[0-9]+' | sort -u
 )
 
 while IFS= read -r version_reference; do
@@ -90,11 +91,7 @@ while IFS= read -r version_reference; do
     [[ "${referenced_major}" == "${major_version}" ]] \
         || fail "Conflicting documented PostgreSQL major found: ${version_reference}"
 done < <(
-    rg -I -o --no-filename --hidden \
-        --glob '!build/**' \
-        --glob '!.gradle/**' \
-        --glob '!.git/**' \
-        'PostgreSQL [0-9]+' "${repo_root}" | sort -u
+    repository_grep -Iho -E 'PostgreSQL [0-9]+' | sort -u
 )
 
 container_name="student-assessment-postgresql-baseline-$$"
