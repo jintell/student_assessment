@@ -371,9 +371,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
       - run: ci/stage-7
 
+  integration-tests:
+    name: integration-tests
+    needs: slice-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+      - run: ci/stage-8
+
   docs-conformance:
     name: docs-conformance
-    needs: slice-tests
+    needs: integration-tests
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 

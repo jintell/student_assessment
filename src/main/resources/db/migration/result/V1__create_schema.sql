@@ -1,0 +1,1 @@
+CREATE SCHEMA result AUTHORIZATION app_migrator;

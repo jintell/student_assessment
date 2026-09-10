@@ -2,7 +2,61 @@ spring:
   application:
     name: cbt-platform
   config:
-    import: optional:configtree:/run/secrets/
+    import: optional:configtree:${CBT_DATABASE_SECRETS_PATH:/run/secrets/database/}
+  flyway:
+    enabled: false
 logging:
   pattern:
     level: "%5p [correlationId:%X{correlationId:-none}]"
+---
+spring:
+  config:
+    activate:
+      on-profile: api
+cbt:
+  database:
+    pools:
+      api:
+        url: ${CBT_DATABASE_URL}
+        username: app_api
+        password: ${cbt.database.roles.app-api.password}
+        initial-size: 0
+        max-size: 6
+        max-idle-time: 30m
+      exam-path:
+        url: ${CBT_DATABASE_URL}
+        username: app_api
+        password: ${cbt.database.roles.app-api.password}
+        initial-size: 0
+        max-size: 8
+        max-idle-time: 30m
+---
+spring:
+  config:
+    activate:
+      on-profile: worker
+cbt:
+  database:
+    pools:
+      worker:
+        url: ${CBT_DATABASE_URL}
+        username: app_worker
+        password: ${cbt.database.roles.app-worker.password}
+        initial-size: 0
+        max-size: 10
+        max-idle-time: 30m
+---
+spring:
+  config:
+    activate:
+      on-profile: pindist
+cbt:
+  database:
+    pools:
+      pindist:
+        url: ${CBT_DATABASE_URL}
+        username: app_pindist
+        password: ${cbt.database.roles.app-pindist.password}
+        initial-size: 0
+        max-size: 5
+        max-idle-time: 30m

@@ -31,9 +31,13 @@ repositories {
 extra["springModulithVersion"] = "2.1.1"
 
 val conformanceTestSourceSet = sourceSets.create("conformanceTest")
+val integrationTestSourceSet = sourceSets.create("integrationTest")
 
 conformanceTestSourceSet.compileClasspath += sourceSets.main.get().output
 conformanceTestSourceSet.runtimeClasspath += conformanceTestSourceSet.output + conformanceTestSourceSet.compileClasspath
+integrationTestSourceSet.compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+integrationTestSourceSet.runtimeClasspath +=
+    integrationTestSourceSet.output + integrationTestSourceSet.compileClasspath
 
 configurations.named(conformanceTestSourceSet.implementationConfigurationName) {
     extendsFrom(configurations.testImplementation.get())
@@ -43,10 +47,19 @@ configurations.named(conformanceTestSourceSet.runtimeOnlyConfigurationName) {
     extendsFrom(configurations.testRuntimeOnly.get())
 }
 
+configurations.named(integrationTestSourceSet.implementationConfigurationName) {
+    extendsFrom(configurations.testImplementation.get())
+}
+
+configurations.named(integrationTestSourceSet.runtimeOnlyConfigurationName) {
+    extendsFrom(configurations.testRuntimeOnly.get())
+}
+
 dependencies {
     errorprone("com.google.errorprone:error_prone_core:2.42.0")
     errorprone("com.uber.nullaway:nullaway:0.12.10")
     implementation("io.micrometer:context-propagation")
+    implementation("io.r2dbc:r2dbc-pool")
     implementation("io.projectreactor:reactor-core-micrometer")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
@@ -185,6 +198,16 @@ val sliceTest =
         shouldRunAfter(tasks.test)
     }
 
+val integrationTest =
+    tasks.register<Test>("integrationTest") {
+        description = "Runs integration tests against real infrastructure."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = integrationTestSourceSet.output.classesDirs
+        classpath = integrationTestSourceSet.runtimeClasspath
+        dependsOn(tasks.testClasses)
+        shouldRunAfter(tasks.test, sliceTest)
+    }
+
 val verifySliceTests =
     tasks.register<Exec>("verifySliceTests") {
         description = "Fails when a production slice has no SliceTest."
@@ -250,10 +273,12 @@ tasks.register("ciStage3") {
         "compileJava",
         "compileTestJava",
         "compileConformanceTestJava",
+        "compileIntegrationTestJava",
         "spotlessCheck",
         "checkstyleMain",
         "checkstyleTest",
         "checkstyleConformanceTest",
+        "checkstyleIntegrationTest",
     )
     dependsOn(secretScan, workflowSecurityCheck)
 }
@@ -302,6 +327,12 @@ tasks.register("ciStage7") {
     description = "CI stage 7: runs slice tests and verifies every slice is covered."
     group = "ci"
     dependsOn(sliceTest, verifySliceTests)
+}
+
+tasks.register("ciStage8") {
+    description = "CI stage 8: runs PostgreSQL integration tests."
+    group = "ci"
+    dependsOn(integrationTest)
 }
 
 val documentationConformanceSelfTest =

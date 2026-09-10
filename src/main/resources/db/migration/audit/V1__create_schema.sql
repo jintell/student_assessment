@@ -1,0 +1,1 @@
+CREATE SCHEMA audit AUTHORIZATION app_migrator;

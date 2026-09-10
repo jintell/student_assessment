@@ -1,0 +1,1 @@
+CREATE SCHEMA iam AUTHORIZATION app_migrator;
