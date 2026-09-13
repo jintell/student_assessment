@@ -3,7 +3,16 @@ package org.meldtech.platform.platform.infra.persistence;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import io.r2dbc.spi.*;
+import io.r2dbc.spi.Batch;
+import io.r2dbc.spi.Connection;
+import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.ConnectionFactoryMetadata;
+import io.r2dbc.spi.ConnectionMetadata;
+import io.r2dbc.spi.IsolationLevel;
+import io.r2dbc.spi.Result;
+import io.r2dbc.spi.Statement;
+import io.r2dbc.spi.TransactionDefinition;
+import io.r2dbc.spi.ValidationDepth;
 
 import java.time.Duration;
 import java.util.Locale;
@@ -247,7 +256,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
         }
 
         @Override
-        public Publisher<Boolean> validate(io.r2dbc.spi.ValidationDepth depth) {
+        public Publisher<Boolean> validate(ValidationDepth depth) {
             return delegate.validate(depth);
         }
 
@@ -398,7 +407,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
             }
 
             @Override
-            public Publisher<? extends io.r2dbc.spi.Result> execute() {
+            public Publisher<? extends Result> execute() {
                 return delegate.execute();
             }
         }
