@@ -6,9 +6,11 @@ import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.PolicyResolver;
 import org.meldtech.platform.shared.api.RequestCarrier;
+import org.meldtech.platform.shared.api.RouteDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -45,8 +47,8 @@ final class Endpoint implements PolicyProtectedRoute {
     }
 
     @Override
-    public String routeId() {
-        return ROUTE_ID;
+    public RouteDescriptor descriptor() {
+        return RouteDescriptor.tenant(ROUTE_ID, HttpMethod.GET, PATH, "platform");
     }
 
     @Override

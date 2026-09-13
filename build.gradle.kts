@@ -208,6 +208,21 @@ val integrationTest =
         shouldRunAfter(tasks.test, sliceTest)
     }
 
+tasks.register<JavaExec>("generateGrantMatrixMigration") {
+    description = "Regenerates the repeatable Flyway grant migration from the canonical matrix."
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn(tasks.classes)
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set(
+        "org.meldtech.platform.platform.infra.persistence.GrantMatrixMigrationGenerator",
+    )
+    args(
+        layout.projectDirectory.file(
+            "src/main/resources/db/migration/platform/R__apply_grant_matrix.sql",
+        ),
+    )
+}
+
 val verifySliceTests =
     tasks.register<Exec>("verifySliceTests") {
         description = "Fails when a production slice has no SliceTest."

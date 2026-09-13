@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.RequestCarrier;
+import org.meldtech.platform.shared.api.RouteDescriptor;
 import org.meldtech.platform.shared.api.SlicePolicy;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.server.HandlerFunction;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
@@ -79,6 +81,11 @@ class RoutePolicyStartupValidatorTest {
     }
 
     private record TestRoute(String routeId) implements PolicyProtectedRoute {
+
+        @Override
+        public RouteDescriptor descriptor() {
+            return RouteDescriptor.tenant(routeId, HttpMethod.GET, "/route", "platform");
+        }
 
         @Override
         public Mono<HandlerFunction<ServerResponse>> route(ServerRequest request) {

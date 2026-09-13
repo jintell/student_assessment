@@ -1,6 +1,8 @@
 package org.meldtech.platform.migration;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -46,6 +48,7 @@ public final class MigrationApplication {
                 environment.getProperty("cbt.migration.history-schema", "platform_migrations");
 
         return arguments -> {
+            String grantRefresh = UUID.randomUUID().toString();
             for (MigrationSchema schema : MigrationSchema.values()) {
                 Flyway.configure()
                         .dataSource(jdbcUrl, username, password)
@@ -54,6 +57,7 @@ public final class MigrationApplication {
                         .createSchemas(true)
                         .baselineOnMigrate(true)
                         .baselineVersion("0")
+                        .placeholders(Map.of("grantRefresh", grantRefresh))
                         .table(schema.historyTable())
                         .locations(schema.location())
                         .load()

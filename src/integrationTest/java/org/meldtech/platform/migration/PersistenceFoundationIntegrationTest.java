@@ -103,6 +103,13 @@ class PersistenceFoundationIntegrationTest {
                 .isEqualTo(3);
     }
 
+    @Test
+    void databaseCompositeRolesExactlyMatchTheClosedFlowEnumeration() throws SQLException {
+        try (Connection connection = clusterOwnerConnection()) {
+            CompositeRoleGrantAudit.verify(connection);
+        }
+    }
+
     private void runMigrations() {
         MigrationApplication.run(
                 new String[] {
