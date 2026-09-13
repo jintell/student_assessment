@@ -2,7 +2,7 @@ package org.meldtech.platform.shared.api;
 
 /** Closed ADR-023 synchronous cross-module write flow and composite-role enumeration. */
 public enum AtomicCrossModuleFlow {
-    EXAM_ENTRY("examaccess.verifyPinAndStartAttempt", "cbt_exam_entry");
+    EXAM_ENTRY("examaccess.verifyPinAndStartAttempt", "app_txn_examentry");
 
     private final String flow;
     private final String compositeRole;

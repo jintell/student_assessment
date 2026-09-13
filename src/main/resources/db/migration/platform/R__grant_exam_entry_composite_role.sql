@@ -1,4 +1,4 @@
--- Grant refresh: ${flyway:timestamp}
+-- Grant refresh: ${grantRefresh}
 DO $$
 BEGIN
     IF to_regclass('examaccess.exam_access_pin') IS NOT NULL THEN
