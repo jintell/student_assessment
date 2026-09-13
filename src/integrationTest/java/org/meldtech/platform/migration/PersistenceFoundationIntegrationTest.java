@@ -80,6 +80,91 @@ class PersistenceFoundationIntegrationTest {
     }
 
     @Test
+    void missingTenantPredicateLeaksForeignRowsWhenRlsIsDisabled() throws SQLException {
+        try (Connection connection = clusterOwnerConnection();
+                Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute(
+                        """
+                        INSERT INTO platform.tenant_scope_probe (tenant_id, probe_id)
+                        VALUES
+                            ('00000000-0000-0000-0000-000000000041',
+                             '10000000-0000-0000-0000-000000000041'),
+                            ('00000000-0000-0000-0000-000000000042',
+                             '10000000-0000-0000-0000-000000000042')
+                        """);
+                statement.execute(
+                        "ALTER TABLE platform.tenant_scope_probe DISABLE ROW LEVEL SECURITY");
+                statement.execute("SET LOCAL ROLE app_migrator");
+
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                """
+                                SELECT count(*)
+                                FROM platform.tenant_scope_probe
+                                WHERE probe_id IN (
+                                    '10000000-0000-0000-0000-000000000041',
+                                    '10000000-0000-0000-0000-000000000042'
+                                )
+                                """)) {
+                    rows.next();
+                    assertThat(rows.getInt(1)).isEqualTo(2);
+                }
+            } finally {
+                connection.rollback();
+            }
+        }
+
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM pg_catalog.pg_class AS relation
+                                JOIN pg_catalog.pg_namespace AS namespace
+                                  ON namespace.oid = relation.relnamespace
+                                WHERE namespace.nspname = 'platform'
+                                  AND relation.relname = 'tenant_scope_probe'
+                                  AND relation.relrowsecurity
+                                  AND relation.relforcerowsecurity
+                                """))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void forcedRlsHidesForeignRowWhenTenantPredicateIsOmitted() throws SQLException {
+        executeAsClusterOwner(
+                """
+                INSERT INTO platform.tenant_scope_probe (tenant_id, probe_id)
+                VALUES
+                    ('00000000-0000-0000-0000-000000000051',
+                     '10000000-0000-0000-0000-000000000051'),
+                    ('00000000-0000-0000-0000-000000000052',
+                     '10000000-0000-0000-0000-000000000052')
+                ON CONFLICT DO NOTHING
+                """);
+
+        try (Connection connection = clusterOwnerConnection();
+                Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            statement.execute("SET LOCAL ROLE app_migrator");
+            statement.execute("SET LOCAL app.tenant_id = '00000000-0000-0000-0000-000000000051'");
+            try (ResultSet rows =
+                    statement.executeQuery(
+                            """
+                            SELECT count(*)
+                            FROM platform.tenant_scope_probe
+                            WHERE probe_id = '10000000-0000-0000-0000-000000000052'
+                            """)) {
+                rows.next();
+                assertThat(rows.getInt(1)).isZero();
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    @Test
     void repeatableCompositeGrantRefreshesAfterAnOwnedTableIsAdded() throws SQLException {
         executeAsClusterOwner(
                 """
