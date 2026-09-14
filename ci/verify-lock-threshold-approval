@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/P0.3-lock-duration-thresholds.json"
+threshold_config="${repo_root}/config/lock-duration-thresholds.yml"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "LOCK THRESHOLD APPROVAL: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+[[ -f "${approval}" ]] || fail "Approval record is missing: ${approval}"
+[[ -f "${threshold_config}" ]] || fail "Threshold configuration is missing: ${threshold_config}"
+[[ -f "${trusted_keys}" ]] || fail "Trusted approval key registry is missing."
+
+jq -e '
+    type == "object"
+    and .recordId == "DOR-P0.3-LOCK-001"
+    and .dependency == "P0.3"
+    and .trackingId == "TASK-PLAT5-DEFECT-001"
+    and .status == "APPROVED"
+    and .thresholds.examCriticalWarnMs == 100
+    and .thresholds.examCriticalFailMs == 250
+    and .thresholds.nonCriticalFailMs == 2000
+    and (.approvals | type == "array" and length == 2)
+    and ([.approvals[].role] | sort == ["Engineering Lead", "Platform Ops"])
+    and all(.approvals[];
+        .decision == "APPROVED"
+        and (.approvedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+        and (.signature | test("^[A-Za-z0-9._-]+\\.sig$")))
+    and (.changePolicy | length > 0)
+' "${approval}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+config_value() {
+    local section="$1"
+    local property="$2"
+    awk -v section="${section}" -v property="${property}" '
+        $0 == "  " section ":" {inside = 1; next}
+        inside && $0 ~ /^  [^ ]/ {exit}
+        inside && $1 == property ":" {print $2; exit}
+    ' "${threshold_config}"
+}
+
+[[ "$(config_value examCritical warnMs)" == "$(jq -r '.thresholds.examCriticalWarnMs' "${approval}")" ]] \
+    || fail "Exam-critical warning configuration differs from the approval."
+[[ "$(config_value examCritical failMs)" == "$(jq -r '.thresholds.examCriticalFailMs' "${approval}")" ]] \
+    || fail "Exam-critical failure configuration differs from the approval."
+[[ "$(config_value nonCritical failMs)" == "$(jq -r '.thresholds.nonCriticalFailMs' "${approval}")" ]] \
+    || fail "Non-critical failure configuration differs from the approval."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "Unable to import trusted approval key: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_keys}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local signature_name signature_path status fingerprint
+    signature_name="$(
+        jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}"
+    )"
+    signature_path="${repo_root}/ci/dor/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ -n "${fingerprint}" ]] || fail "${role} signature fingerprint is unavailable."
+    printf '%s\n' "${fingerprint}"
+}
+
+platform_ops_fingerprint="$(verify_signature "Platform Ops")"
+jq -e --arg fingerprint "${platform_ops_fingerprint}" '
+    any(to_entries[]; .value.fingerprint == $fingerprint)
+' "${trusted_keys}" >/dev/null || fail "Platform Ops signature does not use a trusted key."
+
+engineering_lead_fingerprint="$(verify_signature "Engineering Lead")"
+expected_engineering_lead_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_keys}")"
+[[ "${engineering_lead_fingerprint}" == "${expected_engineering_lead_fingerprint}" ]] \
+    || fail "Engineering Lead signature does not use the designated trusted key."
+[[ "${platform_ops_fingerprint}" != "${engineering_lead_fingerprint}" ]] \
+    || fail "Platform Ops and Engineering Lead approvals must have distinct signers."
+
+echo "LOCK THRESHOLD APPROVAL: PASS"
+echo "Approved thresholds and both detached signatures are verified."

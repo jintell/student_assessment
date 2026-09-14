@@ -1,0 +1,7 @@
+# Values are governed by ci/dor/P0.3-lock-duration-thresholds.json.
+lockDuration:
+  examCritical:
+    warnMs: 100
+    failMs: 250
+  nonCritical:
+    failMs: 2000

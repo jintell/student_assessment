@@ -1,0 +1,36 @@
+{
+  "recordId": "DOR-P0.3-LOCK-001",
+  "dependency": "P0.3",
+  "trackingId": "TASK-PLAT5-DEFECT-001",
+  "purpose": "Approval of lock-duration thresholds",
+  "status": "APPROVED",
+
+  "thresholds": {
+    "examCriticalWarnMs": 100,
+    "examCriticalFailMs": 250,
+    "nonCriticalFailMs": 2000
+  },
+
+  "semantics": {
+    "examCriticalWarnMs": "Emit warning when a lock touching an exam-critical relation reaches this duration.",
+    "examCriticalFailMs": "Fail validation when a lock touching an exam-critical relation reaches or exceeds this duration.",
+    "nonCriticalFailMs": "Fail validation when a lock touching a non-critical relation reaches or exceeds this duration."
+  },
+
+  "approvals": [
+    {
+      "role": "Platform Ops",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-14T10:00:00Z",
+      "signature": "P0.3-lock-duration-thresholds.platform-ops.sig"
+    },
+    {
+      "role": "Engineering Lead",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-14T10:15:00Z",
+      "signature": "P0.3-lock-duration-thresholds.engineering-lead.sig"
+    }
+  ],
+
+  "changePolicy": "Any modification to an approved threshold requires renewed Platform Ops and Engineering Lead approval."
+}

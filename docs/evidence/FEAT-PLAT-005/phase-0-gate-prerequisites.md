@@ -26,18 +26,31 @@ are present as follows:
 The migration pipeline may build on these capabilities without reimplementing
 the persistence foundation.
 
-## P0.3 - Blocked: Lock-Duration Threshold Approval
+## P0.3 - Lock-Duration Threshold Approval
 
-Status: BLOCKED
+Status: APPROVED
 
-The task list proposes a `100 ms` warning and `250 ms` failure threshold for
-locks touching exam-critical relations, plus a `2 s` failure threshold for
-other relations. These values are a `PLAN-RECOMMENDATION`; they are not
-approved by the ratified architecture baseline. No signed record approving all
-three values by both Platform Ops and the Engineering Lead exists in the
-repository.
+Tracking: `TASK-PLAT5-DEFECT-001`
 
-Resolution requires a signed approval record that names the three threshold
-values, both distinct approvers and their roles, and the approval time. Until
-that evidence exists, `P0.3` remains open and strict-sequential execution must
-not advance to `P0.4` or any Phase 3 implementation task.
+Approved thresholds:
+
+- Exam-critical warning: 100 ms
+- Exam-critical failure: 250 ms
+- Non-critical failure: 2 s
+
+Approvers:
+
+- Platform Ops - APPROVED
+- Engineering Lead - APPROVED
+
+Evidence:
+
+- `ci/dor/P0.3-lock-duration-thresholds.json`
+- `ci/dor/P0.3-lock-duration-thresholds.platform-ops.sig`
+- `ci/dor/P0.3-lock-duration-thresholds.engineering-lead.sig`
+
+Enforcement: `verifyLockThresholdApproval`
+
+Any threshold change requires renewed approval.
+
+P0.4 and Phase 3 may proceed only while this verification passes.
