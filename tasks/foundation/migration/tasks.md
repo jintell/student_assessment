@@ -43,10 +43,10 @@ impact — becomes an availability event caused by routine work.
 
 1. **No business tables exist in Phase 0.** The deliverable is the pipeline. The volumetric profile carries a
    zero row for every table not yet defined, and each owning feature adds its own row when it ships tables.
-   Conformance is proven now against `platform.tenant_scope_probe` (`task-plat-2.md` `P3.13`) plus a dedicated
+   Conformance is proven now against `platform.tenant_scope_probe` (`tasks.md` `P3.13`) plus a dedicated
    `platform.migration_fixture` table created and dropped by the suite.
 2. **Flyway, the `--migrate-only` entrypoint, the per-module locations and the `app_migrator` role already
-   exist** (`task-plat-2.md` `P3.4`, `P3.5`, `P3.12`). This feature adds classification, gates, measurement and
+   exist** (`tasks.md` `P3.4`, `P3.5`, `P3.12`). This feature adds classification, gates, measurement and
    rollback proof; it does not re-create the entrypoint.
 3. **Exam-critical tables are schema-qualified** as `delivery.answer`, `delivery.answer_operation`,
    `delivery.attempt` and `audit.audit_event` per §9.2, superseding §9.8's unqualified spelling, and the rule is
@@ -55,7 +55,7 @@ impact — becomes an availability event caused by routine work.
    Graceful shutdown sequencing (`ARC-OPS-007`) belongs to `FEAT-PLAT-006`.
 5. **`ARC-OPS-013` is enforced at CI stages 19 and 20.** This feature owns the precondition check and its
    fail-closed default; the deployment orchestration that consults it is `FEAT-OPS-007`.
-6. **PostgreSQL 17, pinned by digest** (`task-plat-2.md` `P3.1`). `CREATE INDEX CONCURRENTLY`, `lock_timeout`
+6. **PostgreSQL 17, pinned by digest** (`tasks.md` `P3.1`). `CREATE INDEX CONCURRENTLY`, `lock_timeout`
    and `pg_locks` semantics are all version-sensitive and are assumed at that version.
 7. **`CREATE INDEX CONCURRENTLY` cannot run inside a transaction**, so scripts using it must be marked
    non-transactional, and a failed build leaves an `INVALID` index requiring `DROP INDEX CONCURRENTLY` before
@@ -65,7 +65,7 @@ impact — becomes an availability event caused by routine work.
 
 | ID                      | Statement                                                                                                                                                                                                                                                             | Owning task      |
 |-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-| `PLAN-BLOCKER-001`      | `ci/architecture-ratification.json` is `status: PENDING`. Per plan §10 Phase 0 entry criteria this gates Phase 0 **implementation**. Discharged by `task-plat-1.md` `P0.1`–`P0.7`; not restated here                                                                   | `P0.1`           |
+| `PLAN-BLOCKER-001`      | `ci/architecture-ratification.json` is `status: RATIFIED`. Per plan §10 Phase 0 entry criteria this gates Phase 0 **implementation**. Discharged by `tasks.md` `P0.1`–`P0.7`; not restated here                                                                   | `P0.1`           |
 | `TASK-PLAT5-DEFECT-001` | CI stage 12 is **BLOCKING** on "a lock held beyond threshold", but no threshold value exists in requirements, architecture or plan. A blocking gate with an undefined bound cannot be implemented. 100 ms / 250 ms / 2 s proposed as a `PLAN-RECOMMENDATION`             | `P0.3`, `P10.8`  |
 | `TASK-PLAT5-DEFECT-002` | §19.9 registers a "Migration lock-duration report" produced by CI 12 and consumed by Change advisory, yet no `ARC-VERIFY-###` identifier owns migration verification. No new identifier is invented here; the gap is raised for the next baseline                       | `P1.6`, `P10.8`  |
 | `TASK-PLAT5-DEFECT-003` | §9.8 and `ADR-019` name `answer`, `attempt` and `audit_event` unqualified; §9.2 schema-qualifies them. Qualified names adopted and the rule generalised to the exam-critical path                                                                                       | `P1.2`, `P10.8`  |
@@ -77,11 +77,11 @@ impact — becomes an availability event caused by routine work.
 
 # Phase 0 – Gate Prerequisites
 
-`PLAN-BLOCKER-001` is discharged by `task-plat-1.md` `P0.1`–`P0.7` and is **not** restated. Under a
+`PLAN-BLOCKER-001` is discharged by `tasks.md` `P0.1`–`P0.7` and is **not** restated. Under a
 `temporaryArchitectureGate` (`implementationAllowed: false`) only Phase 1 and Phase 2 tasks are authorised.
 
-1. [ ] Confirm which authorisation scope is in force from `task-plat-1.md` `P0.5` or `P0.6` and record it. Deliverable: one-line phase-log entry. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
-2. [ ] Confirm `FEAT-PLAT-002` has delivered the `app_migrator` role, the fifteen schemas, the `--migrate-only` entrypoint and the per-module Flyway locations this feature builds on. Deliverable: dependency-satisfied record. Depends on `task-plat-2.md` `P3.4`, `P3.5`, `P3.12`.
+1. [*] Confirm which authorisation scope is in force from `tasks.md` `P0.5` or `P0.6` and record it. Deliverable: one-line phase-log entry. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
+2. [*] Confirm `FEAT-PLAT-002` has delivered the `app_migrator` role, the fifteen schemas, the `--migrate-only` entrypoint and the per-module Flyway locations this feature builds on. Deliverable: dependency-satisfied record. Depends on `tasks.md` `P3.4`, `P3.5`, `P3.12`.
 3. [ ] Obtain Platform Ops and Engineering Lead approval of the lock-duration thresholds (`TASK-PLAT5-DEFECT-001`) as the feature's additional Definition of Ready. Deliverable: signed threshold record naming the exam-critical fail value, the warn value and the non-critical value. Acceptance: no Phase 3 task runs against an unapproved threshold.
 4. [ ] Obtain approval of the forbidden-operation list as a **closed** list, with the agreement that adding a permitted DDL shape is a reviewed change to the allowlist rather than a configuration tweak. Deliverable: signed list.
 5. [ ] Confirm the production-shaped dataset generator is scheduled within this feature and that no production data extract will be used, with DPO acknowledgement. Deliverable: signed dataset-provenance statement.
@@ -123,7 +123,7 @@ generator scheduled.
 13. [ ] Design the `CONTRACT`-never-rolled-back enforcement (`ARC-OPS-008`): a rollback request against a release whose manifest declares `CONTRACT` is refused with the forward-fix instruction. Deliverable: enforcement design note.
 14. [ ] Design the §19.9 "Migration lock-duration report": per statement, the relation, lock mode, measured hold, threshold and verdict, plus the dataset seed and volumetric profile used. Deliverable: report schema. Acceptance: the report is reproducible — a reader can regenerate the dataset from the recorded seed.
 15. [ ] Design the migration telemetry and its alert per `TASK-PLAT5-OBS-001`: metric names, labels and the threshold-breach alert with its severity and first action. Deliverable: telemetry design note for `FEAT-OBS-001`/`FEAT-OPS-004` to register.
-16. [ ] Design the CI stage 12 entry point as a standalone, locally runnable task with the same behaviour in CI and on a developer machine. Deliverable: stage-12 contract, consistent with `task-plat-1.md` `P3.7`.
+16. [ ] Design the CI stage 12 entry point as a standalone, locally runnable task with the same behaviour in CI and on a developer machine. Deliverable: stage-12 contract, consistent with `tasks.md` `P3.7`.
 
 ---
 
@@ -134,14 +134,14 @@ generator scheduled.
 3. [ ] Create `platform.migration_fixture` as a migration-verification fixture table with the columns needed to exercise every forbidden operation and every permitted shape. Deliverable: fixture migration. Acceptance: documented in-migration as a conformance artifact, not a business table, and carrying no personal data.
 4. [ ] Implement the volumetric profile as a committed declarative file with a row per table, seeded from `P1.7`, containing zero rows for tables that do not yet exist. Deliverable: `migration/volumetrics.yaml` plus its schema. Acceptance: an owning feature adds a table by adding one row; a table with no row is reported, not silently skipped.
 5. [ ] Implement the deterministic dataset generator against the profile. Deliverable: generator. Acceptance: two runs with the same seed produce identical row counts and identical checksums.
-6. [ ] Provision the CI stage 12 database as a Testcontainers PostgreSQL 17 instance on the pinned digest, sized for the generated dataset. Deliverable: stage-12 harness. Depends on `task-plat-2.md` `P3.1`, `P3.3`.
+6. [ ] Provision the CI stage 12 database as a Testcontainers PostgreSQL 17 instance on the pinned digest, sized for the generated dataset. Deliverable: stage-12 harness. Depends on `tasks.md` `P3.1`, `P3.3`.
 7. [ ] Configure the migration session parameters: `lock_timeout` at the approved fail threshold, `statement_timeout` sized for the longest permitted `CONCURRENTLY` build, and `idle_in_transaction_session_timeout`. Deliverable: session configuration. Depends on `P0.3`.
 8. [ ] Configure Flyway for non-transactional scripts so a `CONCURRENTLY` statement is not wrapped in a transaction, and disable out-of-order migration. Deliverable: Flyway configuration. Acceptance: a `CONCURRENTLY` script marked transactional fails the gate rather than failing at runtime.
 9. [ ] Configure the migration Job's own connection allowance and publish it as the `ARC-PERF-006` `migration_job` term. Deliverable: Job resource and pool configuration plus the envelope input record from `P1.8`.
 10. [ ] Add the release manifest to the build outputs, populated with the declared classification, the previous release's image digest and the migration checksum. Deliverable: manifest generation step.
 11. [ ] Add retention of the previous release's image digest in the registry and the manifest so the N−1 test always has a subject. Deliverable: digest retention policy. Acceptance: the N−1 test fails loudly if the previous digest is unavailable — it never skips.
-12. [ ] Add the CI stage 12 entry point per `P2.16`, wired after stage 11 and before stage 13, blocking, and runnable standalone. Deliverable: `ci/` script plus Gradle task, consistent with `task-plat-1.md` `P3.7`, `P3.8`.
-13. [ ] Add `stage-12-migration` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `task-plat-1.md` `P3.9`.
+12. [ ] Add the CI stage 12 entry point per `P2.16`, wired after stage 11 and before stage 13, blocking, and runnable standalone. Deliverable: `ci/` script plus Gradle task, consistent with `tasks.md` `P3.7`, `P3.8`.
+13. [ ] Add `stage-12-migration` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `tasks.md` `P3.9`.
 
 ---
 
@@ -176,7 +176,7 @@ The phase is retained so numbering stays comparable across sibling task files.
 
 # Phase 6 – Security and Hardening
 
-1. [ ] Confirm the migration entrypoint is the only principal holding DDL privilege and that no application profile can assume `app_migrator`, extending `task-plat-2.md` `P6.8`. Deliverable: DDL-privilege review (`ARC-PLAT-007`).
+1. [ ] Confirm the migration entrypoint is the only principal holding DDL privilege and that no application profile can assume `app_migrator`, extending `tasks.md` `P6.8`. Deliverable: DDL-privilege review (`ARC-PLAT-007`).
 2. [ ] Confirm the migration Job's workload identity is distinct from `api`, `worker` and `pindist`, and holds no grant beyond what migration requires. Deliverable: workload-identity review.
 3. [ ] Confirm the `app_migrator` credential resolves only from the secret manager and is never present in a pipeline log, a manifest or the release artifact. Deliverable: credential-handling review plus a clean secret-scan result.
 4. [ ] Confirm the generated dataset contains no personal data and no production extract, and that the generator has no network path to a production database. Deliverable: dataset-provenance attestation, referenced by `P0.5`.
@@ -218,7 +218,7 @@ green stage 12 on a release with no migration proves nothing.
 
 # Phase 8 – Deployment and Release
 
-1. [ ] Confirm the migration Job runs to completion before any pod serves traffic and that a failed Job aborts the release with no pod replaced, per §17.6 step 2. Deliverable: ordering evidence extending `task-plat-2.md` `P8.1`.
+1. [ ] Confirm the migration Job runs to completion before any pod serves traffic and that a failed Job aborts the release with no pod replaced, per §17.6 step 2. Deliverable: ordering evidence extending `tasks.md` `P8.1`.
 2. [ ] Confirm a failed migration leaves the schema in a known state — either fully applied or fully unapplied for a transactional script, or reconcilable via `P4.10` for a non-transactional one — and never half-applied silently. Deliverable: failure-state evidence (`NFR-REL-004` limb).
 3. [ ] Publish the release manifest as a release artifact so the change advisory and the rollback path can read the declared classification. Deliverable: manifest in the release bundle.
 4. [ ] State the rollback path for this feature's own changes: gates and tooling are build-time, so a rollback is a code revert with no data operation. Deliverable: rollback statement.
@@ -245,7 +245,7 @@ green stage 12 on a release with no migration proves nothing.
 
 1. [ ] Publish the expand/contract phase model from `P1.1` as the normative migration discipline. Deliverable: `docs/migration-expand-contract.md`.
 2. [ ] Publish the forbidden-operation list and the permitted-shape allowlist from `P1.2` and `P2.2`, each with the reason it exists. Deliverable: `docs/migration-forbidden-operations.md`. Acceptance: each entry states the failure it prevents, so the list is teachable rather than arbitrary.
-3. [ ] Write the migration authoring guide for module owners: the header directives, own-schema only, `CONCURRENTLY` mandatory, what stage 12 will reject and how to run it locally. Deliverable: `docs/migration-authoring.md` — the guide every later feature follows, extending `task-plat-2.md`'s `docs/module-migrations.md`.
+3. [ ] Write the migration authoring guide for module owners: the header directives, own-schema only, `CONCURRENTLY` mandatory, what stage 12 will reject and how to run it locally. Deliverable: `docs/migration-authoring.md` — the guide every later feature follows, extending `tasks.md`'s `docs/module-migrations.md`.
 4. [ ] Write the backfill authoring guide: batching, throttling, resumption, idempotency, and the rule that a backfill runs in the `worker` role and never in the migration Job. Deliverable: `docs/migration-backfill.md`.
 5. [ ] Write the release-planning note explaining that schema work spans releases and must therefore be planned ahead of feature work, per `ADR-019`'s stated consequence and `T-11`. Deliverable: `docs/migration-release-planning.md`.
 6. [ ] Publish the volumetric profile from `P3.4` with the instruction that an owning feature adds its row when it ships tables. Deliverable: documented profile plus its contribution procedure.
@@ -279,7 +279,7 @@ green stage 12 on a release with no migration proves nothing.
 | §19.9 migration lock-duration report                                 | §19.9                        | `P2.14`, `P4.16`, `P7.19`                      | Retained artifact; `TASK-PLAT5-DEFECT-002`          |
 | Condition `A8` — `ARC-VERIFY-033` with the migration Job active      | §24.3                        | `P1.8`, `P3.9`, `P8.6`                         | Contribution only; owned by `FEAT-OPS-005`          |
 | Observability: a lock beyond threshold is an alert                   | §16.2, §16.4                 | `P2.15`, `P4.17`, `P9.1`–`P9.5`                | Metrics live; alert raised as `TASK-PLAT5-OBS-001`  |
-| `PLAN-BLOCKER-001`                                                   | plan §10, §18.3              | `P0.1`                                         | Discharged by `task-plat-1.md` `P0.1`–`P0.7`        |
+| `PLAN-BLOCKER-001`                                                   | plan §10, §18.3              | `P0.1`                                         | Discharged by `tasks.md` `P0.1`–`P0.7`        |
 
 ---
 
