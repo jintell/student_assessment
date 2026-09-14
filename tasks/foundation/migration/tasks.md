@@ -83,9 +83,9 @@ impact — becomes an availability event caused by routine work.
 1. [*] Confirm which authorisation scope is in force from `tasks.md` `P0.5` or `P0.6` and record it. Deliverable: one-line phase-log entry. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
 2. [*] Confirm `FEAT-PLAT-002` has delivered the `app_migrator` role, the fifteen schemas, the `--migrate-only` entrypoint and the per-module Flyway locations this feature builds on. Deliverable: dependency-satisfied record. Depends on `tasks.md` `P3.4`, `P3.5`, `P3.12`.
 3. [*] Obtain Platform Ops and Engineering Lead approval of the lock-duration thresholds (`TASK-PLAT5-DEFECT-001`) as the feature's additional Definition of Ready. Deliverable: signed threshold record naming the exam-critical fail value, the warn value and the non-critical value. Acceptance: no Phase 3 task runs against an unapproved threshold.
-4. [ ] Obtain approval of the forbidden-operation list as a **closed** list, with the agreement that adding a permitted DDL shape is a reviewed change to the allowlist rather than a configuration tweak. Deliverable: signed list.
-5. [ ] Confirm the production-shaped dataset generator is scheduled within this feature and that no production data extract will be used, with DPO acknowledgement. Deliverable: signed dataset-provenance statement.
-6. [ ] Confirm the universal Definition of Ready (plan §8.0) holds and record any item that does not, with its blocker. Deliverable: signed DoR record.
+4. [*] Obtain approval of the forbidden-operation list as a **closed** list, with the agreement that adding a permitted DDL shape is a reviewed change to the allowlist rather than a configuration tweak. Deliverable: signed list.
+5. [*] Confirm the production-shaped dataset generator is scheduled within this feature and that no production data extract will be used, with DPO acknowledgement. Deliverable: signed dataset-provenance statement.
+6. [*] Confirm the universal Definition of Ready (plan §8.0) holds and record any item that does not, with its blocker. Deliverable: signed DoR record.
 
 ---
 

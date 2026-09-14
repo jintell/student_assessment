@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/P0.4-closed-ddl-allowlist.json"
+decision="${repo_root}/docs/decisions/ADR-019-ddl-safety.md"
+ratification="${repo_root}/ci/architecture-ratification.json"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "CLOSED DDL ALLOWLIST APPROVAL: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg grep jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+[[ -f "${approval}" ]] || fail "Approval record is missing: ${approval}"
+[[ -f "${decision}" ]] || fail "DDL safety decision is missing: ${decision}"
+[[ -f "${ratification}" ]] || fail "Architecture ratification record is missing."
+[[ -f "${trusted_keys}" ]] || fail "Trusted approval key registry is missing."
+
+jq -e '
+    type == "object"
+    and .recordId == "DOR-P0.4-DDL-001"
+    and .dependency == "P0.4"
+    and .architectureDecision == "ADR-019"
+    and .status == "APPROVED"
+    and .baseline.document == "docs/decisions/ADR-019-ddl-safety.md"
+    and (.baseline.gitCommit | test("^[0-9a-f]{40}$"))
+    and ([.forbiddenOperations[] | gsub("`"; "") | gsub("\\n"; " ")] == [
+        "renaming or dropping a column still read by the previous version",
+        "NOT NULL without a default",
+        "blocking ALTER TABLE on answer/attempt/audit_event",
+        "CREATE INDEX without CONCURRENTLY"
+    ])
+    and .policy.allowlistIsClosed == true
+    and .policy.unrecognizedShape == "FAIL"
+    and .policy.addingPermittedShapeRequiresReview == true
+    and .policy.configurationOnlyExpansionPermitted == false
+    and (.approvals | type == "array" and length == 2)
+    and ([.approvals[].role] | sort == ["Engineering Lead", "Platform Ops"])
+    and all(.approvals[];
+        .decision == "APPROVED"
+        and (.approvedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+        and (.signature | test("^[A-Za-z0-9._-]+\\.sig$")))
+    and (.changePolicy | test("reviewed change approval"))
+    and (.changePolicy | test("configuration-only"))
+' "${approval}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+approved_commit="$(jq -r '.baseline.gitCommit' "${approval}")"
+ratified_commit="$(jq -r '.baseline.gitCommit // empty' "${ratification}")"
+[[ "${approved_commit}" == "${ratified_commit}" ]] \
+    || fail "Approval does not reference the ratified architecture commit."
+
+grep -Fqx 'Status: APPROVED' "${decision}" \
+    || fail "DDL safety decision is not approved."
+grep -Fq 'Permitted DDL shapes form a closed allowlist.' "${decision}" \
+    || fail "DDL safety decision does not establish a closed allowlist."
+grep -Fq 'Unrecognized DDL shapes fail validation.' "${decision}" \
+    || fail "DDL safety decision does not fail closed."
+grep -Fq 'requires reviewed approval' "${decision}" \
+    || fail "DDL safety decision does not require review for allowlist changes."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "Unable to import trusted approval key: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_keys}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local signature_name signature_path status fingerprint
+    signature_name="$(
+        jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}"
+    )"
+    signature_path="${repo_root}/ci/dor/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ -n "${fingerprint}" ]] || fail "${role} signature fingerprint is unavailable."
+    printf '%s\n' "${fingerprint}"
+}
+
+platform_ops_fingerprint="$(verify_signature "Platform Ops")"
+jq -e --arg fingerprint "${platform_ops_fingerprint}" '
+    any(to_entries[]; .value.fingerprint == $fingerprint)
+' "${trusted_keys}" >/dev/null || fail "Platform Ops signature does not use a trusted key."
+
+engineering_lead_fingerprint="$(verify_signature "Engineering Lead")"
+expected_engineering_lead_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_keys}")"
+[[ "${engineering_lead_fingerprint}" == "${expected_engineering_lead_fingerprint}" ]] \
+    || fail "Engineering Lead signature does not use the designated trusted key."
+[[ "${platform_ops_fingerprint}" != "${engineering_lead_fingerprint}" ]] \
+    || fail "Platform Ops and Engineering Lead approvals must have distinct signers."
+
+echo "CLOSED DDL ALLOWLIST APPROVAL: PASS"
+echo "The closed-list policy and both detached signatures are verified."

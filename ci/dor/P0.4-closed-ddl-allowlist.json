@@ -1,0 +1,43 @@
+{
+  "recordId": "DOR-P0.4-DDL-001",
+  "dependency": "P0.4",
+  "architectureDecision": "ADR-019",
+  "purpose": "Approval of closed forbidden-operation and permitted-DDL semantics",
+  "status": "APPROVED",
+
+  "baseline": {
+    "document": "docs/decisions/ADR-019-ddl-safety.md",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc"
+  },
+
+  "forbiddenOperations": [
+    "renaming or dropping a column still read by the previous version",
+    "`NOT NULL` without a default",
+    "blocking\n`ALTER TABLE` on `answer`/`attempt`/`audit_event`",
+    "CREATE INDEX` without `CONCURRENTLY`"
+  ],
+
+  "policy": {
+    "allowlistIsClosed": true,
+    "unrecognizedShape": "FAIL",
+    "addingPermittedShapeRequiresReview": true,
+    "configurationOnlyExpansionPermitted": false
+  },
+
+  "approvals": [
+    {
+      "role": "Platform Ops",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-14T12:00:00Z",
+      "signature": "P0.4-closed-ddl-allowlist.platform-ops.sig"
+    },
+    {
+      "role": "Engineering Lead",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-14T12:15:00Z",
+      "signature": "P0.4-closed-ddl-allowlist.engineering-lead.sig"
+    }
+  ],
+
+  "changePolicy": "Adding a permitted DDL shape requires reviewed change approval and may not be performed as a configuration-only modification."
+}

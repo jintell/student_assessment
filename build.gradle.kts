@@ -266,6 +266,18 @@ tasks.register<Exec>("verifyLockThresholdApproval") {
     commandLine("ci/verify-lock-threshold-approval")
 }
 
+tasks.register<Exec>("verifyClosedDdlAllowlistApproval") {
+    description = "Verifies the signed closed DDL allowlist approval."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-closed-ddl-allowlist-approval")
+}
+
+tasks.register<Exec>("verifyDatasetProvenanceApproval") {
+    description = "Verifies the signed synthetic dataset-provenance approval."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-dataset-provenance-approval")
+}
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"

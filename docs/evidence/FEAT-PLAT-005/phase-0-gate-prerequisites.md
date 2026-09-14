@@ -54,3 +54,78 @@ Enforcement: `verifyLockThresholdApproval`
 Any threshold change requires renewed approval.
 
 P0.4 and Phase 3 may proceed only while this verification passes.
+
+## P0.4 - Closed Forbidden-Operation List Approval
+
+Status: APPROVED
+
+Architecture authority: ADR-019
+
+Approved semantics:
+
+- ADR-019 forbidden-operation categories remain authoritative.
+- Permitted DDL shapes form a closed allowlist.
+- Every unrecognized DDL shape SHALL fail.
+- Adding a permitted DDL shape requires reviewed change.
+- Configuration-only changes SHALL NOT expand the allowlist.
+
+Approvers:
+
+- Platform Ops - APPROVED
+- Engineering Lead - APPROVED
+
+Evidence:
+
+- `ci/dor/P0.4-closed-ddl-allowlist.json`
+- `ci/dor/P0.4-closed-ddl-allowlist.platform-ops.sig`
+- `ci/dor/P0.4-closed-ddl-allowlist.engineering-lead.sig`
+
+CI gate: `verifyClosedDdlAllowlistApproval`
+
+P0.4 is resolved only while this verification passes.
+
+## P0.5 - Dataset-Provenance Approval
+
+Status: APPROVED
+
+Dataset provenance: deterministic synthetic data only.
+
+Scheduled generator tasks:
+
+- `P1.7`
+- `P2.8`
+- `P3.4`
+- `P3.5`
+- `P7.10`
+
+Prohibited sources:
+
+- production personal data
+- production extracts
+- production dumps
+- production backups
+- production snapshots
+- production-derived seed datasets
+
+DPO: ACKNOWLEDGED
+
+Evidence:
+
+- `ci/dor/P0.5-dataset-provenance.json`
+- `ci/dor/P0.5-dataset-provenance.dpo.sig`
+- `ci/dor/P0.5-dataset-provenance.engineering.sig`
+
+CI gate: `verifyDatasetProvenanceApproval`
+
+Any change permitting production-derived personal data requires renewed
+privacy and architecture review.
+
+P0.6 may proceed only while this verification passes.
+
+## P0.6 - Universal Definition of Ready
+
+Status: READY
+
+All universal and feature-specific readiness criteria are met. The assessment
+and its signed evidence chain are recorded in
+`docs/evidence/FEAT-PLAT-005/P0.6-definition-of-ready.md`.
