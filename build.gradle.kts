@@ -260,6 +260,12 @@ tasks.register<Exec>("verifyPostgresqlBaseline") {
     commandLine("ci/verify-postgresql-baseline")
 }
 
+tasks.register<Exec>("verifyLockThresholdApproval") {
+    description = "Verifies the signed migration lock-duration threshold approvals."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-lock-threshold-approval")
+}
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"
