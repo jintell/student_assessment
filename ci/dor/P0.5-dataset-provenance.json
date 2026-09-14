@@ -1,0 +1,50 @@
+{
+  "recordId": "DOR-P0.5-DATASET-001",
+  "dependency": "P0.5",
+  "purpose": "Dataset provenance approval for production-shaped test data",
+  "status": "APPROVED",
+
+  "generator": {
+    "type": "DETERMINISTIC_SYNTHETIC",
+    "scheduledTasks": [
+      "P1.7",
+      "P2.8",
+      "P3.4",
+      "P3.5",
+      "P7.10"
+    ]
+  },
+
+  "provenancePolicy": {
+    "syntheticDataOnly": true,
+    "productionExtractAllowed": false,
+    "productionDumpAllowed": false,
+    "productionSnapshotAllowed": false,
+    "productionPersonalDataAllowed": false,
+    "productionDerivedSeedDataAllowed": false
+  },
+
+  "environments": [
+    "CI",
+    "staging",
+    "performance-test",
+    "resilience-test"
+  ],
+
+  "determinism": {
+    "required": true,
+    "seedControlled": true,
+    "reproducible": true
+  },
+
+  "acknowledgements": [
+    {
+      "role": "Data Protection Officer",
+      "decision": "ACKNOWLEDGED",
+      "approvedAt": "2026-09-14T12:00:00Z",
+      "signature": "P0.5-dataset-provenance.dpo.sig"
+    }
+  ],
+
+  "changePolicy": "Any proposal to use production-derived personal data requires a new privacy and architecture review and cannot be enabled through configuration."
+}

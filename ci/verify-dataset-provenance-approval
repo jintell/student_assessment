@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/P0.5-dataset-provenance.json"
+dpo_signature="${repo_root}/ci/dor/P0.5-dataset-provenance.dpo.sig"
+engineering_signature="${repo_root}/ci/dor/P0.5-dataset-provenance.engineering.sig"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "DATASET PROVENANCE APPROVAL: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+[[ -f "${approval}" ]] || fail "Approval record is missing: ${approval}"
+[[ -f "${dpo_signature}" ]] || fail "DPO signature is missing."
+[[ -f "${engineering_signature}" ]] || fail "Engineering countersignature is missing."
+[[ -f "${trusted_keys}" ]] || fail "Trusted approval key registry is missing."
+
+jq -e '
+    type == "object"
+    and .recordId == "DOR-P0.5-DATASET-001"
+    and .dependency == "P0.5"
+    and .status == "APPROVED"
+    and .generator.type == "DETERMINISTIC_SYNTHETIC"
+    and .generator.scheduledTasks == ["P1.7", "P2.8", "P3.4", "P3.5", "P7.10"]
+    and .provenancePolicy.syntheticDataOnly == true
+    and .provenancePolicy.productionExtractAllowed == false
+    and .provenancePolicy.productionDumpAllowed == false
+    and .provenancePolicy.productionSnapshotAllowed == false
+    and .provenancePolicy.productionPersonalDataAllowed == false
+    and .provenancePolicy.productionDerivedSeedDataAllowed == false
+    and (.environments | sort == ["CI", "performance-test", "resilience-test", "staging"])
+    and .determinism.required == true
+    and .determinism.seedControlled == true
+    and .determinism.reproducible == true
+    and (.acknowledgements | type == "array" and length == 1)
+    and .acknowledgements[0].role == "Data Protection Officer"
+    and .acknowledgements[0].decision == "ACKNOWLEDGED"
+    and (.acknowledgements[0].approvedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+    and .acknowledgements[0].signature == "P0.5-dataset-provenance.dpo.sig"
+    and (.changePolicy | test("new privacy and architecture review"))
+    and (.changePolicy | test("cannot be enabled through configuration"))
+' "${approval}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "Unable to import trusted approval key: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_keys}" | awk '!seen[$0]++')
+
+signature_fingerprint() {
+    local signature="$1"
+    local role="$2"
+    local status fingerprint
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ -n "${fingerprint}" ]] || fail "${role} signature fingerprint is unavailable."
+    printf '%s\n' "${fingerprint}"
+}
+
+dpo_fingerprint="$(signature_fingerprint "${dpo_signature}" "DPO")"
+jq -e --arg fingerprint "${dpo_fingerprint}" '
+    any(to_entries[]; .value.fingerprint == $fingerprint)
+' "${trusted_keys}" >/dev/null || fail "DPO acknowledgement does not use a trusted key."
+
+engineering_fingerprint="$(signature_fingerprint "${engineering_signature}" "Engineering")"
+expected_engineering_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_keys}")"
+[[ "${engineering_fingerprint}" == "${expected_engineering_fingerprint}" ]] \
+    || fail "Engineering countersignature does not use the designated trusted key."
+[[ "${dpo_fingerprint}" != "${engineering_fingerprint}" ]] \
+    || fail "DPO and Engineering signatures must have distinct signers."
+
+echo "DATASET PROVENANCE APPROVAL: PASS"
+echo "Synthetic-only provenance, scheduling, and signatures are verified."
