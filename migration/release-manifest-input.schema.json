@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meldtech.org/schemas/release-manifest-input.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["release", "classification", "migrations"],
+  "properties": {
+    "release": { "type": "string", "minLength": 1 },
+    "classification": { "enum": ["EXPAND", "MIGRATE", "CONTRACT"] },
+    "migrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["module", "path", "phase", "transactional"],
+        "properties": {
+          "module": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "path": { "type": "string", "minLength": 1 },
+          "phase": { "enum": ["EXPAND", "MIGRATE", "CONTRACT"] },
+          "transactional": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

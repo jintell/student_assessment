@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -46,24 +47,46 @@ public final class MigrationApplication {
         }
         String historySchema =
                 environment.getProperty("cbt.migration.history-schema", "platform_migrations");
+        MigrationSessionSettings sessionSettings = MigrationSessionSettings.from(environment);
 
         return arguments -> {
             String grantRefresh = UUID.randomUUID().toString();
             for (MigrationSchema schema : MigrationSchema.values()) {
-                Flyway.configure()
-                        .dataSource(jdbcUrl, username, password)
-                        .defaultSchema(historySchema)
-                        .schemas(historySchema)
-                        .createSchemas(true)
-                        .baselineOnMigrate(true)
-                        .baselineVersion("0")
-                        .placeholders(Map.of("grantRefresh", grantRefresh))
-                        .table(schema.historyTable())
-                        .locations(schema.location())
+                flywayConfiguration(
+                                jdbcUrl,
+                                username,
+                                password,
+                                historySchema,
+                                grantRefresh,
+                                schema,
+                                sessionSettings)
                         .load()
                         .migrate();
             }
         };
+    }
+
+    static FluentConfiguration flywayConfiguration(
+            String jdbcUrl,
+            String username,
+            String password,
+            String historySchema,
+            String grantRefresh,
+            MigrationSchema schema,
+            MigrationSessionSettings sessionSettings) {
+        return Flyway.configure()
+                .dataSource(jdbcUrl, username, password)
+                .defaultSchema(historySchema)
+                .schemas(historySchema)
+                .createSchemas(true)
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .mixed(true)
+                .outOfOrder(false)
+                .initSql(sessionSettings.flywayInitializationSql())
+                .placeholders(Map.of("grantRefresh", grantRefresh))
+                .table(schema.historyTable())
+                .locations(schema.location());
     }
 
     private static String required(Environment environment, String propertyName) {

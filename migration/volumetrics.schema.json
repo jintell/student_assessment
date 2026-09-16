@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meldtech.org/schemas/migration-volumetrics.schema.json",
+  "title": "Migration volumetric profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profileVersion",
+    "defaultSeed",
+    "scale",
+    "workload",
+    "tables"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profileVersion": { "type": "string", "minLength": 1 },
+    "defaultSeed": { "type": "integer" },
+    "scale": { "type": "integer", "minimum": 1 },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidatesPerSession",
+        "candidatesPlatformWide",
+        "questionsPerAttempt",
+        "answerSavesPerAttempt",
+        "requestsPerCandidate",
+        "submissionCloseBurst"
+      ],
+      "properties": {
+        "candidatesPerSession": { "type": "integer", "minimum": 0 },
+        "candidatesPlatformWide": { "type": "integer", "minimum": 0 },
+        "questionsPerAttempt": { "type": "integer", "minimum": 0 },
+        "answerSavesPerAttempt": { "type": "integer", "minimum": 0 },
+        "requestsPerCandidate": { "type": "integer", "minimum": 0 },
+        "submissionCloseBurst": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/table" }
+    }
+  },
+  "$defs": {
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "expectedToExist",
+        "rowCount",
+        "primaryKey",
+        "parents",
+        "generationOrder",
+        "columns",
+        "distribution"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+        },
+        "expectedToExist": { "type": "boolean" },
+        "rowCount": { "type": "string", "pattern": "^(0|[1-9][0-9]* \\* scale)$" },
+        "primaryKey": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["columns", "strategy"],
+          "properties": {
+            "columns": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+            },
+            "strategy": {
+              "enum": ["sequence", "deterministic-uuid"]
+            }
+          }
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          }
+        },
+        "generationOrder": { "type": "integer", "minimum": 0 },
+        "columns": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "distribution": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

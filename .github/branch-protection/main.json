@@ -12,6 +12,7 @@
       "arch-conformance",
       "unit-tests",
       "slice-tests",
+      "stage-12-migration",
       "docs-conformance"
     ]
   },

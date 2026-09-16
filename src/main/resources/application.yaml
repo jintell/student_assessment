@@ -5,6 +5,15 @@ spring:
     import: optional:configtree:${CBT_DATABASE_SECRETS_PATH:/run/secrets/database/}
   flyway:
     enabled: false
+cbt:
+  migration:
+    connection-allowance: ${CBT_MIGRATION_CONNECTION_ALLOWANCE:10}
+    session:
+      exam-critical-lock-timeout: 250ms
+      non-critical-lock-timeout: 2s
+      concurrent-index-lock-timeout: 2s
+      statement-timeout: 15m
+      idle-in-transaction-timeout: 30s
 logging:
   pattern:
     level: "%5p [correlationId:%X{correlationId:-none}]"

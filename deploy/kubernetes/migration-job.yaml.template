@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cbt-platform-migration
+  labels:
+    app.kubernetes.io/name: cbt-platform
+    app.kubernetes.io/component: migration
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1200
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cbt-platform
+        app.kubernetes.io/component: migration
+    spec:
+      serviceAccountName: cbt-platform-migration
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      containers:
+        - name: migration
+          image: ${CBT_PLATFORM_IMAGE_DIGEST}
+          imagePullPolicy: IfNotPresent
+          args: ["--migrate-only"]
+          env:
+            - name: CBT_MIGRATION_JDBC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cbt-platform-database
+                  key: jdbc-url
+            - name: CBT_MIGRATION_USERNAME
+              value: app_migrator
+            - name: CBT_MIGRATION_CONNECTION_ALLOWANCE
+              value: "10"
+            - name: CBT_DATABASE_SECRETS_PATH
+              value: /run/secrets/database
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: database-secrets
+              mountPath: /run/secrets/database
+              readOnly: true
+      volumes:
+        - name: database-secrets
+          secret:
+            secretName: cbt-platform-database
+            items:
+              - key: app-migrator-password
+                path: cbt.database.roles.app-migrator.password

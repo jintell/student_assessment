@@ -1,0 +1,81 @@
+schemaVersion: 1
+profileVersion: "2026.09.1"
+defaultSeed: 2026091601
+scale: 1
+workload:
+  candidatesPerSession: 5000
+  candidatesPlatformWide: 50000
+  questionsPerAttempt: 60
+  answerSavesPerAttempt: 80
+  requestsPerCandidate: 274
+  submissionCloseBurst: 5000
+tables:
+  - name: platform.tenant_scope_probe
+    expectedToExist: true
+    rowCount: "100 * scale"
+    primaryKey:
+      columns: [tenant_id, probe_id]
+      strategy: deterministic-uuid
+    parents: []
+    generationOrder: 10
+    columns:
+      tenant_id: "uuid:tenant:10"
+      probe_id: "uuid:row"
+    distribution: "tenants=10;rows-per-tenant=10"
+  - name: platform.migration_fixture
+    expectedToExist: true
+    rowCount: "10000 * scale"
+    primaryKey:
+      columns: [fixture_id]
+      strategy: sequence
+    parents: []
+    generationOrder: 20
+    columns:
+      fixture_id: "sequence:1"
+      nullable_value: "token:null-frequency=0.10"
+      constant_default_value: "constant:baseline"
+      constraint_candidate: "integer:0..999"
+      index_candidate: "token:cardinality=2500"
+      obsolete_value: "token:cardinality=100"
+      referenced_fixture_id: "reference:platform.migration_fixture.fixture_id:null-frequency=0.25"
+    distribution: "uniform"
+  - name: delivery.attempt
+    expectedToExist: false
+    rowCount: "0"
+    primaryKey:
+      columns: [attempt_id]
+      strategy: deterministic-uuid
+    parents: []
+    generationOrder: 100
+    columns: {}
+    distribution: "future-table:candidates-per-session=5000"
+  - name: delivery.answer
+    expectedToExist: false
+    rowCount: "0"
+    primaryKey:
+      columns: [answer_id]
+      strategy: deterministic-uuid
+    parents: [delivery.attempt]
+    generationOrder: 110
+    columns: {}
+    distribution: "future-table:saves-per-attempt=80"
+  - name: delivery.answer_operation
+    expectedToExist: false
+    rowCount: "0"
+    primaryKey:
+      columns: [operation_id]
+      strategy: deterministic-uuid
+    parents: [delivery.answer]
+    generationOrder: 120
+    columns: {}
+    distribution: "future-table:requests-per-candidate=274"
+  - name: audit.audit_event
+    expectedToExist: false
+    rowCount: "0"
+    primaryKey:
+      columns: [audit_event_id]
+      strategy: deterministic-uuid
+    parents: []
+    generationOrder: 130
+    columns: {}
+    distribution: "future-table:submission-close-burst=5000"

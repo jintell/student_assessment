@@ -1,0 +1,12 @@
+schemaVersion: 1
+registryRepository: ghcr.io/meldtech/cbt-platform
+immutableDigests: true
+minimumRetainedReleases: 2
+protectDigestsReferencedBy:
+  - release-manifest
+deletion:
+  unreferencedDigestMinimumAgeDays: 90
+  requireStage12ReferenceAudit: true
+verification:
+  missingPreviousDigest: BLOCK
+  mutablePreviousReference: BLOCK
