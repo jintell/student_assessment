@@ -13,3 +13,13 @@ paths = [
   '''^ci/trusted-[^/]+\.asc$''',
   '''^ci/architecture-ratification\.[^/]+\.sig$'''
 ]
+
+[[allowlists]]
+description = "Synthetic dataset null-frequency directive"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexes = ['''^null-frequency=0\.10$''']
+paths = [
+  '''(^|/)migration/volumetrics\.yaml$''',
+  '''(^|/)migration-verify/src/main/java/org/meldtech/migrationverify/measure/DeterministicDatasetGenerator\.java$'''
+]
