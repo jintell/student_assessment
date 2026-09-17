@@ -410,8 +410,8 @@ jobs:
     name: docs-conformance
     needs:
       - stage-12-migration
-#      - slice-tests
-#      - integration-tests
+      - slice-tests
+      - integration-tests
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
