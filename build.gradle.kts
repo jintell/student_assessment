@@ -117,7 +117,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 spotless {
     java {
-        target("src/*/java/**/*.java")
+        target("src/*/java/**/*.java", "migration-verify/src/*/java/**/*.java")
         googleJavaFormat("1.33.0").aosp()
         formatAnnotations()
         importOrder()
@@ -126,7 +126,7 @@ spotless {
         endWithNewline()
     }
     kotlinGradle {
-        target("*.gradle.kts")
+        target("*.gradle.kts", "migration-verify/*.gradle.kts")
         ktlint("1.7.1")
         trimTrailingWhitespace()
         endWithNewline()
@@ -278,6 +278,34 @@ tasks.register<Exec>("verifyDatasetProvenanceApproval") {
     commandLine("ci/verify-dataset-provenance-approval")
 }
 
+tasks.register("generateReleaseManifest") {
+    description = "Generates the checksummed migration release manifest."
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn(":migration-verify:generateReleaseManifest")
+}
+
+val verifyPreviousReleaseImage =
+    tasks.register<Exec>("verifyPreviousReleaseImage") {
+        description = "Verifies that the manifest's retained N-1 image is resolvable."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn("generateReleaseManifest")
+        commandLine("ci/verify-previous-image")
+    }
+
+tasks.register("ciStage12") {
+    description = "CI stage 12: verifies migration infrastructure and immutable inputs."
+    group = "ci"
+    dependsOn(
+        "verifyLockThresholdApproval",
+        "verifyClosedDdlAllowlistApproval",
+        "verifyDatasetProvenanceApproval",
+        ":migration-verify:check",
+        ":migration-verify:generateStage12Dataset",
+        ":migration-verify:verifyStage12Database",
+        verifyPreviousReleaseImage,
+    )
+}
+
 tasks.register<Exec>("ciStage1") {
     description = "CI stage 1: records and verifies checkout provenance."
     group = "ci"
@@ -287,7 +315,13 @@ tasks.register<Exec>("ciStage1") {
 tasks.register("ciStage2") {
     description = "CI stage 2: compiles the application with strict dependency locks."
     group = "ci"
-    dependsOn("classes", "testClasses", "conformanceTestClasses")
+    dependsOn(
+        "classes",
+        "testClasses",
+        "conformanceTestClasses",
+        ":migration-verify:classes",
+        ":migration-verify:testClasses",
+    )
     doLast {
         require(
             layout.projectDirectory
@@ -295,6 +329,13 @@ tasks.register("ciStage2") {
                 .asFile.isFile,
         ) {
             "gradle.lockfile is required"
+        }
+        require(
+            layout.projectDirectory
+                .file("migration-verify/gradle.lockfile")
+                .asFile.isFile,
+        ) {
+            "migration-verify/gradle.lockfile is required"
         }
     }
 }

@@ -129,19 +129,19 @@ generator scheduled.
 
 # Phase 3 – Data and Infrastructure
 
-1. [ ] Create the standalone `migration-verify` Gradle module for the analyser, measurement harness and dataset generator, with no dependency on application modules. Deliverable: module plus build wiring. Depends on `P0.1`. Acceptance: a dependency on `com.cbt.platform` fails the build.
-2. [ ] Add the SQL parser dependency to lockfiles and pin it. Deliverable: dependency block plus lockfile update. Acceptance: CI stage 2 lockfile-drift gate stays green.
-3. [ ] Create `platform.migration_fixture` as a migration-verification fixture table with the columns needed to exercise every forbidden operation and every permitted shape. Deliverable: fixture migration. Acceptance: documented in-migration as a conformance artifact, not a business table, and carrying no personal data.
-4. [ ] Implement the volumetric profile as a committed declarative file with a row per table, seeded from `P1.7`, containing zero rows for tables that do not yet exist. Deliverable: `migration/volumetrics.yaml` plus its schema. Acceptance: an owning feature adds a table by adding one row; a table with no row is reported, not silently skipped.
-5. [ ] Implement the deterministic dataset generator against the profile. Deliverable: generator. Acceptance: two runs with the same seed produce identical row counts and identical checksums.
-6. [ ] Provision the CI stage 12 database as a Testcontainers PostgreSQL 17 instance on the pinned digest, sized for the generated dataset. Deliverable: stage-12 harness. Depends on `tasks.md` `P3.1`, `P3.3`.
-7. [ ] Configure the migration session parameters: `lock_timeout` at the approved fail threshold, `statement_timeout` sized for the longest permitted `CONCURRENTLY` build, and `idle_in_transaction_session_timeout`. Deliverable: session configuration. Depends on `P0.3`.
-8. [ ] Configure Flyway for non-transactional scripts so a `CONCURRENTLY` statement is not wrapped in a transaction, and disable out-of-order migration. Deliverable: Flyway configuration. Acceptance: a `CONCURRENTLY` script marked transactional fails the gate rather than failing at runtime.
-9. [ ] Configure the migration Job's own connection allowance and publish it as the `ARC-PERF-006` `migration_job` term. Deliverable: Job resource and pool configuration plus the envelope input record from `P1.8`.
-10. [ ] Add the release manifest to the build outputs, populated with the declared classification, the previous release's image digest and the migration checksum. Deliverable: manifest generation step.
-11. [ ] Add retention of the previous release's image digest in the registry and the manifest so the N−1 test always has a subject. Deliverable: digest retention policy. Acceptance: the N−1 test fails loudly if the previous digest is unavailable — it never skips.
-12. [ ] Add the CI stage 12 entry point per `P2.16`, wired after stage 11 and before stage 13, blocking, and runnable standalone. Deliverable: `ci/` script plus Gradle task, consistent with `tasks.md` `P3.7`, `P3.8`.
-13. [ ] Add `stage-12-migration` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `tasks.md` `P3.9`.
+1. [*] Create the standalone `migration-verify` Gradle module for the analyser, measurement harness and dataset generator, with no dependency on application modules. Deliverable: module plus build wiring. Depends on `P0.1`. Acceptance: a dependency on `com.cbt.platform` fails the build.
+2. [*] Add the SQL parser dependency to lockfiles and pin it. Deliverable: dependency block plus lockfile update. Acceptance: CI stage 2 lockfile-drift gate stays green.
+3. [*] Create `platform.migration_fixture` as a migration-verification fixture table with the columns needed to exercise every forbidden operation and every permitted shape. Deliverable: fixture migration. Acceptance: documented in-migration as a conformance artifact, not a business table, and carrying no personal data.
+4. [*] Implement the volumetric profile as a committed declarative file with a row per table, seeded from `P1.7`, containing zero rows for tables that do not yet exist. Deliverable: `migration/volumetrics.yaml` plus its schema. Acceptance: an owning feature adds a table by adding one row; a table with no row is reported, not silently skipped.
+5. [*] Implement the deterministic dataset generator against the profile. Deliverable: generator. Acceptance: two runs with the same seed produce identical row counts and identical checksums.
+6. [*] Provision the CI stage 12 database as a Testcontainers PostgreSQL 17 instance on the pinned digest, sized for the generated dataset. Deliverable: stage-12 harness. Depends on `tasks.md` `P3.1`, `P3.3`.
+7. [*] Configure the migration session parameters: `lock_timeout` at the approved fail threshold, `statement_timeout` sized for the longest permitted `CONCURRENTLY` build, and `idle_in_transaction_session_timeout`. Deliverable: session configuration. Depends on `P0.3`.
+8. [*] Configure Flyway for non-transactional scripts so a `CONCURRENTLY` statement is not wrapped in a transaction, and disable out-of-order migration. Deliverable: Flyway configuration. Acceptance: a `CONCURRENTLY` script marked transactional fails the gate rather than failing at runtime.
+9. [*] Configure the migration Job's own connection allowance and publish it as the `ARC-PERF-006` `migration_job` term. Deliverable: Job resource and pool configuration plus the envelope input record from `P1.8`.
+10. [*] Add the release manifest to the build outputs, populated with the declared classification, the previous release's image digest and the migration checksum. Deliverable: manifest generation step.
+11. [*] Add retention of the previous release's image digest in the registry and the manifest so the N−1 test always has a subject. Deliverable: digest retention policy. Acceptance: the N−1 test fails loudly if the previous digest is unavailable — it never skips.
+12. [*] Add the CI stage 12 entry point per `P2.16`, wired after stage 11 and before stage 13, blocking, and runnable standalone. Deliverable: `ci/` script plus Gradle task, consistent with `tasks.md` `P3.7`, `P3.8`.
+13. [*] Add `stage-12-migration` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `tasks.md` `P3.9`.
 
 ---
 

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+manifest="${1:-${repo_root}/build/release/release-manifest.json}"
+repository="${CBT_IMAGE_REPOSITORY:-ghcr.io/meldtech/cbt-platform}"
+
+if [[ ! -f "${manifest}" ]]; then
+    echo "Previous-image verification failed: release manifest is unavailable: ${manifest}" >&2
+    exit 1
+fi
+
+for command in jq docker; do
+    if ! command -v "${command}" >/dev/null 2>&1; then
+        echo "Previous-image verification failed: required command is unavailable: ${command}" >&2
+        exit 1
+    fi
+done
+
+digest="$(jq -er '.previousImageDigest | select(test("^sha256:[0-9a-f]{64}$"))' "${manifest}")" || {
+    echo "Previous-image verification failed: manifest has no immutable previousImageDigest" >&2
+    exit 1
+}
+
+reference="${repository}@${digest}"
+if ! docker buildx imagetools inspect "${reference}" >/dev/null 2>&1; then
+    echo "Previous-image verification failed: retained digest is unavailable: ${reference}" >&2
+    exit 1
+fi
+
+echo "Previous release image is retained and resolvable: ${reference}"

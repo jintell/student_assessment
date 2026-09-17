@@ -1,0 +1,12 @@
+{
+  "release": "0.0.1-SNAPSHOT",
+  "classification": "EXPAND",
+  "migrations": [
+    {
+      "module": "platform",
+      "path": "src/main/resources/db/migration/platform/V6__create_migration_fixture.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    }
+  ]
+}
