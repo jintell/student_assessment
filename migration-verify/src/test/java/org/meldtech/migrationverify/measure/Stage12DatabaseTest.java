@@ -21,7 +21,7 @@ class Stage12DatabaseTest {
                 IllegalArgumentException.class,
                 () ->
                         new Stage12Database(
-                                "postgres:16@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
+                                "postgresql:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
                                 1));
     }
 }
