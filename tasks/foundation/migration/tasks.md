@@ -147,23 +147,23 @@ generator scheduled.
 
 # Phase 4 – Backend Implementation
 
-1. [ ] Implement the header parser from `P2.1`. Deliverable: parser. Acceptance: a missing, malformed or unknown-value header fails with a message naming the file and the expected directive set.
-2. [ ] Implement the DDL allowlist analyser from `P2.2` and `P2.3`. Deliverable: analyser. Acceptance: an unmatched statement shape is reported as a failure with its parsed form quoted, so the author can see what was rejected.
-3. [ ] Implement the forbidden-operation rules as individual named checks: column rename, column drop, `NOT NULL` without default, blocking `ALTER TABLE` on an exam-critical table, `CREATE INDEX` without `CONCURRENTLY`. Deliverable: five checks with per-rule failure messages. Acceptance: each rule reports independently, so one failure does not mask the rest.
-4. [ ] Implement the exam-critical table registry as a declarative list seeded with `delivery.answer`, `delivery.answer_operation`, `delivery.attempt` and `audit.audit_event`, extensible by the owning feature. Deliverable: registry plus its extension note.
-5. [ ] Implement the own-schema check for each script against its `-- cbt:module` directive, complementing `ARC-PLAT-009`'s grep with a parsed assertion. Deliverable: check. Acceptance: a script touching a foreign schema fails with both identifiers named.
-6. [ ] Implement the release-manifest classification check from `P2.4`: exactly one classification per release, and `EXPAND` and `CONTRACT` never in the same manifest. Deliverable: check.
-7. [ ] Implement the lock-duration measurement harness from `P2.5`. Deliverable: harness. Acceptance: attributes hold duration per relation and lock mode, and distinguishes `ShareUpdateExclusiveLock` from `AccessExclusiveLock`.
-8. [ ] Implement the threshold verdict: fail beyond the exam-critical value on an exam-critical relation, fail beyond the non-critical value elsewhere, warn at the warn value. Deliverable: verdict logic. Depends on `P0.3`.
-9. [ ] Implement the backfill harness from `P2.9`: key-range batching, configured throttle, persisted resume cursor, per-row idempotency. Deliverable: harness plus its `worker`-role entry point. Acceptance: interrupting and restarting it produces the same end state and no duplicate work.
-10. [ ] Implement the `INVALID` index reconciliation from `P2.7` as an idempotent operator command. Deliverable: command. Acceptance: safe to run when there is nothing to reconcile.
-11. [ ] Implement the N−1-against-N compatibility runner from `P2.10`. Deliverable: runner plus its conformance suite. Acceptance: the suite exercises reads and writes on every table the release's migration touched, not a fixed smoke set.
-12. [ ] Implement the `SessionWindowQuery` port and its `UNKNOWN`-returning default adapter. Deliverable: port plus default adapter. Acceptance: the default is registered only when no real adapter is present, and its presence is logged at startup.
-13. [ ] Implement the deploy-freeze precondition check consuming the port, refusing on `OPEN` and on `UNKNOWN`. Deliverable: check plus its non-zero exit contract for `FEAT-OPS-007`.
-14. [ ] Implement the emergency-override path from `P2.12`, requiring an incident reference and two named approvals, and emitting an audit record of the override. Deliverable: override implementation. Acceptance: an override without an incident reference is refused.
-15. [ ] Implement the `CONTRACT`-never-rolled-back refusal from `P2.13`. Deliverable: refusal plus its forward-fix message.
-16. [ ] Implement the §19.9 report emitter from `P2.14`, including the dataset seed and profile version. Deliverable: report emitter.
-17. [ ] Implement the migration metrics from `P2.15` — `migration_duration_seconds` by module and classification, `migration_lock_held_seconds` by relation, `migration_outcome_total` by classification and outcome, `migration_forbidden_operation_total`, `deploy_freeze_refusal_total` by reason. Deliverable: metric instrumentation.
+1. [*] Implement the header parser from `P2.1`. Deliverable: parser. Acceptance: a missing, malformed or unknown-value header fails with a message naming the file and the expected directive set.
+2. [*] Implement the DDL allowlist analyser from `P2.2` and `P2.3`. Deliverable: analyser. Acceptance: an unmatched statement shape is reported as a failure with its parsed form quoted, so the author can see what was rejected.
+3. [*] Implement the forbidden-operation rules as individual named checks: column rename, column drop, `NOT NULL` without default, blocking `ALTER TABLE` on an exam-critical table, `CREATE INDEX` without `CONCURRENTLY`. Deliverable: five checks with per-rule failure messages. Acceptance: each rule reports independently, so one failure does not mask the rest.
+4. [*] Implement the exam-critical table registry as a declarative list seeded with `delivery.answer`, `delivery.answer_operation`, `delivery.attempt` and `audit.audit_event`, extensible by the owning feature. Deliverable: registry plus its extension note.
+5. [*] Implement the own-schema check for each script against its `-- cbt:module` directive, complementing `ARC-PLAT-009`'s grep with a parsed assertion. Deliverable: check. Acceptance: a script touching a foreign schema fails with both identifiers named.
+6. [*] Implement the release-manifest classification check from `P2.4`: exactly one classification per release, and `EXPAND` and `CONTRACT` never in the same manifest. Deliverable: check.
+7. [*] Implement the lock-duration measurement harness from `P2.5`. Deliverable: harness. Acceptance: attributes hold duration per relation and lock mode, and distinguishes `ShareUpdateExclusiveLock` from `AccessExclusiveLock`.
+8. [*] Implement the threshold verdict: fail beyond the exam-critical value on an exam-critical relation, fail beyond the non-critical value elsewhere, warn at the warn value. Deliverable: verdict logic. Depends on `P0.3`.
+9. [*] Implement the backfill harness from `P2.9`: key-range batching, configured throttle, persisted resume cursor, per-row idempotency. Deliverable: harness plus its `worker`-role entry point. Acceptance: interrupting and restarting it produces the same end state and no duplicate work.
+10. [*] Implement the `INVALID` index reconciliation from `P2.7` as an idempotent operator command. Deliverable: command. Acceptance: safe to run when there is nothing to reconcile.
+11. [*] Implement the N−1-against-N compatibility runner from `P2.10`. Deliverable: runner plus its conformance suite. Acceptance: the suite exercises reads and writes on every table the release's migration touched, not a fixed smoke set.
+12. [*] Implement the `SessionWindowQuery` port and its `UNKNOWN`-returning default adapter. Deliverable: port plus default adapter. Acceptance: the default is registered only when no real adapter is present, and its presence is logged at startup.
+13. [*] Implement the deploy-freeze precondition check consuming the port, refusing on `OPEN` and on `UNKNOWN`. Deliverable: check plus its non-zero exit contract for `FEAT-OPS-007`.
+14. [*] Implement the emergency-override path from `P2.12`, requiring an incident reference and two named approvals, and emitting an audit record of the override. Deliverable: override implementation. Acceptance: an override without an incident reference is refused.
+15. [*] Implement the `CONTRACT`-never-rolled-back refusal from `P2.13`. Deliverable: refusal plus its forward-fix message.
+16. [*] Implement the §19.9 report emitter from `P2.14`, including the dataset seed and profile version. Deliverable: report emitter.
+17. [*] Implement the migration metrics from `P2.15` — `migration_duration_seconds` by module and classification, `migration_lock_held_seconds` by relation, `migration_outcome_total` by classification and outcome, `migration_forbidden_operation_total`, `deploy_freeze_refusal_total` by reason. Deliverable: metric instrumentation.
 
 ---
 

@@ -1,0 +1,13 @@
+package org.meldtech.platform.platform.api;
+
+public enum SessionWindowReason {
+    AUTHORITATIVE_OPEN,
+    AUTHORITATIVE_NONE,
+    SOURCE_NOT_CONFIGURED,
+    SOURCE_UNAVAILABLE,
+    SOURCE_TIMEOUT,
+    EMPTY_RESPONSE,
+    MALFORMED_RESPONSE,
+    UNSUPPORTED_ENVIRONMENT,
+    STALE_OBSERVATION
+}

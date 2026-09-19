@@ -1,0 +1,6 @@
+schemaVersion: 1
+relations:
+  - audit.audit_event
+  - delivery.answer
+  - delivery.answer_operation
+  - delivery.attempt

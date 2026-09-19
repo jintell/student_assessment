@@ -18,6 +18,8 @@ public final class ReleaseManifestGenerator {
 
     private static final Pattern IMAGE_DIGEST = Pattern.compile("sha256:[0-9a-f]{64}");
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final ReleaseManifestClassificationCheck CLASSIFICATION_CHECK =
+            new ReleaseManifestClassificationCheck();
 
     public ReleaseManifest generate(
             Path repository, Path specificationPath, Path output, String previousImageDigest) {
@@ -68,17 +70,14 @@ public final class ReleaseManifestGenerator {
         if (specification.release() == null || specification.release().isBlank()) {
             throw new IllegalArgumentException("Release identifier is required");
         }
-        requirePhase(specification.classification(), "classification");
         if (specification.migrations() == null) {
             throw new IllegalArgumentException("Migration list is required");
         }
+        CLASSIFICATION_CHECK.verify(
+                specification.classification(),
+                specification.migrations().stream().map(MigrationSpecification::phase).toList());
         var paths = new HashSet<String>();
         for (MigrationSpecification migration : specification.migrations()) {
-            requirePhase(migration.phase(), "migration phase");
-            if (!specification.classification().equals(migration.phase())) {
-                throw new IllegalArgumentException(
-                        "Release classification cannot mix migration phases: " + migration.path());
-            }
             if (migration.module() == null || migration.module().isBlank()) {
                 throw new IllegalArgumentException("Migration module is required");
             }
@@ -87,12 +86,6 @@ public final class ReleaseManifestGenerator {
                     || !paths.add(migration.path())) {
                 throw new IllegalArgumentException("Migration path is absent or duplicated");
             }
-        }
-    }
-
-    private static void requirePhase(String phase, String field) {
-        if (!List.of("EXPAND", "MIGRATE", "CONTRACT").contains(phase)) {
-            throw new IllegalArgumentException("Unknown " + field + ": " + phase);
         }
     }
 
