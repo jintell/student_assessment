@@ -1,6 +1,7 @@
 package org.meldtech.migrationverify.policy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -69,8 +70,9 @@ class MigrationAnalyserTest {
 
         String message = analyser.analyse(migration).violations().getFirst().message();
 
-        assertTrue(!message.contains("private-value"));
-        assertTrue(!message.contains("42"));
+        assertTrue(message.contains("SET answer_text = '?' WHERE id = ?"));
+        assertFalse(message.contains("'private-value'"));
+        assertFalse(message.contains("id = 42"));
     }
 
     private Path migration(String phase, boolean transactional, String statement)
