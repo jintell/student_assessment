@@ -117,7 +117,7 @@ public final class JSqlParserMigrationAdapter implements MigrationSqlParser {
                     ordinal,
                     kind,
                     relation(drop.getName()),
-                    drop.getName().getName(),
+                    drop.getName().getFullyQualifiedName(),
                     statement,
                     concurrent,
                     notValid,

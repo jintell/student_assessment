@@ -192,17 +192,17 @@ The phase is retained so numbering stays comparable across sibling task files.
 The distinguishing obligation of this feature: every gate must be **proven to fail on a real violation**. A
 green stage 12 on a release with no migration proves nothing.
 
-1. [ ] Unit-test the header parser across a missing header, an unknown phase value, a malformed directive and a valid header. Deliverable: parser test set.
-2. [ ] Unit-test the allowlist analyser on each permitted shape and on a deliberately unrecognised shape. Deliverable: analyser test set. Acceptance: the unrecognised shape **fails**, proving fail-closed behaviour.
-3. [ ] Add a negative test per forbidden operation — column rename, column drop, `NOT NULL` without default, blocking `ALTER TABLE` on `delivery.answer`, `CREATE INDEX` without `CONCURRENTLY` — asserting each fails the build with its own message. Deliverable: five negative tests. Acceptance: this is the feature's DoD obligation that a deliberately forbidden operation fails the build.
-4. [ ] Add a negative test for a script whose `-- cbt:module` does not match the schema it touches. Deliverable: negative test.
-5. [ ] Add a negative test for a release manifest mixing `EXPAND` and `CONTRACT`. Deliverable: negative test (`TASK-PLAT5-DEFECT-005`).
-6. [ ] Integration-test the lock-duration harness against a deliberately blocking `ALTER TABLE` on the fixture table under concurrent DML, asserting the measured hold exceeds the threshold and the gate fails. Deliverable: integration test. Acceptance: the measurement is proven to detect a real lock, not merely to run.
-7. [ ] Integration-test that a permitted `CREATE INDEX CONCURRENTLY` on the fixture table under concurrent DML passes, proving the harness does not false-positive on `ShareUpdateExclusiveLock`. Deliverable: integration test.
-8. [ ] Integration-test the `lock_timeout` preventive limb: hold a conflicting lock and assert the migration fails fast within the timeout rather than queueing. Deliverable: integration test.
-9. [ ] Integration-test the `INVALID` index path: interrupt a `CONCURRENTLY` build, assert the index is detected as invalid, and assert the reconciliation command restores a retryable state. Deliverable: integration test.
-10. [ ] Test the dataset generator's determinism: the same seed yields identical checksums, and a profile change is reflected in the generated volumes. Deliverable: generator test set.
-11. [ ] Run the full migration set against the production-shaped dataset and assert every measured lock stays under threshold. Deliverable: CI stage 12 run plus the §19.9 report. Acceptance: this is the feature's primary acceptance outcome.
+1. [*] Unit-test the header parser across a missing header, an unknown phase value, a malformed directive and a valid header. Deliverable: parser test set.
+2. [*] Unit-test the allowlist analyser on each permitted shape and on a deliberately unrecognised shape. Deliverable: analyser test set. Acceptance: the unrecognised shape **fails**, proving fail-closed behaviour.
+3. [*] Add a negative test per forbidden operation — column rename, column drop, `NOT NULL` without default, blocking `ALTER TABLE` on `delivery.answer`, `CREATE INDEX` without `CONCURRENTLY` — asserting each fails the build with its own message. Deliverable: five negative tests. Acceptance: this is the feature's DoD obligation that a deliberately forbidden operation fails the build.
+4. [*] Add a negative test for a script whose `-- cbt:module` does not match the schema it touches. Deliverable: negative test.
+5. [*] Add a negative test for a release manifest mixing `EXPAND` and `CONTRACT`. Deliverable: negative test (`TASK-PLAT5-DEFECT-005`).
+6. [*] Integration-test the lock-duration harness against a deliberately blocking `ALTER TABLE` on the fixture table under concurrent DML, asserting the measured hold exceeds the threshold and the gate fails. Deliverable: integration test. Acceptance: the measurement is proven to detect a real lock, not merely to run.
+7. [*] Integration-test that a permitted `CREATE INDEX CONCURRENTLY` on the fixture table under concurrent DML passes, proving the harness does not false-positive on `ShareUpdateExclusiveLock`. Deliverable: integration test.
+8. [*] Integration-test the `lock_timeout` preventive limb: hold a conflicting lock and assert the migration fails fast within the timeout rather than queueing. Deliverable: integration test.
+9. [*] Integration-test the `INVALID` index path: interrupt a `CONCURRENTLY` build, assert the index is detected as invalid, and assert the reconciliation command restores a retryable state. Deliverable: integration test.
+10. [*] Test the dataset generator's determinism: the same seed yields identical checksums, and a profile change is reflected in the generated volumes. Deliverable: generator test set.
+11. [*] Run the full migration set against the production-shaped dataset and assert every measured lock stays under threshold. Deliverable: CI stage 12 run plus the §19.9 report. Acceptance: this is the feature's primary acceptance outcome.
 12. [ ] Implement the N−1-against-N compatibility test and assert the previous release's digest reads and writes correctly against the new schema. Deliverable: compatibility test in CI stage 12 (`ARC-OPS-006`).
 13. [ ] Add a negative case to the N−1 test: introduce a breaking change — a dropped column the previous version reads — and assert the test fails. Deliverable: negative test with the change reverted and the failure retained as evidence.
 14. [ ] Test the deploy-freeze refusal: `OPEN` refuses, `UNKNOWN` refuses, `NONE` proceeds. Deliverable: three tests. Acceptance: this is the feature's DoD obligation that deploy-during-open-session refusal is demonstrated.

@@ -302,6 +302,7 @@ tasks.register("ciStage12") {
         ":migration-verify:check",
         ":migration-verify:generateStage12Dataset",
         ":migration-verify:verifyStage12Database",
+        ":migration-verify:verifyStage12Migrations",
         verifyPreviousReleaseImage,
     )
 }

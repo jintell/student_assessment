@@ -36,19 +36,52 @@ class MigrationHeaderParserTest {
     }
 
     @Test
-    void rejectsMissingMalformedAndUnknownValuesWithSourceAndContract() throws IOException {
+    void rejectsAMissingHeader() throws IOException {
         Path migration =
                 migration(
-                        "-- cbt:module delivery\n"
-                                + "-- cbt:phase UNKNOWN\n"
-                                + "-- cbt:transactional maybe\n"
+                        "CREATE TABLE delivery.answer (id bigint PRIMARY KEY);\n"
+                                + "-- cbt:module delivery\n"
+                                + "-- cbt:transactional true\n"
                                 + "-- cbt:justification change schema\n");
 
         var failure =
                 assertThrows(InvalidMigrationHeaderException.class, () -> parser.parse(migration));
 
         assertTrue(failure.getMessage().contains(migration.toString() + ":1"));
+        assertTrue(failure.getMessage().contains("missing or malformed cbt:phase"));
         assertTrue(failure.getMessage().contains("expected directives"));
+    }
+
+    @Test
+    void rejectsAnUnknownPhase() throws IOException {
+        Path migration =
+                migration(
+                        "-- cbt:phase UNKNOWN\n"
+                                + "-- cbt:module delivery\n"
+                                + "-- cbt:transactional true\n"
+                                + "-- cbt:justification change schema\n");
+
+        var failure =
+                assertThrows(InvalidMigrationHeaderException.class, () -> parser.parse(migration));
+
+        assertTrue(failure.getMessage().contains(migration.toString() + ":1"));
+        assertTrue(failure.getMessage().contains("unknown phase 'UNKNOWN'"));
+    }
+
+    @Test
+    void rejectsAMalformedDirective() throws IOException {
+        Path migration =
+                migration(
+                        "-- cbt:phase EXPAND\n"
+                                + "-- cbt:module=delivery\n"
+                                + "-- cbt:transactional true\n"
+                                + "-- cbt:justification change schema\n");
+
+        var failure =
+                assertThrows(InvalidMigrationHeaderException.class, () -> parser.parse(migration));
+
+        assertTrue(failure.getMessage().contains(migration.toString() + ":2"));
+        assertTrue(failure.getMessage().contains("missing or malformed cbt:module"));
     }
 
     @Test
