@@ -4,7 +4,7 @@
   "migrations": [
     {
       "module": "platform",
-      "path": "src/main/resources/db/migration/platform/V6__create_migration_fixture.sql",
+      "path": "src/main/resources/db/migration/platform/V7__expand_migration_fixture.sql",
       "phase": "EXPAND",
       "transactional": true
     }

@@ -27,6 +27,7 @@ class NMinusOneCompatibilityRunnerTest {
                         "2026.09.0",
                         DIGEST,
                         "sha256:" + "b".repeat(64),
+                        Set.of("src/main/resources/db/migration/delivery/V8__expand.sql"),
                         Set.of("delivery.answer", "delivery.attempt"));
 
         var result = runner.run(subject);
@@ -45,6 +46,7 @@ class NMinusOneCompatibilityRunnerTest {
                         "2026.09.0",
                         DIGEST,
                         "sha256:" + "b".repeat(64),
+                        Set.of("src/main/resources/db/migration/delivery/V8__expand.sql"),
                         Set.of("delivery.answer_operation"));
 
         assertThrows(IllegalStateException.class, () -> runner.run(subject));
@@ -60,7 +62,29 @@ class NMinusOneCompatibilityRunnerTest {
                         ignored -> application("sha256:" + "c".repeat(64)), registry);
         var subject =
                 new CompatibilitySubject(
-                        "2026.09.0", DIGEST, "sha256:" + "b".repeat(64), Set.of("delivery.answer"));
+                        "2026.09.0",
+                        DIGEST,
+                        "sha256:" + "b".repeat(64),
+                        Set.of("src/main/resources/db/migration/delivery/V8__expand.sql"),
+                        Set.of("delivery.answer"));
+
+        assertThrows(IllegalStateException.class, () -> runner.run(subject));
+    }
+
+    @Test
+    void refusesAnImageThatAlreadyContainsTheReleaseMigration() {
+        var registry =
+                new CompatibilityCaseRegistry(
+                        List.of(compatibilityCase("answer", "delivery.answer", List.of())));
+        var runner =
+                new NMinusOneCompatibilityRunner(ignored -> application(DIGEST, true), registry);
+        var subject =
+                new CompatibilitySubject(
+                        "2026.09.0",
+                        DIGEST,
+                        "sha256:" + "b".repeat(64),
+                        Set.of("src/main/resources/db/migration/delivery/V8__expand.sql"),
+                        Set.of("delivery.answer"));
 
         assertThrows(IllegalStateException.class, () -> runner.run(subject));
     }
@@ -87,10 +111,25 @@ class NMinusOneCompatibilityRunnerTest {
     }
 
     private static PreviousReleaseApplication application(String digest) {
+        return application(digest, false);
+    }
+
+    private static PreviousReleaseApplication application(
+            String digest, boolean containsReleaseMigration) {
         return new PreviousReleaseApplication() {
             @Override
             public String resolvedImageDigest() {
                 return digest;
+            }
+
+            @Override
+            public boolean containsMigration(String migrationPath) {
+                return containsReleaseMigration;
+            }
+
+            @Override
+            public CompatibilityExecution execute(String caseId) {
+                return PASS;
             }
 
             @Override

@@ -25,6 +25,13 @@ import org.meldtech.migrationverify.adapter.parser.JSqlParserMigrationAdapter;
 import org.meldtech.migrationverify.adapter.profile.YamlLockThresholdLoader;
 import org.meldtech.migrationverify.adapter.profile.YamlVolumetricProfileLoader;
 import org.meldtech.migrationverify.adapter.registry.YamlExamCriticalTableRegistry;
+import org.meldtech.migrationverify.compatibility.CompatibilityCaseRegistry;
+import org.meldtech.migrationverify.compatibility.CompatibilityRunResult;
+import org.meldtech.migrationverify.compatibility.CompatibilitySubject;
+import org.meldtech.migrationverify.compatibility.DockerPreviousReleaseRuntimeFactory;
+import org.meldtech.migrationverify.compatibility.MigrationFixtureCompatibilityCase;
+import org.meldtech.migrationverify.compatibility.NMinusOneCompatibilityRunner;
+import org.meldtech.migrationverify.compatibility.TouchedRelationCollector;
 import org.meldtech.migrationverify.core.MigrationAnalysis;
 import org.meldtech.migrationverify.policy.ClosedDdlAllowlist;
 import org.meldtech.migrationverify.policy.MigrationAnalyser;
@@ -34,6 +41,7 @@ import org.meldtech.migrationverify.release.ReleaseManifestGenerator;
 import org.meldtech.migrationverify.report.MigrationLockDurationReport;
 import org.meldtech.migrationverify.report.MigrationLockReportEmitter;
 import org.postgresql.PGConnection;
+import org.testcontainers.containers.Network;
 import tools.jackson.databind.json.JsonMapper;
 
 public final class Stage12MigrationVerifier {
@@ -50,6 +58,26 @@ public final class Stage12MigrationVerifier {
             Path thresholdsPath,
             Path criticalRelationsPath,
             Path outputDirectory) {
+        return verify(
+                pinnedImage,
+                repository,
+                manifestPath,
+                profilePath,
+                thresholdsPath,
+                criticalRelationsPath,
+                outputDirectory,
+                null);
+    }
+
+    public MigrationLockDurationReport verify(
+            String pinnedImage,
+            Path repository,
+            Path manifestPath,
+            Path profilePath,
+            Path thresholdsPath,
+            Path criticalRelationsPath,
+            Path outputDirectory,
+            CompatibilityConfiguration compatibility) {
         Path canonicalRepository = repository.toAbsolutePath().normalize();
         ReleaseManifestGenerator.ManifestSpecification manifest = readManifest(manifestPath);
         new ReleaseManifestClassificationCheck()
@@ -70,7 +98,10 @@ public final class Stage12MigrationVerifier {
         long generatedRows =
                 dataset.tables().stream().mapToLong(DatasetManifest.TableFile::rowCount).sum();
 
-        try (var database = new Stage12Database(pinnedImage, generatedRows)) {
+        Network network = compatibility == null ? null : Network.newNetwork();
+        String databaseHost = "stage12-db";
+        try (var database =
+                new Stage12Database(pinnedImage, generatedRows, network, databaseHost)) {
             database.start();
             try (Connection owner = connect(database);
                     Connection migrator = connect(database);
@@ -95,6 +126,16 @@ public final class Stage12MigrationVerifier {
                                 dataset,
                                 migrator,
                                 observer);
+                if (compatibility != null) {
+                    verifyCompatibility(
+                            owner,
+                            databaseHost,
+                            network,
+                            canonicalRepository,
+                            manifest,
+                            compatibility,
+                            outputDirectory);
+                }
                 loadAvailableDataset(
                         owner, outputDirectory.resolve("dataset"), dataset, loadedTables);
                 MigrationLockDurationReport emitted =
@@ -113,6 +154,108 @@ public final class Stage12MigrationVerifier {
             }
         } catch (SQLException exception) {
             throw new IllegalStateException("Stage 12 migration verification failed", exception);
+        } finally {
+            if (network != null) {
+                network.close();
+            }
+        }
+    }
+
+    private static void verifyCompatibility(
+            Connection owner,
+            String databaseHost,
+            Network network,
+            Path repository,
+            ReleaseManifestGenerator.ManifestSpecification specification,
+            CompatibilityConfiguration configuration,
+            Path outputDirectory)
+            throws SQLException {
+        ReleaseManifestGenerator.ReleaseManifest manifest =
+                JSON.readValue(
+                        configuration.generatedManifest().toFile(),
+                        ReleaseManifestGenerator.ReleaseManifest.class);
+        requireMatchingManifest(specification, manifest);
+        try (var statement = owner.createStatement()) {
+            // The synthetic fixture grant exists only in this ephemeral compatibility database.
+            statement.execute("GRANT USAGE ON SCHEMA platform TO app_txn_examentry");
+            statement.execute(
+                    "GRANT SELECT, INSERT, UPDATE ON TABLE platform.migration_fixture "
+                            + "TO app_txn_examentry");
+            statement.execute(
+                    "GRANT USAGE, SELECT ON SEQUENCE "
+                            + "platform.migration_fixture_fixture_id_seq TO app_txn_examentry");
+            statement.execute("ALTER ROLE app_api PASSWORD 'stage12-app-api'");
+            statement.execute(
+                    "UPDATE platform.migration_fixture "
+                            + "SET nullable_value = 'seed', constraint_candidate = 1, "
+                            + "index_candidate = 'seed', obsolete_value = 'seed' "
+                            + "WHERE fixture_id = 1");
+            statement.execute(
+                    "SELECT setval(pg_get_serial_sequence('platform.migration_fixture', "
+                            + "'fixture_id'), (SELECT max(fixture_id) "
+                            + "FROM platform.migration_fixture), true)");
+        }
+
+        var analyser =
+                new MigrationAnalyser(
+                        new MigrationHeaderParser(),
+                        new JSqlParserMigrationAdapter(),
+                        new ClosedDdlAllowlist());
+        List<MigrationAnalysis> analyses =
+                specification.migrations().stream()
+                        .map(migration -> analyser.analyse(repository.resolve(migration.path())))
+                        .toList();
+        var subject =
+                new CompatibilitySubject(
+                        manifest.release(),
+                        manifest.previousImageDigest(),
+                        checksum(readBytes(configuration.generatedManifest())),
+                        manifest.migrations().stream()
+                                .map(ReleaseManifestGenerator.MigrationEntry::path)
+                                .collect(java.util.stream.Collectors.toSet()),
+                        new TouchedRelationCollector().collect(analyses));
+        var runtimeFactory =
+                new DockerPreviousReleaseRuntimeFactory(
+                        configuration.imageRepository(),
+                        configuration.probeJar(),
+                        network,
+                        databaseHost,
+                        "stage12-app-api");
+        CompatibilityRunResult result =
+                new NMinusOneCompatibilityRunner(
+                                runtimeFactory,
+                                new CompatibilityCaseRegistry(
+                                        List.of(new MigrationFixtureCompatibilityCase())))
+                        .run(subject);
+        writeCompatibilityReport(
+                outputDirectory.resolve("n-minus-one-compatibility-report.json"), result);
+    }
+
+    private static void requireMatchingManifest(
+            ReleaseManifestGenerator.ManifestSpecification specification,
+            ReleaseManifestGenerator.ReleaseManifest manifest) {
+        List<String> expected =
+                specification.migrations().stream()
+                        .map(ReleaseManifestGenerator.MigrationSpecification::path)
+                        .sorted()
+                        .toList();
+        List<String> actual =
+                manifest.migrations().stream()
+                        .map(ReleaseManifestGenerator.MigrationEntry::path)
+                        .sorted()
+                        .toList();
+        if (!specification.release().equals(manifest.release()) || !expected.equals(actual)) {
+            throw new IllegalArgumentException(
+                    "Generated release manifest does not match the stage 12 migration set");
+        }
+    }
+
+    private static void writeCompatibilityReport(Path output, CompatibilityRunResult result) {
+        try {
+            Files.createDirectories(output.toAbsolutePath().getParent());
+            Files.write(output, JSON.writerWithDefaultPrettyPrinter().writeValueAsBytes(result));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Cannot write N-1 compatibility report", exception);
         }
     }
 
@@ -245,46 +388,61 @@ public final class Stage12MigrationVerifier {
                 repository.resolve(
                         "src/main/resources/db/provisioning/V1__create_migration_role.sql"));
         Path migrationRoot = repository.resolve("src/main/resources/db/migration");
-        try (var modules = Files.list(migrationRoot);
-                var statement = connection.createStatement()) {
-            for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
-                String name = module.getFileName().toString();
-                requireIdentifier(name);
-                statement.execute(
-                        "CREATE SCHEMA IF NOT EXISTS \"" + name + "\" AUTHORIZATION app_migrator");
-                if (!Set.of("audit", "outbox", "platform").contains(name)) {
-                    statement.execute(
-                            "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_"
-                                    + name
-                                    + "') THEN CREATE ROLE app_"
-                                    + name
-                                    + "; END IF; END $$");
+        try (var role = connection.createStatement()) {
+            role.execute("SET ROLE app_migrator");
+            try {
+                try (var modules = Files.list(migrationRoot);
+                        var statement = connection.createStatement()) {
+                    for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
+                        String name = module.getFileName().toString();
+                        requireIdentifier(name);
+                        statement.execute("CREATE SCHEMA IF NOT EXISTS \"" + name + "\"");
+                        if (!Set.of("audit", "outbox", "platform").contains(name)) {
+                            statement.execute(
+                                    "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_"
+                                            + name
+                                            + "') THEN CREATE ROLE app_"
+                                            + name
+                                            + "; END IF; END $$");
+                        }
+                    }
+                } catch (IOException exception) {
+                    throw new IllegalStateException("Cannot discover migration schemas", exception);
                 }
-            }
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot discover migration schemas", exception);
-        }
-        Set<Path> applied = new HashSet<>();
-        for (ReleaseManifestGenerator.MigrationSpecification migration : manifest.migrations()) {
-            Path target = repository.resolve(migration.path()).normalize();
-            int targetVersion = version(target);
-            try (var candidates = Files.list(target.getParent())) {
-                for (Path candidate :
-                        candidates
-                                .filter(
-                                        path ->
-                                                VERSIONED_MIGRATION
-                                                        .matcher(path.getFileName().toString())
-                                                        .matches())
-                                .filter(path -> version(path) > 1 && version(path) < targetVersion)
-                                .sorted(Comparator.comparingInt(Stage12MigrationVerifier::version))
-                                .toList()) {
-                    if (applied.add(candidate)) {
-                        executeFile(connection, candidate);
+                Set<Path> applied = new HashSet<>();
+                for (ReleaseManifestGenerator.MigrationSpecification migration :
+                        manifest.migrations()) {
+                    Path target = repository.resolve(migration.path()).normalize();
+                    int targetVersion = version(target);
+                    try (var candidates = Files.list(target.getParent())) {
+                        for (Path candidate :
+                                candidates
+                                        .filter(
+                                                path ->
+                                                        VERSIONED_MIGRATION
+                                                                .matcher(
+                                                                        path.getFileName()
+                                                                                .toString())
+                                                                .matches())
+                                        .filter(
+                                                path ->
+                                                        version(path) > 1
+                                                                && version(path) < targetVersion)
+                                        .sorted(
+                                                Comparator.comparingInt(
+                                                        Stage12MigrationVerifier::version))
+                                        .toList()) {
+                            if (applied.add(candidate)) {
+                                executeFile(connection, candidate);
+                            }
+                        }
+                    } catch (IOException exception) {
+                        throw new IllegalStateException(
+                                "Cannot discover baseline migrations", exception);
                     }
                 }
-            } catch (IOException exception) {
-                throw new IllegalStateException("Cannot discover baseline migrations", exception);
+            } finally {
+                role.execute("RESET ROLE");
             }
         }
     }
@@ -438,4 +596,7 @@ public final class Stage12MigrationVerifier {
             throw new IllegalStateException("SHA-256 is required by the Java runtime", exception);
         }
     }
+
+    public record CompatibilityConfiguration(
+            Path generatedManifest, String imageRepository, Path probeJar) {}
 }

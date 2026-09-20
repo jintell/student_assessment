@@ -200,10 +200,20 @@ tasks.register<JavaExec>("verifyStage12Database") {
     )
 }
 
+val compatibilityProbeJar = rootProject.tasks.named<Jar>("compatibilityProbeJar")
+val previousImageRepository =
+    providers
+        .environmentVariable("CBT_IMAGE_REPOSITORY")
+        .orElse("ghcr.io/meldtech/cbt-platform")
+
 tasks.register<JavaExec>("verifyStage12Migrations") {
     description = "Runs the release migration set against production-shaped data and emits lock evidence."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    dependsOn(generateStage12Dataset)
+    dependsOn(
+        generateStage12Dataset,
+        compatibilityProbeJar,
+        rootProject.tasks.named("generateReleaseManifest"),
+    )
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set(application.mainClass)
     args(
@@ -212,6 +222,10 @@ tasks.register<JavaExec>("verifyStage12Migrations") {
         rootProject.layout.projectDirectory.asFile.absolutePath,
         rootProject.layout.projectDirectory
             .file("migration/release-manifest-input.json")
+            .asFile.absolutePath,
+        rootProject.layout.buildDirectory
+            .file("release/release-manifest.json")
+            .get()
             .asFile.absolutePath,
         rootProject.layout.projectDirectory
             .file("migration/volumetrics.yaml")
@@ -222,6 +236,11 @@ tasks.register<JavaExec>("verifyStage12Migrations") {
         rootProject.layout.projectDirectory
             .file("migration/exam-critical-tables.yaml")
             .asFile.absolutePath,
+        compatibilityProbeJar
+            .flatMap { task -> task.archiveFile }
+            .get()
+            .asFile.absolutePath,
+        previousImageRepository.get(),
         rootProject.layout.buildDirectory
             .dir("reports/migration-stage-12")
             .get()
@@ -229,10 +248,13 @@ tasks.register<JavaExec>("verifyStage12Migrations") {
     )
     inputs.files(
         rootProject.layout.projectDirectory.file("migration/release-manifest-input.json"),
+        rootProject.layout.buildDirectory.file("release/release-manifest.json"),
         rootProject.layout.projectDirectory.file("migration/volumetrics.yaml"),
         rootProject.layout.projectDirectory.file("config/lock-duration-thresholds.yml"),
         rootProject.layout.projectDirectory.file("migration/exam-critical-tables.yaml"),
+        compatibilityProbeJar.flatMap { task -> task.archiveFile },
     )
+    inputs.property("previousImageRepository", previousImageRepository)
     inputs.files(
         rootProject.fileTree("src/main/resources/db/migration") {
             include("**/*.sql")
@@ -241,5 +263,6 @@ tasks.register<JavaExec>("verifyStage12Migrations") {
     outputs.files(
         rootProject.layout.buildDirectory.file("reports/migration-stage-12/migration-lock-duration-report.json"),
         rootProject.layout.buildDirectory.file("reports/migration-stage-12/migration-lock-duration-report.md"),
+        rootProject.layout.buildDirectory.file("reports/migration-stage-12/n-minus-one-compatibility-report.json"),
     )
 }
