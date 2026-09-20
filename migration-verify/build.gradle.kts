@@ -21,10 +21,10 @@ repositories {
 
 dependencies {
     implementation("com.github.jsqlparser:jsqlparser:5.3")
+    implementation("org.postgresql:postgresql:42.7.13")
     implementation("org.yaml:snakeyaml:2.6")
     implementation("org.testcontainers:testcontainers-postgresql:2.0.5")
     implementation("tools.jackson.core:jackson-databind:3.1.5")
-    runtimeOnly("org.postgresql:postgresql:42.7.13")
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
 }
@@ -197,5 +197,49 @@ tasks.register<JavaExec>("verifyStage12Database") {
         rootProject.layout.buildDirectory.file(
             "reports/migration-stage-12/database-verification.txt",
         ),
+    )
+}
+
+tasks.register<JavaExec>("verifyStage12Migrations") {
+    description = "Runs the release migration set against production-shaped data and emits lock evidence."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn(generateStage12Dataset)
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set(application.mainClass)
+    args(
+        "verify-stage12-migrations",
+        providers.gradleProperty("postgresqlImage").get(),
+        rootProject.layout.projectDirectory.asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .file("migration/release-manifest-input.json")
+            .asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .file("migration/volumetrics.yaml")
+            .asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .file("config/lock-duration-thresholds.yml")
+            .asFile.absolutePath,
+        rootProject.layout.projectDirectory
+            .file("migration/exam-critical-tables.yaml")
+            .asFile.absolutePath,
+        rootProject.layout.buildDirectory
+            .dir("reports/migration-stage-12")
+            .get()
+            .asFile.absolutePath,
+    )
+    inputs.files(
+        rootProject.layout.projectDirectory.file("migration/release-manifest-input.json"),
+        rootProject.layout.projectDirectory.file("migration/volumetrics.yaml"),
+        rootProject.layout.projectDirectory.file("config/lock-duration-thresholds.yml"),
+        rootProject.layout.projectDirectory.file("migration/exam-critical-tables.yaml"),
+    )
+    inputs.files(
+        rootProject.fileTree("src/main/resources/db/migration") {
+            include("**/*.sql")
+        },
+    )
+    outputs.files(
+        rootProject.layout.buildDirectory.file("reports/migration-stage-12/migration-lock-duration-report.json"),
+        rootProject.layout.buildDirectory.file("reports/migration-stage-12/migration-lock-duration-report.md"),
     )
 }

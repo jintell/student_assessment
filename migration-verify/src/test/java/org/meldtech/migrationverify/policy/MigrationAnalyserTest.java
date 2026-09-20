@@ -7,8 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.meldtech.migrationverify.adapter.parser.JSqlParserMigrationAdapter;
 
 class MigrationAnalyserTest {
@@ -21,16 +25,16 @@ class MigrationAnalyserTest {
                     new JSqlParserMigrationAdapter(),
                     new ClosedDdlAllowlist());
 
-    @Test
-    void acceptsAnAllowedConcurrentExpandIndex() throws IOException {
-        Path migration =
-                migration(
-                        "EXPAND",
-                        false,
-                        "CREATE INDEX CONCURRENTLY delivery.answer_candidate_idx "
-                                + "ON delivery.answer(candidate_id);");
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("permittedShapes")
+    void acceptsEveryPermittedShape(
+            String description, String phase, boolean transactional, String statement)
+            throws IOException {
+        Path migration = migration(phase, transactional, statement);
 
-        assertTrue(analyser.analyse(migration).valid());
+        var analysis = analyser.analyse(migration);
+
+        assertTrue(analysis.valid(), () -> analysis.violations().toString());
     }
 
     @Test
@@ -73,6 +77,73 @@ class MigrationAnalyserTest {
         assertTrue(message.contains("SET answer_text = '?' WHERE id = ?"));
         assertFalse(message.contains("'private-value'"));
         assertFalse(message.contains("id = 42"));
+    }
+
+    private static Stream<Arguments> permittedShapes() {
+        return Stream.of(
+                Arguments.of(
+                        "EXPAND create table",
+                        "EXPAND",
+                        true,
+                        "CREATE TABLE delivery.new_answer (id bigint);"),
+                Arguments.of(
+                        "EXPAND add column",
+                        "EXPAND",
+                        true,
+                        "ALTER TABLE delivery.answer ADD COLUMN source text;"),
+                Arguments.of(
+                        "EXPAND add constraint not valid",
+                        "EXPAND",
+                        true,
+                        "ALTER TABLE delivery.answer ADD CONSTRAINT positive_id "
+                                + "CHECK (id > 0) NOT VALID;"),
+                Arguments.of(
+                        "EXPAND create index concurrently",
+                        "EXPAND",
+                        false,
+                        "CREATE INDEX CONCURRENTLY delivery.answer_candidate_idx "
+                                + "ON delivery.answer(candidate_id);"),
+                Arguments.of(
+                        "EXPAND comment after create",
+                        "EXPAND",
+                        true,
+                        "CREATE TABLE delivery.new_answer (id bigint);\n"
+                                + "COMMENT ON TABLE delivery.new_answer IS 'answer staging';"),
+                Arguments.of(
+                        "MIGRATE validate constraint",
+                        "MIGRATE",
+                        true,
+                        "ALTER TABLE delivery.answer VALIDATE CONSTRAINT positive_id;"),
+                Arguments.of(
+                        "MIGRATE set default",
+                        "MIGRATE",
+                        true,
+                        "ALTER TABLE delivery.answer ALTER COLUMN source SET DEFAULT 'unknown';"),
+                Arguments.of(
+                        "CONTRACT drop column",
+                        "CONTRACT",
+                        true,
+                        "ALTER TABLE delivery.answer DROP COLUMN obsolete_source;"),
+                Arguments.of(
+                        "CONTRACT drop constraint",
+                        "CONTRACT",
+                        true,
+                        "ALTER TABLE delivery.answer DROP CONSTRAINT obsolete_check;"),
+                Arguments.of(
+                        "CONTRACT drop default",
+                        "CONTRACT",
+                        true,
+                        "ALTER TABLE delivery.answer ALTER COLUMN source DROP DEFAULT;"),
+                Arguments.of(
+                        "CONTRACT drop index concurrently",
+                        "CONTRACT",
+                        false,
+                        "DROP INDEX CONCURRENTLY delivery.answer_candidate_idx;"),
+                Arguments.of(
+                        "CONTRACT drop table",
+                        "CONTRACT",
+                        true,
+                        "DROP TABLE delivery.obsolete_answer;"));
     }
 
     private Path migration(String phase, boolean transactional, String statement)

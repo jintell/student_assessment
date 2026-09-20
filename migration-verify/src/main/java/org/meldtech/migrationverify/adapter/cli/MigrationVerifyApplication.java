@@ -10,6 +10,7 @@ import org.meldtech.migrationverify.adapter.registry.YamlExamCriticalTableRegist
 import org.meldtech.migrationverify.measure.DeterministicDatasetGenerator;
 import org.meldtech.migrationverify.measure.InvalidIndexReconciler;
 import org.meldtech.migrationverify.measure.Stage12DatabaseVerifier;
+import org.meldtech.migrationverify.measure.Stage12MigrationVerifier;
 import org.meldtech.migrationverify.policy.BlockingCriticalAlterCheck;
 import org.meldtech.migrationverify.policy.ClosedDdlAllowlist;
 import org.meldtech.migrationverify.policy.ColumnDropCheck;
@@ -39,6 +40,7 @@ public final class MigrationVerifyApplication {
             case "generate-manifest" -> generateManifest(args);
             case "reconcile-invalid-index" -> reconcileInvalidIndex(args);
             case "verify-stage12-database" -> verifyStage12Database(args);
+            case "verify-stage12-migrations" -> verifyStage12Migrations(args);
             default ->
                     throw new IllegalArgumentException(
                             "Unknown migration verification command: " + args[0]);
@@ -139,6 +141,23 @@ public final class MigrationVerifyApplication {
                     "Usage: verify-stage12-database <image> <row-count> <report>");
         }
         new Stage12DatabaseVerifier().verify(args[1], Long.parseLong(args[2]), Path.of(args[3]));
+    }
+
+    private static void verifyStage12Migrations(String[] args) {
+        if (args.length != 8) {
+            throw new IllegalArgumentException(
+                    "Usage: verify-stage12-migrations <image> <repository> <manifest> <profile> "
+                            + "<thresholds> <critical-relations> <output-directory>");
+        }
+        new Stage12MigrationVerifier()
+                .verify(
+                        args[1],
+                        Path.of(args[2]),
+                        Path.of(args[3]),
+                        Path.of(args[4]),
+                        Path.of(args[5]),
+                        Path.of(args[6]),
+                        Path.of(args[7]));
     }
 
     private static void reconcileInvalidIndex(String[] args) {
