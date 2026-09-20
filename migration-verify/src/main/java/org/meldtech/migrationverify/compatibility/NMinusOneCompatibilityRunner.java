@@ -35,6 +35,16 @@ public final class NMinusOneCompatibilityRunner {
                 throw new IllegalStateException(
                         "Resolved N-1 image digest does not match the release manifest");
             }
+            subject.releaseMigrations().stream()
+                    .sorted()
+                    .filter(application::containsMigration)
+                    .findFirst()
+                    .ifPresent(
+                            migration -> {
+                                throw new IllegalStateException(
+                                        "Retained N-1 image already contains release-N migration "
+                                                + migration);
+                            });
             var results = new ArrayList<CompatibilityCaseResult>();
             for (CompatibilityCase compatibilityCase : requiredCases) {
                 CompatibilityExecution execution = compatibilityCase.execute(application);
@@ -47,7 +57,11 @@ public final class NMinusOneCompatibilityRunner {
                                 compatibilityCase.id(), compatibilityCase.relation(), execution));
             }
             return new CompatibilityRunResult(
-                    subject.previousImageDigest(), application.resolvedImageDigest(), results);
+                    subject.release(),
+                    subject.manifestChecksum(),
+                    subject.previousImageDigest(),
+                    application.resolvedImageDigest(),
+                    results);
         }
     }
 }

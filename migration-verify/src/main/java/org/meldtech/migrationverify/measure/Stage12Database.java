@@ -1,6 +1,7 @@
 package org.meldtech.migrationverify.measure;
 
 import java.util.Map;
+import org.testcontainers.containers.Network;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -12,6 +13,11 @@ public final class Stage12Database implements AutoCloseable {
     private final PostgreSQLContainer container;
 
     public Stage12Database(String pinnedImage, long generatedRowCount) {
+        this(pinnedImage, generatedRowCount, null, null);
+    }
+
+    public Stage12Database(
+            String pinnedImage, long generatedRowCount, Network network, String networkAlias) {
         validateImage(pinnedImage);
         DockerImageName image =
                 DockerImageName.parse(pinnedImage).asCompatibleSubstituteFor("postgres");
@@ -30,6 +36,9 @@ public final class Stage12Database implements AutoCloseable {
                                 "default_transaction_isolation=read committed",
                                 "-c",
                                 "max_connections=40");
+        if (network != null && networkAlias != null) {
+            container.withNetwork(network).withNetworkAliases(networkAlias);
+        }
     }
 
     public void start() {

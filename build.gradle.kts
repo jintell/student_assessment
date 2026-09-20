@@ -32,12 +32,15 @@ extra["springModulithVersion"] = "2.1.1"
 
 val conformanceTestSourceSet = sourceSets.create("conformanceTest")
 val integrationTestSourceSet = sourceSets.create("integrationTest")
+val compatibilityProbeSourceSet = sourceSets.create("compatibilityProbe")
 
 conformanceTestSourceSet.compileClasspath += sourceSets.main.get().output
 conformanceTestSourceSet.runtimeClasspath += conformanceTestSourceSet.output + conformanceTestSourceSet.compileClasspath
 integrationTestSourceSet.compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
 integrationTestSourceSet.runtimeClasspath +=
     integrationTestSourceSet.output + integrationTestSourceSet.compileClasspath
+compatibilityProbeSourceSet.compileClasspath +=
+    sourceSets.main.get().output + configurations.runtimeClasspath.get()
 
 configurations.named(conformanceTestSourceSet.implementationConfigurationName) {
     extendsFrom(configurations.testImplementation.get())
@@ -54,6 +57,15 @@ configurations.named(integrationTestSourceSet.implementationConfigurationName) {
 configurations.named(integrationTestSourceSet.runtimeOnlyConfigurationName) {
     extendsFrom(configurations.testRuntimeOnly.get())
 }
+
+val compatibilityProbeJar =
+    tasks.register<Jar>("compatibilityProbeJar") {
+        description = "Builds the API probe executed inside the retained N-1 image."
+        group = LifecycleBasePlugin.BUILD_GROUP
+        archiveClassifier.set("compatibility-probe")
+        from(compatibilityProbeSourceSet.output)
+        dependsOn(tasks.named(compatibilityProbeSourceSet.classesTaskName))
+    }
 
 dependencies {
     errorprone("com.google.errorprone:error_prone_core:2.42.0")

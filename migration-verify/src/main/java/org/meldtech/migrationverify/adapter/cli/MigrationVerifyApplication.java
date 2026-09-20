@@ -144,20 +144,23 @@ public final class MigrationVerifyApplication {
     }
 
     private static void verifyStage12Migrations(String[] args) {
-        if (args.length != 8) {
+        if (args.length != 11) {
             throw new IllegalArgumentException(
-                    "Usage: verify-stage12-migrations <image> <repository> <manifest> <profile> "
-                            + "<thresholds> <critical-relations> <output-directory>");
+                    "Usage: verify-stage12-migrations <image> <repository> <manifest-specification> "
+                            + "<generated-manifest> <profile> <thresholds> <critical-relations> "
+                            + "<probe-jar> <image-repository> <output-directory>");
         }
         new Stage12MigrationVerifier()
                 .verify(
                         args[1],
                         Path.of(args[2]),
                         Path.of(args[3]),
-                        Path.of(args[4]),
                         Path.of(args[5]),
                         Path.of(args[6]),
-                        Path.of(args[7]));
+                        Path.of(args[7]),
+                        Path.of(args[10]),
+                        new Stage12MigrationVerifier.CompatibilityConfiguration(
+                                Path.of(args[4]), args[9], Path.of(args[8])));
     }
 
     private static void reconcileInvalidIndex(String[] args) {
