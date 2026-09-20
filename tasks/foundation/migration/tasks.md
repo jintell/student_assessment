@@ -176,14 +176,14 @@ The phase is retained so numbering stays comparable across sibling task files.
 
 # Phase 6 – Security and Hardening
 
-1. [ ] Confirm the migration entrypoint is the only principal holding DDL privilege and that no application profile can assume `app_migrator`, extending `tasks.md` `P6.8`. Deliverable: DDL-privilege review (`ARC-PLAT-007`).
-2. [ ] Confirm the migration Job's workload identity is distinct from `api`, `worker` and `pindist`, and holds no grant beyond what migration requires. Deliverable: workload-identity review.
-3. [ ] Confirm the `app_migrator` credential resolves only from the secret manager and is never present in a pipeline log, a manifest or the release artifact. Deliverable: credential-handling review plus a clean secret-scan result.
-4. [ ] Confirm the generated dataset contains no personal data and no production extract, and that the generator has no network path to a production database. Deliverable: dataset-provenance attestation, referenced by `P0.5`.
-5. [ ] Confirm the migration Job cannot be triggered outside the pipeline, and that a manual invocation is audited with the invoking identity. Deliverable: invocation-control review.
-6. [ ] Confirm the emergency override cannot be exercised by a single individual and leaves an audit record naming both approvers and the incident. Deliverable: override control review.
-7. [ ] Confirm no migration script contains a data-modifying statement outside the declared backfill path, so a migration cannot silently alter accepted answers. Deliverable: DML-in-DDL check plus its review record. Acceptance: implemented as a check, not a review convention.
-8. [ ] Review the pipeline against the §22.2 `ARC-RISK-017` row and record how each mitigation limb is realised. Deliverable: risk-conformance record.
+1. [*] Confirm the migration entrypoint is the only principal holding DDL privilege and that no application profile can assume `app_migrator`, extending `tasks.md` `P6.8`. Deliverable: DDL-privilege review (`ARC-PLAT-007`).
+2. [*] Confirm the migration Job's workload identity is distinct from `api`, `worker` and `pindist`, and holds no grant beyond what migration requires. Deliverable: workload-identity review.
+3. [*] Confirm the `app_migrator` credential resolves only from the secret manager and is never present in a pipeline log, a manifest or the release artifact. Deliverable: credential-handling review plus a clean secret-scan result.
+4. [*] Confirm the generated dataset contains no personal data and no production extract, and that the generator has no network path to a production database. Deliverable: dataset-provenance attestation, referenced by `P0.5`.
+5. [*] Confirm the migration Job cannot be triggered outside the pipeline, and that a manual invocation is audited with the invoking identity. Deliverable: invocation-control review.
+6. [*] Confirm the emergency override cannot be exercised by a single individual and leaves an audit record naming both approvers and the incident. Deliverable: override control review.
+7. [*] Confirm no migration script contains a data-modifying statement outside the declared backfill path, so a migration cannot silently alter accepted answers. Deliverable: DML-in-DDL check plus its review record. Acceptance: implemented as a check, not a review convention.
+8. [*] Review the pipeline against the §22.2 `ARC-RISK-017` row and record how each mitigation limb is realised. Deliverable: risk-conformance record.
 
 ---
 
