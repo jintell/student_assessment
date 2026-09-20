@@ -86,6 +86,40 @@ tasks.named("check") {
     dependsOn(verifyApplicationIsolation)
 }
 
+val analyseReleaseMigrations =
+    tasks.register<JavaExec>("analyseReleaseMigrations") {
+        description = "Applies the closed migration policy to every release-manifest migration."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(application.mainClass)
+        args(
+            "analyse-manifest",
+            rootProject.layout.projectDirectory
+                .file("migration/exam-critical-tables.yaml")
+                .asFile.absolutePath,
+            rootProject.layout.projectDirectory.asFile.absolutePath,
+            rootProject.layout.projectDirectory
+                .file("migration/release-manifest-input.json")
+                .asFile.absolutePath,
+        )
+        inputs.file(
+            rootProject.layout.projectDirectory.file("migration/exam-critical-tables.yaml"),
+        )
+        inputs.file(
+            rootProject.layout.projectDirectory.file("migration/release-manifest-input.json"),
+        )
+        inputs.files(
+            rootProject.fileTree("src/main/resources/db/migration") {
+                include("**/*.sql")
+            },
+        )
+    }
+
+tasks.named("check") {
+    dependsOn(analyseReleaseMigrations)
+}
+
 tasks.register<JavaExec>("generateReleaseManifest") {
     description = "Generates the checksummed migration release manifest."
     group = LifecycleBasePlugin.BUILD_GROUP

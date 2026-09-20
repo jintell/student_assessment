@@ -17,7 +17,13 @@ import net.sf.jsqlparser.statement.comment.Comment;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
+import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.drop.Drop;
+import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.merge.Merge;
+import net.sf.jsqlparser.statement.truncate.Truncate;
+import net.sf.jsqlparser.statement.update.Update;
+import net.sf.jsqlparser.statement.upsert.Upsert;
 import org.meldtech.migrationverify.core.ParsedMigrationStatement;
 import org.meldtech.migrationverify.core.StatementKind;
 import org.meldtech.migrationverify.port.MigrationSqlParser;
@@ -43,6 +49,12 @@ public final class JSqlParserMigrationAdapter implements MigrationSqlParser {
     }
 
     private static ParsedMigrationStatement parseStatement(String source, int ordinal) {
+        if (tokens(source).getFirst().equals("COPY")) {
+            throw new IllegalArgumentException(
+                    "DATA_MODIFICATION_FORBIDDEN: statement "
+                            + ordinal
+                            + " uses COPY; migration scripts must not modify rows");
+        }
         boolean concurrent = containsKeyword(source, "CONCURRENTLY");
         boolean notValid = containsKeywordSequence(source, "NOT", "VALID");
         boolean cascade = containsKeyword(source, "CASCADE");
@@ -132,6 +144,21 @@ public final class JSqlParserMigrationAdapter implements MigrationSqlParser {
                     false,
                     1);
         }
+        Table modifiedTable = modifiedTable(statement);
+        if (modifiedTable != null) {
+            return parsed(
+                    ordinal,
+                    StatementKind.DATA_MODIFICATION,
+                    relation(modifiedTable),
+                    modifiedTable.getName(),
+                    statement,
+                    concurrent,
+                    notValid,
+                    cascade,
+                    false,
+                    false,
+                    1);
+        }
         return parsed(
                 ordinal,
                 StatementKind.OTHER,
@@ -144,6 +171,18 @@ public final class JSqlParserMigrationAdapter implements MigrationSqlParser {
                 false,
                 false,
                 1);
+    }
+
+    private static Table modifiedTable(Statement statement) {
+        return switch (statement) {
+            case Insert insert -> insert.getTable();
+            case Update update -> update.getTable();
+            case Delete delete -> delete.getTable();
+            case Merge merge -> merge.getTable();
+            case Truncate truncate -> truncate.getTable();
+            case Upsert upsert -> upsert.getTable();
+            default -> null;
+        };
     }
 
     private static ParsedMigrationStatement translateAlter(

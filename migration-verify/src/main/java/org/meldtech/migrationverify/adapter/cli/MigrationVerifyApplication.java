@@ -14,12 +14,14 @@ import org.meldtech.migrationverify.policy.BlockingCriticalAlterCheck;
 import org.meldtech.migrationverify.policy.ClosedDdlAllowlist;
 import org.meldtech.migrationverify.policy.ColumnDropCheck;
 import org.meldtech.migrationverify.policy.ColumnRenameCheck;
+import org.meldtech.migrationverify.policy.DataModificationCheck;
 import org.meldtech.migrationverify.policy.ForbiddenOperationPolicy;
 import org.meldtech.migrationverify.policy.MigrationAnalyser;
 import org.meldtech.migrationverify.policy.MigrationHeaderParser;
 import org.meldtech.migrationverify.policy.NonConcurrentIndexCheck;
 import org.meldtech.migrationverify.policy.NotNullWithoutDefaultCheck;
 import org.meldtech.migrationverify.release.ReleaseManifestGenerator;
+import tools.jackson.databind.json.JsonMapper;
 
 public final class MigrationVerifyApplication {
 
@@ -32,6 +34,7 @@ public final class MigrationVerifyApplication {
 
         switch (args[0]) {
             case "analyse" -> analyse(args);
+            case "analyse-manifest" -> analyseManifest(args);
             case "generate-dataset" -> generateDataset(args);
             case "generate-manifest" -> generateManifest(args);
             case "reconcile-invalid-index" -> reconcileInvalidIndex(args);
@@ -47,22 +50,14 @@ public final class MigrationVerifyApplication {
             throw new IllegalArgumentException(
                     "Usage: analyse <exam-critical-registry> <migration> [migration ...]");
         }
-        var criticalRelations = YamlExamCriticalTableRegistry.load(Path.of(args[1]));
-        var analyser =
-                new MigrationAnalyser(
-                        new MigrationHeaderParser(),
-                        new JSqlParserMigrationAdapter(),
-                        new ClosedDdlAllowlist(),
-                        new ForbiddenOperationPolicy(
-                                List.of(
-                                        new ColumnRenameCheck(),
-                                        new ColumnDropCheck(),
-                                        new NotNullWithoutDefaultCheck(),
-                                        new BlockingCriticalAlterCheck(criticalRelations),
-                                        new NonConcurrentIndexCheck())));
+        List<Path> migrations = java.util.Arrays.stream(args).skip(2).map(Path::of).toList();
+        analyseMigrations(analyser(Path.of(args[1])), migrations);
+    }
+
+    private static void analyseMigrations(MigrationAnalyser analyser, List<Path> migrations) {
         var failures = new java.util.ArrayList<String>();
-        for (int index = 2; index < args.length; index++) {
-            analyser.analyse(Path.of(args[index])).violations().stream()
+        for (Path migration : migrations) {
+            analyser.analyse(migration).violations().stream()
                     .map(violation -> violation.code() + ": " + violation.message())
                     .forEach(failures::add);
         }
@@ -70,6 +65,48 @@ public final class MigrationVerifyApplication {
             throw new IllegalArgumentException(
                     "Migration analysis failed:\n" + String.join("\n", failures));
         }
+    }
+
+    private static void analyseManifest(String[] args) {
+        if (args.length != 4) {
+            throw new IllegalArgumentException(
+                    "Usage: analyse-manifest <exam-critical-registry> <repository> "
+                            + "<manifest-specification>");
+        }
+        Path repository = Path.of(args[2]).toAbsolutePath().normalize();
+        var specification =
+                JsonMapper.builder()
+                        .build()
+                        .readValue(
+                                Path.of(args[3]).toFile(),
+                                ReleaseManifestGenerator.ManifestSpecification.class);
+        var migrations = new java.util.ArrayList<Path>();
+        for (ReleaseManifestGenerator.MigrationSpecification migration :
+                specification.migrations()) {
+            Path path = repository.resolve(migration.path()).normalize();
+            if (!path.startsWith(repository)) {
+                throw new IllegalArgumentException(
+                        "Migration path escapes the repository: " + migration.path());
+            }
+            migrations.add(path);
+        }
+        analyseMigrations(analyser(Path.of(args[1])), migrations);
+    }
+
+    private static MigrationAnalyser analyser(Path examCriticalRegistry) {
+        var criticalRelations = YamlExamCriticalTableRegistry.load(examCriticalRegistry);
+        return new MigrationAnalyser(
+                new MigrationHeaderParser(),
+                new JSqlParserMigrationAdapter(),
+                new ClosedDdlAllowlist(),
+                new ForbiddenOperationPolicy(
+                        List.of(
+                                new DataModificationCheck(),
+                                new ColumnRenameCheck(),
+                                new ColumnDropCheck(),
+                                new NotNullWithoutDefaultCheck(),
+                                new BlockingCriticalAlterCheck(criticalRelations),
+                                new NonConcurrentIndexCheck())));
     }
 
     private static void generateDataset(String[] args) {

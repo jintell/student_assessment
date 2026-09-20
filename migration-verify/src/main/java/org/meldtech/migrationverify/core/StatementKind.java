@@ -14,5 +14,6 @@ public enum StatementKind {
     DROP_TABLE,
     RENAME_COLUMN,
     COMMENT,
+    DATA_MODIFICATION,
     OTHER
 }

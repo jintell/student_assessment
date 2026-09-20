@@ -5,6 +5,12 @@ metadata:
   labels:
     app.kubernetes.io/name: cbt-platform
     app.kubernetes.io/component: migration
+  annotations:
+    cbt.meldtech.org/invocation-source: pipeline
+    cbt.meldtech.org/pipeline-run-id: ${CBT_PIPELINE_RUN_ID}
+    cbt.meldtech.org/pipeline-trigger: ${CBT_PIPELINE_TRIGGER}
+    cbt.meldtech.org/invoked-by: ${CBT_PIPELINE_ACTOR}
+    cbt.meldtech.org/release-manifest-checksum: ${CBT_RELEASE_MANIFEST_CHECKSUM}
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 1200
@@ -14,6 +20,9 @@ spec:
       labels:
         app.kubernetes.io/name: cbt-platform
         app.kubernetes.io/component: migration
+      annotations:
+        cbt.meldtech.org/pipeline-run-id: ${CBT_PIPELINE_RUN_ID}
+        cbt.meldtech.org/invoked-by: ${CBT_PIPELINE_ACTOR}
     spec:
       serviceAccountName: cbt-platform-migration
       automountServiceAccountToken: false

@@ -1,0 +1,53 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cbt-platform-migration-invocation
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["jobs"]
+  matchConditions:
+    - name: migration-job
+      expression: >-
+        (has(object.spec.template.spec.serviceAccountName) &&
+         object.spec.template.spec.serviceAccountName == 'cbt-platform-migration') ||
+        object.spec.template.spec.containers.exists(container,
+          has(container.args) && container.args.exists(argument, argument == '--migrate-only'))
+  validations:
+    - expression: >-
+        request.userInfo.username == '${CBT_RELEASE_PIPELINE_PRINCIPAL}'
+      message: Migration Jobs may be created only by the release-pipeline principal.
+    - expression: >-
+        has(object.spec.template.spec.serviceAccountName) &&
+        object.spec.template.spec.serviceAccountName == 'cbt-platform-migration'
+      message: Migration Jobs must use the dedicated migration service account.
+    - expression: >-
+        has(object.metadata.labels) &&
+        'app.kubernetes.io/component' in object.metadata.labels &&
+        object.metadata.labels['app.kubernetes.io/component'] == 'migration'
+      message: Migration Jobs must carry the canonical migration component label.
+    - expression: >-
+        has(object.metadata.annotations) &&
+        'cbt.meldtech.org/invocation-source' in object.metadata.annotations &&
+        'cbt.meldtech.org/pipeline-run-id' in object.metadata.annotations &&
+        'cbt.meldtech.org/invoked-by' in object.metadata.annotations &&
+        'cbt.meldtech.org/pipeline-trigger' in object.metadata.annotations &&
+        'cbt.meldtech.org/release-manifest-checksum' in object.metadata.annotations &&
+        object.metadata.annotations['cbt.meldtech.org/invocation-source'] == 'pipeline' &&
+        object.metadata.annotations['cbt.meldtech.org/pipeline-run-id'] != '' &&
+        object.metadata.annotations['cbt.meldtech.org/invoked-by'] != '' &&
+        object.metadata.annotations['cbt.meldtech.org/pipeline-trigger'] in ['automatic', 'manual'] &&
+        object.metadata.annotations['cbt.meldtech.org/release-manifest-checksum'].matches('^sha256:[0-9a-f]{64}$')
+      message: Migration Jobs require complete pipeline invocation audit annotations.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cbt-platform-migration-invocation
+spec:
+  policyName: cbt-platform-migration-invocation
+  validationActions: [Deny, Audit]
