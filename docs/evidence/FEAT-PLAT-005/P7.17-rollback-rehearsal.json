@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "task": "P7.17",
+  "verdict": "PASS",
+  "startedAt": "2026-09-21T09:17:38Z",
+  "finishedAt": "2026-09-21T09:18:35Z",
+  "staging": {
+    "context": "cbt-staging",
+    "namespace": "cbt-staging-rollback"
+  },
+  "images": {
+    "releaseN": {
+      "requested": "ghcr.io/jintell/cbt-platform@sha256:e1a20c5351368ef2a45970404424ae8ab46da0230e60425a960217d4a515219a",
+      "resolvedDigest": "sha256:e1a20c5351368ef2a45970404424ae8ab46da0230e60425a960217d4a515219a"
+    },
+    "releaseNPlusOne": {
+      "requested": "ghcr.io/jintell/cbt-platform@sha256:35ecc7c7c1c02ce8623356b24d2f8e9f32a5aabffb9d4e7b13188a3472891557",
+      "resolvedDigest": "sha256:35ecc7c7c1c02ce8623356b24d2f8e9f32a5aabffb9d4e7b13188a3472891557"
+    },
+    "postgres": "postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675"
+  },
+  "dataset": {
+    "bundleChecksum": "sha256:add8ce29a7409e9b08b4c8042f7d33ee4345e7ec6a21d979f6a59e9e5953cefc",
+    "rows": 10100,
+    "syntheticOnly": true
+  },
+  "migration": {
+    "jobPodUid": "da7f9ddb-bb68-476f-9027-a7332b219609",
+    "releaseNPlusOneCompleted": true,
+    "version": "7",
+    "phase": "EXPAND",
+    "description": "expand migration fixture",
+    "releaseNContainsV6": true,
+    "releaseNContainsV7": false,
+    "rollbackMigrationJobCreated": false,
+    "schemaFingerprintBefore": "sha256:0fcbc2518bdb9729ae0284ce2c8ce611369225e0dfc8f0010ba8d787fffdf7d5",
+    "schemaFingerprintAfter": "sha256:0fcbc2518bdb9729ae0284ce2c8ce611369225e0dfc8f0010ba8d787fffdf7d5"
+  },
+  "rollback": {
+    "kind": "DEPLOYMENT_IMAGE_ONLY",
+    "target": "ghcr.io/jintell/cbt-platform@sha256:e1a20c5351368ef2a45970404424ae8ab46da0230e60425a960217d4a515219a",
+    "schemaOperation": false
+  },
+  "operationalProbe": {
+    "caseId": "platform.migration_fixture.v6",
+    "existingReadPassed": true,
+    "oldRepresentationWritePassed": true,
+    "readBackPassed": true,
+    "persistedInvariantPassed": true
+  }
+}
