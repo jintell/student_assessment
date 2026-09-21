@@ -1,0 +1,323 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+context="${CBT_STAGING_CONTEXT:-}"
+namespace="${CBT_STAGING_NAMESPACE:-}"
+release_n="${CBT_RELEASE_N_IMAGE:-}"
+release_n_plus_one="${CBT_RELEASE_N_PLUS_ONE_IMAGE:-}"
+postgres_image="${CBT_POSTGRES_IMAGE_DIGEST:-$(sed -n 's/^postgresqlImage=//p' "${repo_root}/gradle.properties")}"
+report_json="${CBT_ROLLBACK_REHEARSAL_REPORT:-${repo_root}/docs/evidence/FEAT-PLAT-005/P7.17-rollback-rehearsal.json}"
+report_md="${report_json%.json}.md"
+dataset_dir="${repo_root}/build/reports/migration-stage-12/dataset"
+probe_jar="${repo_root}/build/libs/cbt-platform-0.0.1-SNAPSHOT-compatibility-probe.jar"
+started_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+port_forward_pid=""
+temporary_directory="$(mktemp -d)"
+
+cleanup() {
+    if [[ -n "${port_forward_pid}" ]]; then
+        kill "${port_forward_pid}" >/dev/null 2>&1 || true
+        wait "${port_forward_pid}" 2>/dev/null || true
+    fi
+    rm -rf "${temporary_directory}"
+}
+trap cleanup EXIT
+
+fail() {
+    echo "Rollback rehearsal failed: $*" >&2
+    exit 1
+}
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+require_digest_reference() {
+    [[ "$2" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]] ||
+        fail "$1 must be an immutable repository@sha256 reference"
+}
+
+kube() {
+    kubectl --context "${context}" --namespace "${namespace}" "$@"
+}
+
+postgres() {
+    local pod
+    pod="$(kube get pod -l app.kubernetes.io/name=cbt-platform-postgres -o jsonpath='{.items[0].metadata.name}')"
+    kube exec "${pod}" -- psql -X --set=ON_ERROR_STOP=1 --username postgres --dbname cbt_staging "$@"
+}
+
+resolved_image_digest() {
+    local deployment="$1"
+    local container="$2"
+    local image_id
+    local requested_image
+    image_id="$(kube get deployment "${deployment}" -o jsonpath="{.status.readyReplicas}")"
+    [[ "${image_id}" == "1" ]] || fail "deployment ${deployment} is not ready"
+    requested_image="$(kube get deployment "${deployment}" -o json |
+        jq -er --arg container "${container}" '.spec.template.spec.containers[] | select(.name == $container) | .image')"
+    image_id="$(kube get pod -l "app.kubernetes.io/name=${deployment}" -o json |
+        jq -er --arg container "${container}" --arg image "${requested_image}" \
+            '.items[]
+             | select(.metadata.deletionTimestamp == null)
+             | select(.spec.containers[] | .name == $container and .image == $image)
+             | .status.containerStatuses[]
+             | select(.name == $container and .ready == true)
+             | .imageID' | head -1)"
+    [[ "${image_id}" =~ @?(sha256:[0-9a-f]{64})$ ]] ||
+        fail "deployment ${deployment} exposes no immutable imageID: ${image_id}"
+    printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+schema_fingerprint() {
+    {
+        postgres --tuples-only --no-align --command "
+            SELECT n.nspname, c.relname, c.relkind, a.attnum, a.attname,
+                   pg_catalog.format_type(a.atttypid, a.atttypmod), a.attnotnull
+              FROM pg_catalog.pg_class c
+              JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+              LEFT JOIN pg_catalog.pg_attribute a
+                ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+             WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+             ORDER BY n.nspname, c.relname, a.attnum;"
+        local history_table
+        while IFS= read -r history_table; do
+            postgres --tuples-only --no-align --command \
+                "SELECT '${history_table}', installed_rank, version, description, type, checksum, success
+                   FROM platform_migrations.\"${history_table}\"
+                  ORDER BY installed_rank;"
+        done < <(
+            postgres --tuples-only --no-align --command "
+                SELECT table_name
+                  FROM information_schema.tables
+                 WHERE table_schema = 'platform_migrations'
+                   AND table_name LIKE 'flyway_schema_history_%'
+                 ORDER BY table_name;"
+        )
+    } | shasum -a 256 | awk '{print "sha256:" $1}'
+}
+
+for command in kubectl jq envsubst openssl shasum curl; do
+    require_command "${command}"
+done
+[[ -n "${context}" ]] || fail "CBT_STAGING_CONTEXT is required"
+[[ -n "${namespace}" ]] || fail "CBT_STAGING_NAMESPACE is required"
+[[ "${context}" == *staging* ]] || fail "context name must explicitly identify staging"
+[[ "${namespace}" == *staging* ]] || fail "namespace name must explicitly identify staging"
+[[ "${namespace}" != "default" && "${namespace}" != kube-* ]] ||
+    fail "a dedicated staging namespace is required"
+require_digest_reference "CBT_RELEASE_N_IMAGE" "${release_n}"
+require_digest_reference "CBT_RELEASE_N_PLUS_ONE_IMAGE" "${release_n_plus_one}"
+require_digest_reference "CBT_POSTGRES_IMAGE_DIGEST" "${postgres_image}"
+[[ "${release_n}" != "${release_n_plus_one}" ]] || fail "release N and N+1 must differ"
+kubectl config get-contexts "${context}" >/dev/null 2>&1 || fail "staging context does not exist"
+kubectl --context "${context}" auth can-i create deployments.apps --namespace "${namespace}" |
+    grep -qx yes || fail "staging principal cannot create deployments"
+
+if kubectl --context "${context}" get namespace "${namespace}" >/dev/null 2>&1; then
+    owner="$(kubectl --context "${context}" get namespace "${namespace}" -o jsonpath='{.metadata.labels.cbt\.meldtech\.org/rehearsal}')"
+    [[ "${owner}" == "rollback" ]] || fail "refusing to reuse an unowned namespace"
+    kube delete deployment,service,job,secret,configmap -l cbt.meldtech.org/rehearsal=rollback \
+        --ignore-not-found --wait=true >/dev/null
+else
+    kubectl --context "${context}" create namespace "${namespace}" >/dev/null
+fi
+kubectl --context "${context}" label namespace "${namespace}" \
+    environment=staging cbt.meldtech.org/rehearsal=rollback --overwrite >/dev/null
+
+database_password="$(openssl rand -hex 24)"
+migrator_password="$(openssl rand -hex 24)"
+api_password="$(openssl rand -hex 24)"
+kube create secret generic cbt-platform-database \
+    --from-literal=postgres-password="${database_password}" \
+    --from-literal=jdbc-url='jdbc:postgresql://cbt-platform-postgres:5432/cbt_staging' \
+    --from-literal=app-migrator-password="${migrator_password}" \
+    --from-literal=app-api-password="${api_password}" >/dev/null
+kube label secret cbt-platform-database cbt.meldtech.org/rehearsal=rollback >/dev/null
+
+"${repo_root}/gradlew" --quiet compatibilityProbeJar :migration-verify:generateStage12Dataset
+[[ -s "${dataset_dir}/manifest.json" ]] || fail "dataset manifest was not generated"
+[[ -s "${probe_jar}" ]] || fail "compatibility probe was not built"
+kube create configmap cbt-platform-compatibility-probe \
+    --from-file=compatibility-probe.jar="${probe_jar}" >/dev/null
+kube label configmap cbt-platform-compatibility-probe cbt.meldtech.org/rehearsal=rollback >/dev/null
+
+export CBT_POSTGRES_IMAGE_DIGEST="${postgres_image}"
+export CBT_RELEASE_N_PLUS_ONE_IMAGE="${release_n_plus_one}"
+envsubst '${CBT_POSTGRES_IMAGE_DIGEST} ${CBT_RELEASE_N_PLUS_ONE_IMAGE}' \
+    < "${repo_root}/deploy/kubernetes/rollback-rehearsal.yaml.template" \
+    > "${temporary_directory}/rehearsal.yaml"
+kube apply -f "${temporary_directory}/rehearsal.yaml" >/dev/null
+kube rollout status deployment/cbt-platform-postgres --timeout=180s >/dev/null
+
+postgres --command "
+    CREATE ROLE app_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE NOREPLICATION NOBYPASSRLS
+        PASSWORD '${migrator_password}';
+    GRANT CREATE ON DATABASE cbt_staging TO app_migrator;"
+
+export CBT_MIGRATION_WORKLOAD_IDENTITY=rollback-rehearsal
+export CBT_PIPELINE_RUN_ID="rollback-$(date -u +'%Y%m%dT%H%M%SZ')"
+export CBT_PIPELINE_TRIGGER=manual
+export CBT_PIPELINE_ACTOR="${USER:-rollback-rehearsal}"
+export CBT_RELEASE_MANIFEST_CHECKSUM="$(shasum -a 256 "${repo_root}/migration/release-manifest-input.json" | awk '{print "sha256:" $1}')"
+export CBT_PLATFORM_IMAGE_DIGEST="${release_n_plus_one}"
+kube apply -f <(
+    envsubst < "${repo_root}/deploy/kubernetes/migration-service-account.yaml.template"
+) >/dev/null
+kube label serviceaccount cbt-platform-migration cbt.meldtech.org/rehearsal=rollback --overwrite >/dev/null
+kube apply -f <(
+    envsubst < "${repo_root}/deploy/kubernetes/migration-job.yaml.template"
+) >/dev/null
+kube label job cbt-platform-migration cbt.meldtech.org/rehearsal=rollback --overwrite >/dev/null
+for _ in {1..300}; do
+    [[ "$(kube get job cbt-platform-migration -o jsonpath='{.status.succeeded}')" == "1" ]] && break
+    if [[ "$(kube get job cbt-platform-migration -o jsonpath='{.status.failed}')" == "1" ]]; then
+        kube logs job/cbt-platform-migration >&2 || true
+        fail "release N+1 migration job failed"
+    fi
+    sleep 1
+done
+[[ "$(kube get job cbt-platform-migration -o jsonpath='{.status.succeeded}')" == "1" ]] ||
+    fail "release N+1 migration job timed out"
+expand_migration_record="$(postgres --tuples-only --no-align --command \
+    "SELECT version || '|' || description
+       FROM platform_migrations.flyway_schema_history_platform
+      WHERE version = '7' AND success")"
+[[ "${expand_migration_record}" == "7|expand migration fixture" ]] ||
+    fail "release N+1 did not apply the expected V7 EXPAND migration"
+
+postgres_pod="$(kube get pod -l app.kubernetes.io/name=cbt-platform-postgres -o jsonpath='{.items[0].metadata.name}')"
+for relation_path in platform/tenant_scope_probe platform/migration_fixture; do
+    kube cp "${dataset_dir}/${relation_path}.csv" \
+        "${postgres_pod}:/tmp/${relation_path##*/}.csv" >/dev/null
+done
+postgres --command "
+    COPY platform.tenant_scope_probe (probe_id, tenant_id)
+      FROM '/tmp/tenant_scope_probe.csv' WITH (FORMAT csv, HEADER true, NULL '\\N');
+    COPY platform.migration_fixture
+      (constant_default_value, constraint_candidate, fixture_id, index_candidate,
+       nullable_value, obsolete_value, referenced_fixture_id)
+      FROM '/tmp/migration_fixture.csv' WITH (FORMAT csv, HEADER true, NULL '\\N');
+    UPDATE platform.migration_fixture
+       SET nullable_value = 'seed', constraint_candidate = 1,
+           index_candidate = 'seed', obsolete_value = 'seed'
+     WHERE fixture_id = 1;
+    SELECT setval(pg_get_serial_sequence('platform.migration_fixture', 'fixture_id'),
+                  (SELECT max(fixture_id) FROM platform.migration_fixture), true);
+    ALTER ROLE app_api PASSWORD '${api_password}';
+    GRANT USAGE ON SCHEMA platform TO app_txn_examentry;
+    GRANT SELECT, INSERT, UPDATE ON TABLE platform.migration_fixture TO app_txn_examentry;
+    GRANT USAGE, SELECT ON SEQUENCE platform.migration_fixture_fixture_id_seq TO app_txn_examentry;"
+
+expected_rows="$(jq '[.tables[] | select(.rowCount > 0) | .rowCount] | add' "${dataset_dir}/manifest.json")"
+actual_rows="$(postgres --tuples-only --no-align --command \
+    'SELECT (SELECT count(*) FROM platform.tenant_scope_probe) + (SELECT count(*) FROM platform.migration_fixture);')"
+[[ "${actual_rows}" == "${expected_rows}" && "${actual_rows}" -ge 10100 ]] ||
+    fail "production-shaped dataset is incomplete: expected=${expected_rows}, actual=${actual_rows}"
+
+kube scale deployment/cbt-platform --replicas=1 >/dev/null
+kube rollout status deployment/cbt-platform --timeout=300s >/dev/null
+n_plus_one_resolved="$(resolved_image_digest cbt-platform cbt-platform)"
+[[ "${release_n_plus_one}" == *"@${n_plus_one_resolved}" ]] ||
+    fail "release N+1 pod resolved the wrong digest: ${n_plus_one_resolved}"
+
+kube port-forward deployment/cbt-platform 18080:8080 >"${temporary_directory}/port-forward.log" 2>&1 &
+port_forward_pid="$!"
+for _ in {1..30}; do
+    curl --fail --silent http://127.0.0.1:18080/actuator/health >/dev/null 2>&1 && break
+    sleep 1
+done
+curl --fail --silent http://127.0.0.1:18080/actuator/health >/dev/null ||
+    fail "release N+1 health probe failed"
+kill "${port_forward_pid}" >/dev/null 2>&1 || true
+wait "${port_forward_pid}" 2>/dev/null || true
+port_forward_pid=""
+
+schema_before="$(schema_fingerprint)"
+migration_pod_uid="$(kube get pod -l job-name=cbt-platform-migration -o jsonpath='{.items[0].metadata.uid}')"
+kube set image deployment/cbt-platform "cbt-platform=${release_n}" >/dev/null
+kube rollout status deployment/cbt-platform --timeout=300s >/dev/null
+n_resolved="$(resolved_image_digest cbt-platform cbt-platform)"
+[[ "${release_n}" == *"@${n_resolved}" ]] ||
+    fail "release N pod resolved the wrong digest: ${n_resolved}"
+schema_after="$(schema_fingerprint)"
+[[ "${schema_before}" == "${schema_after}" ]] || fail "schema changed during code-only rollback"
+[[ "$(kube get pod -l job-name=cbt-platform-migration -o jsonpath='{.items[0].metadata.uid}')" == "${migration_pod_uid}" ]] ||
+    fail "rollback created or replaced the migration job"
+
+application_pod="$(kube get pod -l app.kubernetes.io/name=cbt-platform -o json |
+    jq -er --arg image "${release_n}" \
+        '.items[]
+         | select(.metadata.deletionTimestamp == null)
+         | select(.spec.containers[] | .name == "cbt-platform" and .image == $image)
+         | .metadata.name' | head -1)"
+probe_command=(
+    kube exec "${application_pod}" --
+    /layers/paketo-buildpacks_bellsoft-liberica/jre/bin/java \
+    -cp '/rehearsal/compatibility-probe.jar:/workspace/BOOT-INF/classes:/workspace/BOOT-INF/lib/*' \
+    org.meldtech.compatibilityprobe.PreviousReleaseCompatibilityProbe
+)
+release_n_v6="$(${probe_command[@]} contains-migration \
+    src/main/resources/db/migration/platform/V6__create_migration_fixture.sql)"
+release_n_v7="$(${probe_command[@]} contains-migration \
+    src/main/resources/db/migration/platform/V7__expand_migration_fixture.sql)"
+grep -q 'CBT_MIGRATION_PRESENT=true' <<<"${release_n_v6}" ||
+    fail "release N does not contain its V6 schema boundary"
+grep -q 'CBT_MIGRATION_PRESENT=false' <<<"${release_n_v7}" ||
+    fail "release N already contains the release N+1 V7 migration"
+probe_output="$(${probe_command[@]} platform.migration_fixture.v6)"
+grep -q 'CBT_COMPATIBILITY_RESULT=true,true,true,true' <<<"${probe_output}" ||
+    fail "release N operational read/write probe failed"
+
+finished_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+mkdir -p "$(dirname "${report_json}")"
+jq -n \
+    --arg startedAt "${started_at}" \
+    --arg finishedAt "${finished_at}" \
+    --arg context "${context}" \
+    --arg namespace "${namespace}" \
+    --arg releaseN "${release_n}" \
+    --arg releaseNResolved "${n_resolved}" \
+    --arg releaseNPlusOne "${release_n_plus_one}" \
+    --arg releaseNPlusOneResolved "${n_plus_one_resolved}" \
+    --arg postgresImage "${postgres_image}" \
+    --arg datasetChecksum "$(jq -r '.bundleChecksum' "${dataset_dir}/manifest.json")" \
+    --argjson datasetRows "${actual_rows}" \
+    --arg migrationPodUid "${migration_pod_uid}" \
+    --arg schemaBefore "${schema_before}" \
+    --arg schemaAfter "${schema_after}" \
+    '{schemaVersion: 1, task: "P7.17", verdict: "PASS", startedAt: $startedAt,
+      finishedAt: $finishedAt, staging: {context: $context, namespace: $namespace},
+      images: {releaseN: {requested: $releaseN, resolvedDigest: $releaseNResolved},
+        releaseNPlusOne: {requested: $releaseNPlusOne, resolvedDigest: $releaseNPlusOneResolved},
+        postgres: $postgresImage},
+      dataset: {bundleChecksum: $datasetChecksum, rows: $datasetRows, syntheticOnly: true},
+      migration: {jobPodUid: $migrationPodUid, releaseNPlusOneCompleted: true,
+        version: "7", phase: "EXPAND", description: "expand migration fixture",
+        releaseNContainsV6: true, releaseNContainsV7: false,
+        rollbackMigrationJobCreated: false, schemaFingerprintBefore: $schemaBefore,
+        schemaFingerprintAfter: $schemaAfter},
+      rollback: {kind: "DEPLOYMENT_IMAGE_ONLY", target: $releaseN, schemaOperation: false},
+      operationalProbe: {caseId: "platform.migration_fixture.v6",
+        existingReadPassed: true, oldRepresentationWritePassed: true,
+        readBackPassed: true, persistedInvariantPassed: true}}' > "${report_json}"
+
+cat > "${report_md}" <<EOF
+# P7.17 Code-Only Rollback Rehearsal
+
+- Verdict: **PASS**
+- Staging target: \`${context}\` / \`${namespace}\`
+- Release N+1: \`${release_n_plus_one}\`
+- Rollback target N: \`${release_n}\`
+- Production-shaped synthetic rows: \`${actual_rows}\`
+- Applied migration: \`V7 expand migration fixture\` (\`EXPAND\`)
+- Release N provenance: contains \`V6\`; does not contain \`V7\`
+- Schema fingerprint before/after: \`${schema_before}\`
+- Rollback action: Deployment image update only; no migration Job or schema operation
+- Release N operational probe: read, write, read-back, and persisted invariant all passed
+
+Machine-readable evidence: \`${report_json#${repo_root}/}\`
+EOF
+
+echo "Rollback rehearsal passed; retained evidence: ${report_json}"

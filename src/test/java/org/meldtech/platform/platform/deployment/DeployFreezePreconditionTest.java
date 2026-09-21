@@ -19,20 +19,22 @@ class DeployFreezePreconditionTest {
     private static final Instant NOW = Instant.parse("2026-09-17T12:00:00Z");
 
     @Test
-    void permitsOnlyAnAuthoritativeNoneResult() {
+    void noneProceeds() {
         var check = check(result(SessionWindowState.NONE, SessionWindowReason.AUTHORITATIVE_NONE));
 
         StepVerifier.create(check.evaluate("production", NOW))
                 .assertNext(
                         decision -> {
                             assertTrue(decision.permitted());
-                            assertEquals(0, decision.exitCode());
+                            assertEquals(
+                                    DeployFreezeDecision.PERMITTED_EXIT_CODE, decision.exitCode());
+                            assertEquals("NONE", decision.refusalReason());
                         })
                 .verifyComplete();
     }
 
     @Test
-    void openAndUnknownReturnStableNonZeroExitCodes() {
+    void openRefuses() {
         StepVerifier.create(
                         check(
                                         result(
@@ -42,17 +44,30 @@ class DeployFreezePreconditionTest {
                 .assertNext(
                         decision -> {
                             assertFalse(decision.permitted());
-                            assertEquals(20, decision.exitCode());
+                            assertEquals(
+                                    DeployFreezeDecision.SESSION_OPEN_EXIT_CODE,
+                                    decision.exitCode());
+                            assertEquals("SESSION_OPEN", decision.refusalReason());
                         })
                 .verifyComplete();
+    }
 
+    @Test
+    void unknownRefuses() {
         StepVerifier.create(
                         check(
                                         result(
                                                 SessionWindowState.UNKNOWN,
                                                 SessionWindowReason.SOURCE_NOT_CONFIGURED))
                                 .evaluate("production", NOW))
-                .assertNext(decision -> assertEquals(21, decision.exitCode()))
+                .assertNext(
+                        decision -> {
+                            assertFalse(decision.permitted());
+                            assertEquals(
+                                    DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                    decision.exitCode());
+                            assertEquals("SESSION_UNKNOWN", decision.refusalReason());
+                        })
                 .verifyComplete();
     }
 
@@ -67,10 +82,18 @@ class DeployFreezePreconditionTest {
                         (environment, time) -> Mono.empty(), Duration.ofSeconds(1));
 
         StepVerifier.create(failed.evaluate("production", NOW))
-                .assertNext(decision -> assertEquals(21, decision.exitCode()))
+                .assertNext(
+                        decision ->
+                                assertEquals(
+                                        DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                        decision.exitCode()))
                 .verifyComplete();
         StepVerifier.create(empty.evaluate("production", NOW))
-                .assertNext(decision -> assertEquals(21, decision.exitCode()))
+                .assertNext(
+                        decision ->
+                                assertEquals(
+                                        DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                        decision.exitCode()))
                 .verifyComplete();
     }
 

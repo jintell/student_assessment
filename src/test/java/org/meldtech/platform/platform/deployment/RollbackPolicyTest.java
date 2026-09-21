@@ -29,7 +29,11 @@ class RollbackPolicyTest {
                             assertFalse(decision.permitted());
                             assertEquals(
                                     RollbackPolicy.CONTRACT_ROLLBACK_FORBIDDEN, decision.code());
-                            assertEquals(30, decision.exitCode());
+                            assertEquals(
+                                    RollbackDecision.CONTRACT_REFUSAL_EXIT_CODE,
+                                    decision.exitCode());
+                            assertTrue(decision.targetImageDigest().isEmpty());
+                            assertTrue(decision.message().contains("ARC-OPS-008"));
                             assertTrue(decision.message().contains("forward-fix migration"));
                         })
                 .verifyComplete();
