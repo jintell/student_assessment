@@ -71,6 +71,37 @@ class EmergencyOverridePolicyTest {
     }
 
     @Test
+    void oneApprovalIsRefusedAndAudited() {
+        var audited = new AtomicReference<EmergencyOverrideAuditEvent>();
+        var evidence =
+                evidence(
+                        "INC-42",
+                        List.of(
+                                approval(
+                                        "lead@example.test",
+                                        OverrideApprovalRole.ENGINEERING_LEAD)));
+        var policy =
+                new EmergencyOverridePolicy(
+                        ignored -> Mono.just(evidence),
+                        ignored -> Mono.just(true),
+                        event -> {
+                            audited.set(event);
+                            return Mono.empty();
+                        });
+
+        StepVerifier.create(policy.authorize(freeze(), request()))
+                .assertNext(
+                        decision -> {
+                            assertFalse(decision.permitted());
+                            assertEquals("OVERRIDE_INVALID", decision.reason());
+                        })
+                .verifyComplete();
+        assertEquals("OVERRIDE_INVALID", Objects.requireNonNull(audited.get()).outcome());
+        assertEquals(
+                List.of("lead@example.test"), Objects.requireNonNull(audited.get()).approvers());
+    }
+
+    @Test
     void onePersonHoldingBothApprovalRolesIsRefusedAndAudited() {
         var audited = new AtomicReference<EmergencyOverrideAuditEvent>();
         var evidence =
