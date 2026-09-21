@@ -43,7 +43,7 @@ spec:
             - name: CBT_MIGRATION_CONNECTION_ALLOWANCE
               value: "10"
             - name: CBT_DATABASE_SECRETS_PATH
-              value: /run/secrets/database
+              value: /run/secrets/database/
           resources:
             requests:
               cpu: 250m
