@@ -32,6 +32,7 @@ class PersistenceSecurityGatesIntegrationTest {
                     "--migrate-only",
                     "--cbt.migration.jdbc-url=" + postgres.getJdbcUrl(),
                     "--cbt.migration.username=app_migrator",
+                    "--cbt.migration.classification=EXPAND",
                     "--cbt.database.roles.app-migrator.password=" + MIGRATOR_PASSWORD
                 });
     }
