@@ -209,10 +209,10 @@ green stage 12 on a release with no migration proves nothing.
 15. [*] Test the emergency override: refused without an incident reference, refused with one approval, permitted with two and an incident, and audited in every permitted case. Deliverable: override test set.
 16. [*] Test the `CONTRACT` rollback refusal (`ARC-OPS-008`). Deliverable: test.
 17. [*] Conduct the rollback rehearsal in staging: deploy release N+1 with an `EXPAND` migration, roll the code back to N, and assert N operates correctly with no data operation. Deliverable: retained rollback rehearsal record. Acceptance: rehearsed against real data volumes, not on an empty schema.
-18. [ ] Conduct the backfill rehearsal: run a throttled backfill against the production-shaped dataset, interrupt it, resume it, and assert correctness, resumption and that answer-acceptance latency stays within `NFR-PERF-001` throughout. Deliverable: retained backfill rehearsal record.
-19. [ ] Register the retained artifacts in the §19.9 evidence register: the migration lock-duration report, the rollback rehearsal record and the backfill rehearsal record. Deliverable: three register entries, with `TASK-PLAT5-DEFECT-002` noted against the missing verification identifier.
-20. [ ] Run the full pipeline on a clean checkout and confirm stage 12 is blocking and green, and that a forced stage 12 failure prevents stages 13 onward from executing. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
-21. [ ] Verify each acceptance outcome in the `FEAT-PLAT-005` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
+18. [*] Conduct the backfill rehearsal: run a throttled backfill against the production-shaped dataset, interrupt it, resume it, and assert correctness, resumption and that answer-acceptance latency stays within `NFR-PERF-001` throughout. Deliverable: retained backfill rehearsal record.
+19. [*] Register the retained artifacts in the §19.9 evidence register: the migration lock-duration report, the rollback rehearsal record and the backfill rehearsal record. Deliverable: three register entries, with `TASK-PLAT5-DEFECT-002` noted against the missing verification identifier.
+20. [*] Run the full pipeline on a clean checkout and confirm stage 12 is blocking and green, and that a forced stage 12 failure prevents stages 13 onward from executing. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
+21. [*] Verify each acceptance outcome in the `FEAT-PLAT-005` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
 
 ---
 
@@ -310,22 +310,22 @@ oversight.
 
 ### Feature-specific (plan §8.1, verbatim obligations)
 
-1. [ ] CI stage 12 is **BLOCKING** and green (`P3.12`, `P3.13`, `P7.20`).
-2. [ ] A deliberately forbidden operation is demonstrated to fail the build — one negative test per rule (`P7.3`).
-3. [ ] Deploy-during-open-session refusal is demonstrated, including the fail-closed `UNKNOWN` case (`P7.14`).
-4. [ ] No migration performs a forbidden operation (`P4.3`, `P7.11`).
-5. [ ] Every index is created concurrently (`P4.3`, `P7.7`).
-6. [ ] Measured lock duration stays under threshold on production-shaped data (`P7.11`), with the §19.9 report retained (`P7.19`).
-7. [ ] Version *N−1* runs correctly against version *N*'s schema, proven per release and proven to fail on a breaking change (`P7.12`, `P7.13`).
-8. [ ] The rollback rehearsal is complete and retained (`P7.17`).
-9. [ ] A contract-phase migration is a separate release and cannot be rolled back (`P4.6`, `P4.15`, `P7.5`, `P7.16`).
+1. [*] CI stage 12 is **BLOCKING** and green (`P3.12`, `P3.13`, `P7.20`).
+2. [*] A deliberately forbidden operation is demonstrated to fail the build — one negative test per rule (`P7.3`).
+3. [*] Deploy-during-open-session refusal is demonstrated, including the fail-closed `UNKNOWN` case (`P7.14`).
+4. [*] No migration performs a forbidden operation (`P4.3`, `P7.11`).
+5. [*] Every index is created concurrently (`P4.3`, `P7.7`).
+6. [*] Measured lock duration stays under threshold on production-shaped data (`P7.11`), with the §19.9 report retained (`P7.19`).
+7. [*] Version *N−1* runs correctly against version *N*'s schema, proven per release and proven to fail on a breaking change (`P7.12`, `P7.13`).
+8. [*] The rollback rehearsal is complete and retained (`P7.17`).
+9. [*] A contract-phase migration is a separate release and cannot be rolled back (`P4.6`, `P4.15`, `P7.5`, `P7.16`).
 10. [ ] Migration duration, lock duration and outcome are recorded per release (`P9.1`–`P9.3`).
 
 ### Universal (plan §8.0), as far as this feature can discharge it
 
-11. [ ] All mapped acceptance outcomes verified (`P7.21`).
-12. [ ] Unit and integration tests pass; the analyser, harness and generator are covered including their negative cases.
-13. [ ] CI stage 4 is green for the code this feature adds; the `migration-verify` module's isolation from application code is enforced (`P3.1`).
+11. [*] All mapped acceptance outcomes verified (`P7.21`).
+12. [*] Unit and integration tests pass; the analyser, harness and generator are covered including their negative cases.
+13. [*] CI stage 4 is green for the code this feature adds; the `migration-verify` module's isolation from application code is enforced (`P3.1`).
 14. [ ] Required telemetry exists (`P9.1`–`P9.4`); the rollback path is stated (`P8.4`).
 15. [ ] No credential, secret or token exists in source or in a pipeline log (`P6.3`).
 16. [ ] Peer or AI review complete; no unresolved Critical or High defect remains.
