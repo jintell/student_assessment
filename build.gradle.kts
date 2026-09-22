@@ -216,7 +216,7 @@ val integrationTest =
         group = LifecycleBasePlugin.VERIFICATION_GROUP
         testClassesDirs = integrationTestSourceSet.output.classesDirs
         classpath = integrationTestSourceSet.runtimeClasspath
-        dependsOn(tasks.testClasses)
+        dependsOn(tasks.testClasses, ":migration-verify:generateStage12Dataset")
         shouldRunAfter(tasks.test, sliceTest)
     }
 

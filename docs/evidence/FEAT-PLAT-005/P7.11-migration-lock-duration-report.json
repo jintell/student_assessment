@@ -1,0 +1,76 @@
+{
+  "schemaVersion" : 1,
+  "runId" : "stage12-2026-09-20T18:51:01.374601Z",
+  "measuredAt" : "2026-09-20T18:51:01.374674Z",
+  "overallVerdict" : "PASS",
+  "release" : {
+    "id" : "0.0.1-SNAPSHOT",
+    "classification" : "EXPAND",
+    "manifestChecksum" : "sha256:b122223aeb361693b3d51984947086564222870e9a053039393799896a51b89d",
+    "migrationSetChecksum" : "sha256:a6b26378eb03428714b5927ab8c7d714b5e73155ff23155520d43a3f39c941b5"
+  },
+  "toolchain" : {
+    "migrationVerifyVersion" : "1",
+    "parserVersion" : "jsqlparser-5.3",
+    "postgresImageDigest" : "postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675"
+  },
+  "dataset" : {
+    "seed" : 2026091601,
+    "scale" : 1,
+    "generatorVersion" : "1",
+    "profileVersion" : "2026.09.1",
+    "profileChecksum" : "sha256:4e245301aabacc26d60963e8870d48f1536e54d9cdb09103db5132d73ef08c17",
+    "bundleChecksum" : "sha256:add8ce29a7409e9b08b4c8042f7d33ee4345e7ec6a21d979f6a59e9e5953cefc"
+  },
+  "sampling" : {
+    "intervalMs" : 10,
+    "maximumObservedGapMs" : 14,
+    "complete" : true
+  },
+  "thresholdSource" : {
+    "path" : "/Users/josleke/workspace/project/backend/student-assessment/config/lock-duration-thresholds.yml",
+    "checksum" : "sha256:64110960ebb16f008369f71e9658f026ee71a93737249be1a59d79d468adaf12"
+  },
+  "statements" : [ {
+    "ordinal" : 1,
+    "migrationPath" : "src/main/resources/db/migration/platform/V7__expand_migration_fixture.sql",
+    "statementChecksum" : "sha256:4a9f491d0b59d3a7b3428133d8e8660aaed237f54f68b60ff83f147714cff49d",
+    "parsedShape" : "ADD_COLUMN,COMMENT",
+    "wallClockMs" : 66,
+    "locks" : [ {
+      "relation" : "pg_catalog.pg_description",
+      "lockMode" : "RowExclusiveLock",
+      "measuredHoldMs" : 57,
+      "acquisitionWaitMs" : 0,
+      "threshold" : {
+        "policy" : "NON_CRITICAL",
+        "warnMs" : null,
+        "failMs" : 2000
+      },
+      "verdict" : "PASS"
+    }, {
+      "relation" : "platform.migration_fixture",
+      "lockMode" : "AccessExclusiveLock",
+      "measuredHoldMs" : 57,
+      "acquisitionWaitMs" : 0,
+      "threshold" : {
+        "policy" : "NON_CRITICAL",
+        "warnMs" : null,
+        "failMs" : 2000
+      },
+      "verdict" : "PASS"
+    }, {
+      "relation" : "platform.migration_fixture",
+      "lockMode" : "ShareUpdateExclusiveLock",
+      "measuredHoldMs" : 57,
+      "acquisitionWaitMs" : 0,
+      "threshold" : {
+        "policy" : "ONLINE_COMPATIBLE",
+        "warnMs" : null,
+        "failMs" : null
+      },
+      "verdict" : "INFO"
+    } ]
+  } ],
+  "failures" : [ ]
+}

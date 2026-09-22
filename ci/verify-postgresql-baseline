@@ -31,6 +31,16 @@ property_value() {
     awk -F= -v key="${key}" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "${properties}"
 }
 
+postgres_image_tags() {
+    local candidate
+    local image_pattern="(^|[[:space:]\"'=])postgres:(latest|[0-9]+)([^[:alnum:]_]|$)"
+
+    while IFS= read -r candidate; do
+        [[ "${candidate}" =~ postgres:(latest|[0-9]+) ]] &&
+            printf 'postgres:%s\n' "${BASH_REMATCH[1]}"
+    done < <(repository_grep -Iho -E "${image_pattern}")
+}
+
 [[ -f "${decision}" ]] || fail "Approved Architecture Owner decision is missing."
 grep -Fqx 'Status: APPROVED' "${decision}" \
     || fail "PostgreSQL architecture decision is not approved."
@@ -70,9 +80,9 @@ grep -Fq "image: ${approved_image}" <<<"${workflow_job}" \
 grep -Fq 'verifyPostgresqlBaseline' <<<"${workflow_job}" \
     || fail "CI does not execute the PostgreSQL baseline gate."
 
-mutable_tag_pattern='postgres:'"latest"
+latest_tag='postgres:'"latest"
 latest_references="$(
-    repository_grep -IHn -F "${mutable_tag_pattern}"
+    postgres_image_tags | grep -Fx "${latest_tag}" || true
 )"
 [[ -z "${latest_references}" ]] || fail "Mutable PostgreSQL latest-tag reference found: ${latest_references}"
 
@@ -82,7 +92,7 @@ while IFS= read -r version_reference; do
     [[ "${referenced_major}" == "${major_version}" ]] \
         || fail "Conflicting PostgreSQL image major found: ${version_reference}"
 done < <(
-    repository_grep -Iho -E 'postgres:[0-9]+' | sort -u
+    postgres_image_tags | grep -E '^postgres:[0-9]+$' | sort -u
 )
 
 while IFS= read -r version_reference; do
