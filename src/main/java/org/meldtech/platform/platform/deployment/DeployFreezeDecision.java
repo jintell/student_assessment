@@ -7,5 +7,5 @@ public record DeployFreezeDecision(
 
     public static final int PERMITTED_EXIT_CODE = 0;
     public static final int SESSION_OPEN_EXIT_CODE = 20;
-    public static final int SESSION_UNKNOWN_EXIT_CODE = 21;
+    public static final int SOURCE_UNKNOWN_EXIT_CODE = 21;
 }

@@ -42,6 +42,12 @@ spec:
               value: app_migrator
             - name: CBT_MIGRATION_CONNECTION_ALLOWANCE
               value: "10"
+            - name: CBT_MIGRATION_CLASSIFICATION
+              value: ${CBT_MIGRATION_CLASSIFICATION}
+            - name: OTEL_SERVICE_NAME
+              value: cbt-platform-migration
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.version=${CBT_RELEASE_IDENTIFIER},deployment.environment.name=${CBT_TARGET_ENVIRONMENT}
             - name: CBT_DATABASE_SECRETS_PATH
               value: /run/secrets/database/
           resources:

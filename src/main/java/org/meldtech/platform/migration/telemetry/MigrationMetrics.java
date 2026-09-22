@@ -12,7 +12,7 @@ import org.meldtech.platform.platform.api.DeployFreezeRefusalRecorder;
 
 public final class MigrationMetrics implements DeployFreezeRefusalRecorder {
 
-    private static final Set<String> MODULES =
+    static final Set<String> MODULES =
             Set.of(
                     "academic",
                     "audit",
@@ -30,12 +30,25 @@ public final class MigrationMetrics implements DeployFreezeRefusalRecorder {
                     "result",
                     "tenancy");
 
+    private static final Set<String> RELATIONS =
+            Set.of(
+                    "audit.audit_event",
+                    "delivery.answer",
+                    "delivery.answer_operation",
+                    "delivery.attempt",
+                    "platform.migration_fixture",
+                    "platform.tenant_scope_probe");
+
     private final MeterRegistry registry;
     private final Set<String> knownRelations;
 
     public MigrationMetrics(MeterRegistry registry, Set<String> knownRelations) {
         this.registry = registry;
         this.knownRelations = Set.copyOf(knownRelations);
+    }
+
+    public static MigrationMetrics create(MeterRegistry registry) {
+        return new MigrationMetrics(registry, RELATIONS);
     }
 
     public void recordDuration(

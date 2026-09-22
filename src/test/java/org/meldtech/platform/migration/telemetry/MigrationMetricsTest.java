@@ -27,6 +27,7 @@ class MigrationMetricsTest {
         metrics.recordForbiddenOperation(
                 MigrationClassification.EXPAND, MigrationRejectionCode.NON_CONCURRENT_INDEX);
         metrics.record(DeployFreezeRefusalReason.SESSION_OPEN);
+        metrics.record(DeployFreezeRefusalReason.SOURCE_UNKNOWN);
 
         assertEquals(
                 2.0,
@@ -39,7 +40,18 @@ class MigrationMetricsTest {
                 0.000_001);
         assertEquals(1.0, registry.get("migration_outcome_total").counter().count());
         assertEquals(1.0, registry.get("migration_forbidden_operation_total").counter().count());
-        assertEquals(1.0, registry.get("deploy_freeze_refusal_total").counter().count());
+        assertEquals(
+                1.0,
+                registry.get("deploy_freeze_refusal_total")
+                        .tag("reason", "SESSION_OPEN")
+                        .counter()
+                        .count());
+        assertEquals(
+                1.0,
+                registry.get("deploy_freeze_refusal_total")
+                        .tag("reason", "SOURCE_UNKNOWN")
+                        .counter()
+                        .count());
     }
 
     @Test

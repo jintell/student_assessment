@@ -75,8 +75,8 @@ public final class DeployFreezePrecondition {
                             result);
             case UNKNOWN ->
                     refusal(
-                            DeployFreezeRefusalReason.SESSION_UNKNOWN,
-                            DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                            DeployFreezeRefusalReason.SOURCE_UNKNOWN,
+                            DeployFreezeDecision.SOURCE_UNKNOWN_EXIT_CODE,
                             result);
         };
     }

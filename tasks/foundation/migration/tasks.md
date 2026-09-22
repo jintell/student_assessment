@@ -218,26 +218,26 @@ green stage 12 on a release with no migration proves nothing.
 
 # Phase 8 – Deployment and Release
 
-1. [ ] Confirm the migration Job runs to completion before any pod serves traffic and that a failed Job aborts the release with no pod replaced, per §17.6 step 2. Deliverable: ordering evidence extending `tasks.md` `P8.1`.
-2. [ ] Confirm a failed migration leaves the schema in a known state — either fully applied or fully unapplied for a transactional script, or reconcilable via `P4.10` for a non-transactional one — and never half-applied silently. Deliverable: failure-state evidence (`NFR-REL-004` limb).
-3. [ ] Publish the release manifest as a release artifact so the change advisory and the rollback path can read the declared classification. Deliverable: manifest in the release bundle.
-4. [ ] State the rollback path for this feature's own changes: gates and tooling are build-time, so a rollback is a code revert with no data operation. Deliverable: rollback statement.
-5. [ ] Hand the freeze precondition, the manifest classification and the `CONTRACT` refusal to `FEAT-OPS-007` as the interfaces its canary and rollback automation consumes. Deliverable: interface handover record.
-6. [ ] Report the `migration_job` connection figure into the `ARC-PERF-006` envelope and confirm condition `A8`'s requirement that `ARC-VERIFY-033` runs with the Job active is satisfiable. Deliverable: envelope and `A8` input record.
-7. [ ] Record the deferrals with their owning features: canary, automatic rollback and the production approval gate (`FEAT-OPS-007`); the real `SessionWindowQuery` adapter (`FEAT-EXAM-001`); per-module migrations and backfills (each owning feature); migration dashboard panels (`FEAT-OPS-004`). Deliverable: deferral register.
+1. [*] Confirm the migration Job runs to completion before any pod serves traffic and that a failed Job aborts the release with no pod replaced, per §17.6 step 2. Deliverable: ordering evidence extending `tasks.md` `P8.1`.
+2. [*] Confirm a failed migration leaves the schema in a known state — either fully applied or fully unapplied for a transactional script, or reconcilable via `P4.10` for a non-transactional one — and never half-applied silently. Deliverable: failure-state evidence (`NFR-REL-004` limb).
+3. [*] Publish the release manifest as a release artifact so the change advisory and the rollback path can read the declared classification. Deliverable: manifest in the release bundle.
+4. [*] State the rollback path for this feature's own changes: gates and tooling are build-time, so a rollback is a code revert with no data operation. Deliverable: rollback statement.
+5. [*] Hand the freeze precondition, the manifest classification and the `CONTRACT` refusal to `FEAT-OPS-007` as the interfaces its canary and rollback automation consumes. Deliverable: interface handover record.
+6. [*] Report the `migration_job` connection figure into the `ARC-PERF-006` envelope and confirm condition `A8`'s requirement that `ARC-VERIFY-033` runs with the Job active is satisfiable. Deliverable: envelope and `A8` input record.
+7. [*] Record the deferrals with their owning features: canary, automatic rollback and the production approval gate (`FEAT-OPS-007`); the real `SessionWindowQuery` adapter (`FEAT-EXAM-001`); per-module migrations and backfills (each owning feature); migration dashboard panels (`FEAT-OPS-004`). Deliverable: deferral register.
 
 ---
 
 # Phase 9 – Monitoring and Operations
 
-1. [ ] Register `migration_duration_seconds` by module and classification, and confirm it records on every Job run. Deliverable: metric plus evidence.
-2. [ ] Register `migration_lock_held_seconds` by relation and lock mode. Deliverable: metric plus evidence. Acceptance: emitted from the measurement harness, so the production figure and the CI figure share one definition.
-3. [ ] Register `migration_outcome_total` by classification and outcome, and `migration_forbidden_operation_total`. Deliverable: two metrics plus evidence.
-4. [ ] Register `deploy_freeze_refusal_total` by reason, distinguishing `SESSION_OPEN` from `SOURCE_UNKNOWN`. Deliverable: metric plus evidence. Acceptance: a sustained `SOURCE_UNKNOWN` rate means the freeze is fail-closed but blind, and is documented as such.
-5. [ ] Raise `TASK-PLAT5-OBS-001` to `FEAT-OBS-001` and `FEAT-OPS-004`: propose a **P2** alert on `migration_lock_held_seconds` above threshold with "check for an open session and prepare a forward fix" as its first action, a **P1** on `migration_outcome_total{outcome="FAILED"}` in production, and a migration panel on the platform-health dashboard. Deliverable: gap record with the proposed alert and panel definitions.
-6. [ ] Write the operations runbook for a failed migration: how to read the report, how to distinguish a lock failure from a forbidden operation, the `INVALID` index reconciliation, the Flyway schema-history repair path, and why a forward fix is preferred to a rollback. Deliverable: runbook.
-7. [ ] Write the operations runbook for a blocked deploy: how to confirm an open session, how to find the session window, and the two-approval emergency-override procedure with its incident-record requirement. Deliverable: runbook.
-8. [ ] Confirm migration duration, lock duration and outcome are recorded per release and that a threshold breach is alertable rather than only logged, as the feature's observability expectation requires. Deliverable: observability conformance record referencing `TASK-PLAT5-OBS-001` for the alert's registration owner.
+1. [*] Register `migration_duration_seconds` by module and classification, and confirm it records on every Job run. Deliverable: metric plus evidence.
+2. [*] Register `migration_lock_held_seconds` by relation and lock mode. Deliverable: metric plus evidence. Acceptance: emitted from the measurement harness, so the production figure and the CI figure share one definition.
+3. [*] Register `migration_outcome_total` by classification and outcome, and `migration_forbidden_operation_total`. Deliverable: two metrics plus evidence.
+4. [*] Register `deploy_freeze_refusal_total` by reason, distinguishing `SESSION_OPEN` from `SOURCE_UNKNOWN`. Deliverable: metric plus evidence. Acceptance: a sustained `SOURCE_UNKNOWN` rate means the freeze is fail-closed but blind, and is documented as such.
+5. [*] Raise `TASK-PLAT5-OBS-001` to `FEAT-OBS-001` and `FEAT-OPS-004`: propose a **P2** alert on `migration_lock_held_seconds` above threshold with "check for an open session and prepare a forward fix" as its first action, a **P1** on `migration_outcome_total{outcome="FAILED"}` in production, and a migration panel on the platform-health dashboard. Deliverable: gap record with the proposed alert and panel definitions.
+6. [*] Write the operations runbook for a failed migration: how to read the report, how to distinguish a lock failure from a forbidden operation, the `INVALID` index reconciliation, the Flyway schema-history repair path, and why a forward fix is preferred to a rollback. Deliverable: runbook.
+7. [*] Write the operations runbook for a blocked deploy: how to confirm an open session, how to find the session window, and the two-approval emergency-override procedure with its incident-record requirement. Deliverable: runbook.
+8. [*] Confirm migration duration, lock duration and outcome are recorded per release and that a threshold breach is alertable rather than only logged, as the feature's observability expectation requires. Deliverable: observability conformance record referencing `TASK-PLAT5-OBS-001` for the alert's registration owner.
 
 ---
 

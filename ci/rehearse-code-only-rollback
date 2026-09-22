@@ -160,6 +160,9 @@ export CBT_MIGRATION_WORKLOAD_IDENTITY=rollback-rehearsal
 export CBT_PIPELINE_RUN_ID="rollback-$(date -u +'%Y%m%dT%H%M%SZ')"
 export CBT_PIPELINE_TRIGGER=manual
 export CBT_PIPELINE_ACTOR="${USER:-rollback-rehearsal}"
+export CBT_MIGRATION_CLASSIFICATION=EXPAND
+export CBT_RELEASE_IDENTIFIER=rollback-rehearsal-n-plus-one
+export CBT_TARGET_ENVIRONMENT=staging
 export CBT_RELEASE_MANIFEST_CHECKSUM="$(shasum -a 256 "${repo_root}/migration/release-manifest-input.json" | awk '{print "sha256:" $1}')"
 export CBT_PLATFORM_IMAGE_DIGEST="${release_n_plus_one}"
 kube apply -f <(
