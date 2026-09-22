@@ -3,8 +3,14 @@ package org.meldtech.platform.migration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
+import org.meldtech.platform.migration.telemetry.MigrationClassification;
+import org.meldtech.platform.migration.telemetry.MigrationMetrics;
+import org.meldtech.platform.migration.telemetry.MigrationOtlpRegistry;
+import org.meldtech.platform.migration.telemetry.MigrationOutcome;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -48,22 +54,67 @@ public final class MigrationApplication {
         String historySchema =
                 environment.getProperty("cbt.migration.history-schema", "platform_migrations");
         MigrationSessionSettings sessionSettings = MigrationSessionSettings.from(environment);
+        MigrationClassification classification = classification(environment);
 
         return arguments -> {
-            String grantRefresh = UUID.randomUUID().toString();
-            for (MigrationSchema schema : MigrationSchema.values()) {
-                flywayConfiguration(
-                                jdbcUrl,
-                                username,
-                                password,
-                                historySchema,
-                                grantRefresh,
-                                schema,
-                                sessionSettings)
-                        .load()
-                        .migrate();
+            try (MigrationOtlpRegistry telemetry = MigrationOtlpRegistry.open(environment)) {
+                String grantRefresh = UUID.randomUUID().toString();
+                runMigrations(
+                        classification,
+                        telemetry.metrics(),
+                        schema ->
+                                flywayConfiguration(
+                                                jdbcUrl,
+                                                username,
+                                                password,
+                                                historySchema,
+                                                grantRefresh,
+                                                schema,
+                                                sessionSettings)
+                                        .load()
+                                        .migrate(),
+                        System::nanoTime);
             }
         };
+    }
+
+    static void runMigrations(
+            MigrationClassification classification,
+            MigrationMetrics metrics,
+            Consumer<MigrationSchema> migrator,
+            LongSupplier nanoTime) {
+        try {
+            for (MigrationSchema schema : MigrationSchema.values()) {
+                long startedAt = nanoTime.getAsLong();
+                try {
+                    migrator.accept(schema);
+                } finally {
+                    long elapsedNanos = Math.max(0, nanoTime.getAsLong() - startedAt);
+                    metrics.recordDuration(
+                            schema.schemaName(),
+                            classification,
+                            java.time.Duration.ofNanos(elapsedNanos));
+                }
+            }
+            metrics.recordOutcome(classification, MigrationOutcome.SUCCESS);
+        } catch (RuntimeException exception) {
+            MigrationOutcome outcome =
+                    Thread.currentThread().isInterrupted()
+                            ? MigrationOutcome.CANCELLED
+                            : MigrationOutcome.EXECUTION_FAILED;
+            metrics.recordOutcome(classification, outcome);
+            throw exception;
+        }
+    }
+
+    private static MigrationClassification classification(Environment environment) {
+        String value = required(environment, "cbt.migration.classification");
+        try {
+            return MigrationClassification.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                    "Migration classification must be EXPAND, MIGRATE, or CONTRACT", exception);
+        }
     }
 
     static FluentConfiguration flywayConfiguration(

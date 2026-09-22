@@ -64,9 +64,9 @@ class DeployFreezePreconditionTest {
                         decision -> {
                             assertFalse(decision.permitted());
                             assertEquals(
-                                    DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                    DeployFreezeDecision.SOURCE_UNKNOWN_EXIT_CODE,
                                     decision.exitCode());
-                            assertEquals("SESSION_UNKNOWN", decision.refusalReason());
+                            assertEquals("SOURCE_UNKNOWN", decision.refusalReason());
                         })
                 .verifyComplete();
     }
@@ -85,14 +85,14 @@ class DeployFreezePreconditionTest {
                 .assertNext(
                         decision ->
                                 assertEquals(
-                                        DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                        DeployFreezeDecision.SOURCE_UNKNOWN_EXIT_CODE,
                                         decision.exitCode()))
                 .verifyComplete();
         StepVerifier.create(empty.evaluate("production", NOW))
                 .assertNext(
                         decision ->
                                 assertEquals(
-                                        DeployFreezeDecision.SESSION_UNKNOWN_EXIT_CODE,
+                                        DeployFreezeDecision.SOURCE_UNKNOWN_EXIT_CODE,
                                         decision.exitCode()))
                 .verifyComplete();
     }

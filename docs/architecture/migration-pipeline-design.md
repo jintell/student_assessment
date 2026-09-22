@@ -527,7 +527,7 @@ base units and a closed, low-cardinality label vocabulary:
 | `migration_lock_held_seconds` | Histogram | `module`, `relation`, `lock_mode` | Maximum continuous granted hold intervals, with explicit buckets at 0.1 s, 0.25 s, and 2 s |
 | `migration_outcome_total` | Counter | `classification`, `outcome` | Terminal outcomes: `SUCCESS`, `STATIC_REFUSAL`, `LOCK_THRESHOLD_FAILED`, `EXECUTION_FAILED`, `COMPATIBILITY_FAILED`, or `CANCELLED` |
 | `migration_forbidden_operation_total` | Counter | `classification`, `rejection_code` | Statements refused by the closed allowlist |
-| `deploy_freeze_refusal_total` | Counter | `reason` | Refusals for `SESSION_OPEN`, `SESSION_UNKNOWN`, `OVERRIDE_MISSING`, `OVERRIDE_INVALID`, or `EVIDENCE_UNAVAILABLE` |
+| `deploy_freeze_refusal_total` | Counter | `reason` | Refusals for `SESSION_OPEN`, `SOURCE_UNKNOWN`, `OVERRIDE_MISSING`, `OVERRIDE_INVALID`, or `EVIDENCE_UNAVAILABLE` |
 
 `module`, `classification`, lock mode, outcome, rejection code, and refusal
 reason are validated enums. `relation` is a normalized schema-qualified name

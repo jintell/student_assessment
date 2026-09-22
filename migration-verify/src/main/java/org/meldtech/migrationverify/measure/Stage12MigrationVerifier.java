@@ -100,8 +100,9 @@ public final class Stage12MigrationVerifier {
 
         Network network = compatibility == null ? null : Network.newNetwork();
         String databaseHost = "stage12-db";
-        try (var database =
-                new Stage12Database(pinnedImage, generatedRows, network, databaseHost)) {
+        try (var metrics = MigrationVerificationMetrics.open();
+                var database =
+                        new Stage12Database(pinnedImage, generatedRows, network, databaseHost)) {
             database.start();
             try (Connection owner = connect(database);
                     Connection migrator = connect(database);
@@ -125,7 +126,8 @@ public final class Stage12MigrationVerifier {
                                 criticalRelationsPath,
                                 dataset,
                                 migrator,
-                                observer);
+                                observer,
+                                metrics);
                 if (compatibility != null) {
                     verifyCompatibility(
                             owner,
@@ -147,9 +149,11 @@ public final class Stage12MigrationVerifier {
                                         outputDirectory.resolve(
                                                 "migration-lock-duration-report.md"));
                 if (!emitted.overallVerdict().equals("PASS")) {
+                    metrics.recordOutcome(manifest.classification(), "LOCK_THRESHOLD_FAILED");
                     throw new IllegalStateException(
                             "Stage 12 migration lock-duration gate failed; see " + outputDirectory);
                 }
+                metrics.recordOutcome(manifest.classification(), "SUCCESS");
                 return emitted;
             }
         } catch (SQLException exception) {
@@ -269,7 +273,8 @@ public final class Stage12MigrationVerifier {
             Path criticalRelationsPath,
             DatasetManifest dataset,
             Connection migrator,
-            Connection observer)
+            Connection observer,
+            MigrationVerificationMetrics metrics)
             throws SQLException {
         var thresholds = new YamlLockThresholdLoader().load(thresholdsPath);
         var thresholdPolicy =
@@ -290,6 +295,12 @@ public final class Stage12MigrationVerifier {
             requireRepositoryFile(repository, migrationPath);
             MigrationAnalysis analysis = analyser.analyse(migrationPath);
             if (!analysis.valid()) {
+                analysis.violations()
+                        .forEach(
+                                violation ->
+                                        metrics.recordForbiddenOperation(
+                                                manifest.classification(), violation.code()));
+                metrics.recordOutcome(manifest.classification(), "STATIC_REFUSAL");
                 throw new IllegalArgumentException(
                         "Manifest migration failed analysis: " + analysis.violations());
             }
@@ -308,6 +319,7 @@ public final class Stage12MigrationVerifier {
             complete &= measurement.complete();
             var locks = new ArrayList<MigrationLockDurationReport.Lock>();
             for (LockHoldMeasurement hold : measurement.holds()) {
+                metrics.recordLockHeld(migration.module(), hold);
                 LockThresholdVerdict verdict = thresholdPolicy.evaluate(hold);
                 locks.add(
                         new MigrationLockDurationReport.Lock(

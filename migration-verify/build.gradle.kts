@@ -21,6 +21,7 @@ repositories {
 
 dependencies {
     implementation("com.github.jsqlparser:jsqlparser:5.3")
+    implementation("io.micrometer:micrometer-registry-otlp:1.17.1")
     implementation("org.postgresql:postgresql:42.7.13")
     implementation("org.yaml:snakeyaml:2.6")
     implementation("org.testcontainers:testcontainers-postgresql:2.0.5")
