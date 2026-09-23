@@ -280,6 +280,20 @@ tasks.register<Exec>("verifyFeatPlat003AdditionalDor") {
     commandLine("ci/verify-feat-plat-003-additional-dor")
 }
 
+val featPlat003Phase0DorSelfTest =
+    tasks.register<Exec>("featPlat003Phase0DorSelfTest") {
+        description = "Proves the FEAT-PLAT-003 Phase 0 readiness gate rejects invalid evidence."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/test-feat-plat-003-phase-0-dor")
+    }
+
+tasks.register<Exec>("verifyFeatPlat003Phase0Dor") {
+    description = "Verifies FEAT-PLAT-003 Phase 0 decisions and universal readiness."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    dependsOn(featPlat003Phase0DorSelfTest)
+    commandLine("ci/verify-feat-plat-003-phase-0-dor")
+}
+
 tasks.register<Exec>("verifyPostgresqlBaseline") {
     description = "Verifies the approved PostgreSQL image baseline and database behavior."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
