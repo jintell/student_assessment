@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-PLAT-003/P0.3-api-contract-dor.json"
+trusted_approvers="${repo_root}/ci/dor/FEAT-PLAT-003/trusted-approvers.json"
+ratification="${repo_root}/ci/architecture-ratification.json"
+architecture_repository="${ARCHITECTURE_REPOSITORY:-${repo_root}/../student_assessment}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --approval)
+            approval="$2"
+            shift 2
+            ;;
+        --trusted-approvers)
+            trusted_approvers="$2"
+            shift 2
+            ;;
+        --ratification)
+            ratification="$2"
+            shift 2
+            ;;
+        --architecture-repository)
+            architecture_repository="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown FEAT-PLAT-003 DoR argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+fail() {
+    echo "FEAT-PLAT-003 ADDITIONAL DOR: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk git gpg jq sort; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+[[ -f "${approval}" ]] || fail "Approval record is missing: ${approval}"
+[[ -f "${trusted_approvers}" ]] || fail "Trusted approver registry is missing."
+[[ -f "${ratification}" ]] || fail "Architecture ratification record is missing."
+
+jq -e '
+    type == "object"
+    and .recordId == "DOR-FEAT-PLAT-003-P0.3"
+    and .feature == "FEAT-PLAT-003"
+    and .dependency == "P0.3"
+    and .status == "APPROVED"
+    and .architecture.version == "1.4"
+    and .architecture.sections == ["10.4", "10.5"]
+    and (.architecture.gitCommit | test("^[0-9a-f]{40}$"))
+    and .errorContract.namespace == "CBT-PLAT"
+    and .errorContract.typeUriBase == "https://errors.meld-tech.com/problems/"
+    and .errorContract.problemDetailSemantics == "APPROVED"
+    and .errorContract.allowlistSemantics == "CLOSED"
+    and .idempotency.section == "10.5"
+    and (.idempotency.operationSpecificMechanisms | type == "array" and length == 8)
+    and all(.idempotency.operationSpecificMechanisms[]; type == "string" and length > 0)
+    and (.idempotency.operationSpecificMechanisms[0] | startswith("Unique index on (attempt_id, operation_id)"))
+    and (.idempotency.operationSpecificMechanisms[1] | contains("returns 200 with the same body, not 409"))
+    and (.idempotency.operationSpecificMechanisms[2] | startswith("Partial unique index (ARC-DATA-011)"))
+    and (.idempotency.operationSpecificMechanisms[3] | startswith("Unique index; a grading retry"))
+    and (.idempotency.operationSpecificMechanisms[4] | startswith("State machine; only APPROVED"))
+    and (.idempotency.operationSpecificMechanisms[5] | startswith("Unique index"))
+    and (.idempotency.operationSpecificMechanisms[6] | startswith("Dedup table with a bounded window"))
+    and (.idempotency.operationSpecificMechanisms[7] | startswith("At-least-once delivery"))
+    and .idempotency.genericPostConvention == "REDIS_BACKED"
+    and .idempotency.semantics == "APPROVED"
+    and (.approvals | type == "array" and length == 3)
+    and ([.approvals[].role] | sort == ["API Consumer Representative", "Security", "Solution Architect"])
+    and all(.approvals[];
+        .decision == "APPROVED"
+        and (.approvedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+        and (.signature | test("^[A-Za-z0-9._-]+\\.sig$")))
+    and .changePolicy.errorNamespaceChangeRequiresReview == true
+    and .changePolicy.typeUriBaseChangeRequiresReview == true
+    and .changePolicy.idempotencySemanticChangeRequiresReview == true
+' "${approval}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+jq -e '
+    type == "object"
+    and (keys | sort == ["API Consumer Representative", "Security", "Solution Architect"])
+    and all(to_entries[];
+        (.value.identity | type == "string" and length > 0)
+        and (.value.fingerprint | test("^[0-9A-F]{40}$"))
+        and (.value.publicKey | test("^[A-Za-z0-9._-]+\\.asc$")))
+' "${trusted_approvers}" >/dev/null || fail "Trusted approver registry is malformed."
+
+approved_commit="$(jq -r '.architecture.gitCommit' "${approval}")"
+ratified_commit="$(jq -r '.baseline.gitCommit // empty' "${ratification}")"
+[[ "$(jq -r '.status // empty' "${ratification}")" == "RATIFIED" ]] \
+    || fail "Architecture baseline is not ratified."
+[[ "${approved_commit}" == "${ratified_commit}" ]] \
+    || fail "Approval does not reference the ratified architecture commit."
+
+resolved_commit="$(git -C "${architecture_repository}" rev-list -n 1 arch-v1.4 2>/dev/null || true)"
+[[ "${resolved_commit}" == "${approved_commit}" ]] \
+    || fail "Approval commit does not match the current arch-v1.4 tag."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+approval_directory="$(dirname "${approval}")"
+validated_fingerprints=()
+
+verify_signature() {
+    local role="$1"
+    local signature_name signature_path expected_fingerprint public_key_name public_key_path
+    local status actual_fingerprint
+
+    signature_name="$(
+        jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}"
+    )"
+    signature_path="${approval_directory}/${signature_name}"
+    expected_fingerprint="$(jq -r --arg role "${role}" '.[$role].fingerprint' "${trusted_approvers}")"
+    public_key_name="$(jq -r --arg role "${role}" '.[$role].publicKey' "${trusted_approvers}")"
+    public_key_path="${repo_root}/ci/${public_key_name}"
+
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+    [[ -f "${public_key_path}" ]] || fail "${role} trusted public key is missing."
+    gpg --homedir "${gnupg_home}" --batch --quiet --import "${public_key_path}" >/dev/null 2>&1 \
+        || fail "${role} trusted public key could not be imported."
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use the designated trusted key."
+    validated_fingerprints+=("${actual_fingerprint}")
+}
+
+verify_signature "Solution Architect"
+verify_signature "Security"
+verify_signature "API Consumer Representative"
+
+distinct_signers="$(printf '%s\n' "${validated_fingerprints[@]}" | sort -u | awk 'END {print NR}')"
+[[ "${distinct_signers}" == "3" ]] || fail "All three approvals must have distinct signers."
+
+echo "FEAT-PLAT-003 ADDITIONAL DOR: PASS"
+echo "Error taxonomy, idempotency semantics, and all three detached signatures are verified."

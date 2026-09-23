@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+gate="${repo_root}/ci/verify-feat-plat-003-additional-dor"
+source_directory="${repo_root}/ci/dor/FEAT-PLAT-003"
+fixture_directory="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${fixture_directory}"
+}
+trap cleanup EXIT
+
+reset_fixture() {
+    cp "${source_directory}/P0.3-api-contract-dor.json" "${fixture_directory}/approval.json"
+    cp "${source_directory}"/*.sig "${fixture_directory}/"
+}
+
+assert_rejected() {
+    local expected="$1"
+    local output code
+    set +e
+    output="$("${gate}" --approval "${fixture_directory}/approval.json" 2>&1)"
+    code=$?
+    set -e
+    if [[ "${code}" -eq 0 || "${output}" != *"${expected}"* ]]; then
+        echo "Expected rejection containing: ${expected}" >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+}
+
+"${gate}" >/dev/null
+
+reset_fixture
+jq '.errorContract.namespace = "UNAPPROVED"' "${fixture_directory}/approval.json" \
+    > "${fixture_directory}/modified.json"
+mv "${fixture_directory}/modified.json" "${fixture_directory}/approval.json"
+assert_rejected "Approval record is malformed or incomplete."
+
+reset_fixture
+jq '.approvals[0].approvedAt = "2026-09-23T20:01:00+01:00"' \
+    "${fixture_directory}/approval.json" > "${fixture_directory}/modified.json"
+mv "${fixture_directory}/modified.json" "${fixture_directory}/approval.json"
+assert_rejected "Solution Architect signature is invalid or untrusted."
+
+reset_fixture
+rm -f -- "${fixture_directory}/P0.3-api-contract-dor.api-consumer.sig"
+assert_rejected "API Consumer Representative signature is missing."
+
+echo "FEAT-PLAT-003 additional DoR self-test: PASS"

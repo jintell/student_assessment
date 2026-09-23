@@ -144,7 +144,8 @@ jobs:
             > "${SELF_TEST_DIR}/run-metadata.txt"
 
           set +e
-          ./gradlew --no-daemon --console=plain ciStage4a 2>&1 \
+          ./gradlew --no-daemon --console=plain \
+              ciStage4a verifyFeatPlat003AdditionalDor 2>&1 \
             | tee "${LIVE_DIR}/run.log"
           STAGE_STATUS="${PIPESTATUS[0]}"
           set -e
@@ -159,6 +160,7 @@ jobs:
             awk '
               /^Step [0-9]+:/ { print; exit }
               /architecture-ratification.json was not found/ { print; exit }
+              /^FEAT-PLAT-003 ADDITIONAL DOR: FAIL$/ { getline; print; exit }
             ' "${LIVE_DIR}/run.log"
           )"
 
@@ -166,6 +168,11 @@ jobs:
             sed -nE 's/^Step ([0-9]+):.*/Stage 4a step \1/p' \
               <<<"${FAILURE_REASON}"
           )"
+
+          if grep -Fq 'FEAT-PLAT-003 ADDITIONAL DOR: FAIL' \
+              "${LIVE_DIR}/run.log"; then
+            FAILING_RULE="FEAT-PLAT-003 additional DoR gate"
+          fi
 
           if [[ "${STAGE_STATUS}" -eq 0 ]]; then
             FAILURE_REASON="Stage 4a passed."
