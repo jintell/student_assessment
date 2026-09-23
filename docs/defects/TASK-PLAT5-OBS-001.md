@@ -1,9 +1,11 @@
 # TASK-PLAT5-OBS-001 Migration Alerts and Dashboard Gap
 
-Status: **OPEN - HANDED OFF**
+Status: **OPEN - RAISED FOR NEXT BASELINE AND HANDED OFF**
 
 Owners: `FEAT-OBS-001` (metric registration), `FEAT-OPS-004` (rules, routing,
 dashboard, and exercise evidence)
+
+Architecture documentation owner: Architecture Owner
 
 ## Gap
 
@@ -11,6 +13,19 @@ dashboard, and exercise evidence)
 observability baseline contains no registered migration alerts or platform
 health panels. Until the owners install and exercise the definitions below, a
 threshold breach is measurable but not yet guaranteed to page an operator.
+
+## Resolution adopted by this feature
+
+`FEAT-PLAT-005` emits bounded migration duration, lock hold, outcome, static
+refusal, and deploy-freeze refusal metrics and retains per-release evidence.
+The proposed alert and panel definitions below are the handoff contract; the
+feature does not claim that downstream alert registration is complete.
+
+## Next-baseline action
+
+Add the migration metric contracts and the P2/P1 alert rows to architecture
+sections 16.2 and 16.4, name `FEAT-OBS-001` and `FEAT-OPS-004` as operational
+owners, and retain the first-action/runbook wording below.
 
 ## Proposed alerts
 

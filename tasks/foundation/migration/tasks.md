@@ -243,16 +243,16 @@ green stage 12 on a release with no migration proves nothing.
 
 # Phase 10 – Documentation and Knowledge Transfer
 
-1. [ ] Publish the expand/contract phase model from `P1.1` as the normative migration discipline. Deliverable: `docs/migration-expand-contract.md`.
-2. [ ] Publish the forbidden-operation list and the permitted-shape allowlist from `P1.2` and `P2.2`, each with the reason it exists. Deliverable: `docs/migration-forbidden-operations.md`. Acceptance: each entry states the failure it prevents, so the list is teachable rather than arbitrary.
-3. [ ] Write the migration authoring guide for module owners: the header directives, own-schema only, `CONCURRENTLY` mandatory, what stage 12 will reject and how to run it locally. Deliverable: `docs/migration-authoring.md` — the guide every later feature follows, extending `tasks.md`'s `docs/module-migrations.md`.
-4. [ ] Write the backfill authoring guide: batching, throttling, resumption, idempotency, and the rule that a backfill runs in the `worker` role and never in the migration Job. Deliverable: `docs/migration-backfill.md`.
-5. [ ] Write the release-planning note explaining that schema work spans releases and must therefore be planned ahead of feature work, per `ADR-019`'s stated consequence and `T-11`. Deliverable: `docs/migration-release-planning.md`.
-6. [ ] Publish the volumetric profile from `P3.4` with the instruction that an owning feature adds its row when it ships tables. Deliverable: documented profile plus its contribution procedure.
-7. [ ] Write the threshold rationale note recording the approved values, how they were chosen and the review path for changing them. Deliverable: `docs/migration-lock-thresholds.md`. Depends on `P0.3`.
-8. [ ] Raise `TASK-PLAT5-DEFECT-001` through `-005` and `TASK-PLAT5-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted. Deliverable: six defect records.
-9. [ ] Update the plan §19 traceability matrix with this feature's evidence: task ranges, CI stage 12 gate status and retained artifacts. Deliverable: updated matrix rows.
-10. [ ] Run a walkthrough with the engineering team covering the phase model, the header contract, why `CONCURRENTLY` is mandatory, the `INVALID` index hazard and how to plan a three-release schema change. Deliverable: session record plus attendance.
+1. [*] Publish the expand/contract phase model from `P1.1` as the normative migration discipline. Deliverable: `docs/migration-expand-contract.md`.
+2. [*] Publish the forbidden-operation list and the permitted-shape allowlist from `P1.2` and `P2.2`, each with the reason it exists. Deliverable: `docs/migration-forbidden-operations.md`. Acceptance: each entry states the failure it prevents, so the list is teachable rather than arbitrary.
+3. [*] Write the migration authoring guide for module owners: the header directives, own-schema only, `CONCURRENTLY` mandatory, what stage 12 will reject and how to run it locally. Deliverable: `docs/migration-authoring.md` — the guide every later feature follows, extending `tasks.md`'s `docs/module-migrations.md`.
+4. [*] Write the backfill authoring guide: batching, throttling, resumption, idempotency, and the rule that a backfill runs in the `worker` role and never in the migration Job. Deliverable: `docs/migration-backfill.md`.
+5. [*] Write the release-planning note explaining that schema work spans releases and must therefore be planned ahead of feature work, per `ADR-019`'s stated consequence and `T-11`. Deliverable: `docs/migration-release-planning.md`.
+6. [*] Publish the volumetric profile from `P3.4` with the instruction that an owning feature adds its row when it ships tables. Deliverable: documented profile plus its contribution procedure.
+7. [*] Write the threshold rationale note recording the approved values, how they were chosen and the review path for changing them. Deliverable: `docs/migration-lock-thresholds.md`. Depends on `P0.3`.
+8. [*] Raise `TASK-PLAT5-DEFECT-001` through `-005` and `TASK-PLAT5-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted. Deliverable: six defect records.
+9. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, CI stage 12 gate status and retained artifacts. Deliverable: updated matrix rows.
+10. [*] Run a walkthrough with the engineering team covering the phase model, the header contract, why `CONCURRENTLY` is mandatory, the `INVALID` index hazard and how to plan a three-release schema change. Deliverable: session record plus attendance.
 
 ---
 
