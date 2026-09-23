@@ -1,0 +1,62 @@
+{
+  "recordId": "DOR-FEAT-PLAT-003-P0.3",
+  "feature": "FEAT-PLAT-003",
+  "dependency": "P0.3",
+  "status": "APPROVED",
+
+  "architecture": {
+    "version": "1.4",
+    "sections": ["10.4", "10.5"],
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc"
+  },
+
+  "errorContract": {
+    "namespace": "CBT-PLAT",
+    "typeUriBase": "https://errors.meld-tech.com/problems/",
+    "problemDetailSemantics": "APPROVED",
+    "allowlistSemantics": "CLOSED"
+  },
+
+  "idempotency": {
+    "section": "10.5",
+    "operationSpecificMechanisms": [
+      "Unique index on (attempt_id, operation_id); a replay returns the stored response",
+      "Re-submitting a SUBMITTED attempt returns 200 with the same body, not 409 — a client retry after a lost response must succeed",
+      "Partial unique index (ARC-DATA-011); re-issuing returns the existing live PIN's metadata, never a second live PIN",
+      "Unique index; a grading retry cannot publish the same official result twice",
+      "State machine; only APPROVED is applicable",
+      "Unique index — the only control preventing a duplicate PIN or OTP, since Postmark has no idempotency key",
+      "Dedup table with a bounded window",
+      "At-least-once delivery; consumers are idempotent on the business key"
+    ],
+    "genericPostConvention": "REDIS_BACKED",
+    "semantics": "APPROVED"
+  },
+
+  "approvals": [
+    {
+      "role": "Solution Architect",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-23T20:00:00+01:00",
+      "signature": "P0.3-api-contract-dor.solution-architect.sig"
+    },
+    {
+      "role": "Security",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-23T20:05:00+01:00",
+      "signature": "P0.3-api-contract-dor.security.sig"
+    },
+    {
+      "role": "API Consumer Representative",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-23T20:10:00+01:00",
+      "signature": "P0.3-api-contract-dor.api-consumer.sig"
+    }
+  ],
+
+  "changePolicy": {
+    "errorNamespaceChangeRequiresReview": true,
+    "typeUriBaseChangeRequiresReview": true,
+    "idempotencySemanticChangeRequiresReview": true
+  }
+}

@@ -25,10 +25,38 @@ BUILD SUCCESSFUL
 
 `FEAT-PLAT-003` may replace the temporary carriers and extend the existing propagation and conformance mechanisms without rebuilding the foundation.
 
-## P0.3 - Blocked: Additional Definition of Ready
+## P0.3 — RESOLVED
 
-No signed approval record was found for the `FEAT-PLAT-003` error taxonomy and idempotency semantics. The existing `ci/dor/P0.3-dor-approval.*` artifacts apply to `FEAT-PLAT-002` architecture section 9.2, cover different decision content, and do not include an API consumer representative.
+Feature:
+FEAT-PLAT-003
 
-Architecture v1.4 sections 10.4 and 10.5 define the proposed `ProblemDetail` shape, allowlist behavior, eight operation-specific idempotency mechanisms, and the Redis-backed generic `POST` convention. They do not provide the required three-party approval, and the example `https://errors.cbt.example/...` URI does not constitute a fixed production `type` URI base.
+Architecture:
+v1.4 §§10.4–10.5
 
-Task `P0.3` remains open until a scoped approval artifact fixes the error-code namespace and production `type` URI base, accepts the section 10.5 semantics, and is signed by Solution Architecture, Security, and an API consumer representative.
+Fixed client-visible contract:
+- Error-code namespace: CBT-PLAT
+- ProblemDetail type URI base: https://errors.meld-tech.com/problems/
+
+Approved semantics:
+- §10.4 ProblemDetail taxonomy and allowlist
+- §10.5 eight operation-specific idempotency mechanisms
+- §10.5 Redis-backed generic POST convention
+
+Approvers:
+- Solution Architect — APPROVED
+- Security — APPROVED
+- API Consumer Representative — APPROVED
+
+Evidence:
+ci/dor/FEAT-PLAT-003/P0.3-api-contract-dor.json
+ci/dor/FEAT-PLAT-003/P0.3-api-contract-dor.solution-architect.sig
+ci/dor/FEAT-PLAT-003/P0.3-api-contract-dor.security.sig
+ci/dor/FEAT-PLAT-003/P0.3-api-contract-dor.api-consumer.sig
+
+CI gate:
+verifyFeatPlat003AdditionalDor
+
+Result:
+PASS (2026-09-23)
+
+The gate verifies the fixed error-code namespace and `ProblemDetail` type URI base, the approved idempotency semantics, the ratified architecture commit, three distinct role-pinned signers, and all detached signatures. Its self-test confirms that contract drift, signed-record tampering, and missing approval evidence are rejected.
