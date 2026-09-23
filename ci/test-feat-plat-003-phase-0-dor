@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+gate="${repo_root}/ci/verify-feat-plat-003-phase-0-dor"
+source_directory="${repo_root}/ci/dor/FEAT-PLAT-003"
+fixture_directory="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${fixture_directory}"
+}
+trap cleanup EXIT
+
+reset_fixture() {
+    cp "${source_directory}/P0.4-correlation-identifier-approval.json" "${fixture_directory}/correlation.json"
+    cp "${source_directory}/P0.5-production-redis-gap.json" "${fixture_directory}/redis.json"
+    cp "${source_directory}/P0.6-universal-dor.json" "${fixture_directory}/dor.json"
+    cp "${source_directory}"/P0.4-*.sig "${fixture_directory}/"
+    cp "${source_directory}"/P0.5-*.sig "${fixture_directory}/"
+    cp "${source_directory}"/P0.6-*.sig "${fixture_directory}/"
+}
+
+run_gate() {
+    "${gate}" \
+        --record "${fixture_directory}/dor.json" \
+        --correlation "${fixture_directory}/correlation.json" \
+        --redis "${fixture_directory}/redis.json"
+}
+
+assert_rejected() {
+    local expected="$1"
+    local output code
+    set +e
+    output="$(run_gate 2>&1)"
+    code=$?
+    set -e
+    if [[ "${code}" -eq 0 || "${output}" != *"${expected}"* ]]; then
+        echo "Expected rejection containing: ${expected}" >&2
+        echo "${output}" >&2
+        exit 1
+    fi
+}
+
+reset_fixture
+run_gate >/dev/null
+
+reset_fixture
+jq '.criteria[0].status = "UNSATISFIED"' "${fixture_directory}/dor.json" \
+    > "${fixture_directory}/modified.json"
+mv "${fixture_directory}/modified.json" "${fixture_directory}/dor.json"
+assert_rejected "Universal DoR record is malformed or incomplete."
+
+reset_fixture
+jq '.decision.productionDeploymentBlockedWhileUnassigned = false' "${fixture_directory}/redis.json" \
+    > "${fixture_directory}/modified.json"
+mv "${fixture_directory}/modified.json" "${fixture_directory}/redis.json"
+assert_rejected "Production Redis gap record is malformed or incomplete."
+
+reset_fixture
+rm -f -- "${fixture_directory}/P0.6-universal-dor.engineering-lead.sig"
+assert_rejected "Universal DoR Engineering Lead signature is missing."
+
+echo "FEAT-PLAT-003 Phase 0 DoR self-test: PASS"

@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+record="${repo_root}/ci/dor/FEAT-PLAT-003/P0.6-universal-dor.json"
+correlation="${repo_root}/ci/dor/FEAT-PLAT-003/P0.4-correlation-identifier-approval.json"
+redis="${repo_root}/ci/dor/FEAT-PLAT-003/P0.5-production-redis-gap.json"
+source_repository="${ARCHITECTURE_REPOSITORY:-${repo_root}/../student_assessment}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --record)
+            record="$2"
+            shift 2
+            ;;
+        --correlation)
+            correlation="$2"
+            shift 2
+            ;;
+        --redis)
+            redis="$2"
+            shift 2
+            ;;
+        --source-repository)
+            source_repository="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown FEAT-PLAT-003 Phase 0 DoR argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+fail() {
+    echo "FEAT-PLAT-003 PHASE 0 DOR: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq shasum sort; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+for required_file in "${record}" "${correlation}" "${redis}"; do
+    [[ -f "${required_file}" ]] || fail "Required decision record is missing: ${required_file}"
+done
+
+"${repo_root}/ci/verify-feat-plat-003-additional-dor" >/dev/null \
+    || fail "The feature-specific additional Definition of Ready is not approved."
+
+jq -e '
+    type == "object"
+    and .recordId == "DOR-FEAT-PLAT-003-P0.6"
+    and .feature == "FEAT-PLAT-003"
+    and .dependency == "P0.6"
+    and .status == "APPROVED"
+    and .assessmentDate == "2026-09-23"
+    and .baselines.requirementsVersion == "3.7"
+    and (.baselines.requirementsSha256 | test("^[0-9a-f]{64}$"))
+    and .baselines.architectureVersion == "1.4"
+    and (.baselines.architectureSha256 | test("^[0-9a-f]{64}$"))
+    and .baselines.ratifiedArchitectureCommit == "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc"
+    and (.baselines.planSha256 | test("^[0-9a-f]{64}$"))
+    and (.criteria | type == "array" and length == 7)
+    and ([.criteria[].id] | sort == [
+        "ACCEPTANCE_CRITERIA_STATED_AND_TESTABLE",
+        "ARCHITECTURE_REFERENCES_RESOLVE",
+        "CONSUMED_INTERFACES_DEFINED",
+        "HARD_DEPENDENCIES_DELIVERED_OR_SCHEDULED_AHEAD",
+        "NO_OPEN_BLOCKING_QUESTION_APPLIES",
+        "SECURITY_EXPECTATIONS_IDENTIFIED",
+        "UPSTREAM_REQUIREMENTS_APPROVED_AND_UNCHANGED"
+    ])
+    and all(.criteria[]; .status == "SATISFIED" and (.evidence | length > 0))
+    and .additionalDefinitionOfReady.task == "P0.3"
+    and .additionalDefinitionOfReady.status == "SATISFIED"
+    and .unmetItems == []
+    and (.deferredItems | length == 1)
+    and .deferredItems[0].blocksCurrentFeatureImplementation == false
+    and .deferredItems[0].blocksProductionDeploymentWhileUnassigned == true
+    and .decision.readyForImplementation == true
+    and .decision.productionReleaseApproved == false
+    and (.approvals | length == 2)
+    and ([.approvals[].role] | sort == ["Engineering Lead", "Solution Architect"])
+    and all(.approvals[];
+        .decision == "APPROVED"
+        and (.approvedAt | test("^2026-09-23T"))
+        and (.signature | test("^[A-Za-z0-9._-]+\\.sig$"))
+        and (.fingerprint | test("^[0-9A-F]{40}$")))
+' "${record}" >/dev/null || fail "Universal DoR record is malformed or incomplete."
+
+jq -e '
+    .status == "APPROVED"
+    and .decision.identifierForm == "ULID"
+    and .decision.canonicalPattern == "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    and .decision.invalidInputHandling == "REPLACE_WITH_SERVER_GENERATED_ULID"
+    and .decision.echoInvalidInput == false
+    and .decision.logInvalidInput == false
+' "${correlation}" >/dev/null || fail "Correlation-identifier approval is malformed or incomplete."
+
+jq -e '
+    .status == "DEFERRED_TO_PHASE_6"
+    and .decision.disposition == "EXPLICIT_PHASE_6_DEFERRAL"
+    and .decision.resolutionOwner == "Engineering Lead"
+    and .decision.implementationFeature == null
+    and .decision.mustBeAssignedBefore == "FEAT-PLAT-003 P8.7"
+    and .decision.productionDeploymentBlockedWhileUnassigned == true
+    and .guardrails.redisAuthoritative == false
+    and .guardrails.candidatePathMayRequireRedis == false
+' "${redis}" >/dev/null || fail "Production Redis gap record is malformed or incomplete."
+
+requirements="${source_repository}/workspace/v3/be/requirements.md"
+architecture="${source_repository}/workspace/v3/be/architecture.md"
+plan="${source_repository}/workspace/v3/be/plan/plan.md"
+for source_file in "${requirements}" "${architecture}" "${plan}"; do
+    [[ -f "${source_file}" ]] || fail "Source baseline is missing: ${source_file}"
+done
+
+hash_of() {
+    shasum -a 256 "$1" | awk '{print $1}'
+}
+
+[[ "$(hash_of "${requirements}")" == "$(jq -r '.baselines.requirementsSha256' "${record}")" ]] \
+    || fail "Requirements baseline hash changed."
+[[ "$(hash_of "${architecture}")" == "$(jq -r '.baselines.architectureSha256' "${record}")" ]] \
+    || fail "Architecture baseline hash changed."
+[[ "$(hash_of "${plan}")" == "$(jq -r '.baselines.planSha256' "${record}")" ]] \
+    || fail "Plan baseline hash changed."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+gpg --homedir "${gnupg_home}" --batch --quiet --import \
+    "${repo_root}/ci/trusted-architecture-owner.asc" \
+    "${repo_root}/ci/trusted-engineering-lead.asc" >/dev/null 2>&1 \
+    || fail "Trusted approval keys could not be imported."
+
+verify_signature() {
+    local signed_record="$1"
+    local signature="$2"
+    local expected_fingerprint="$3"
+    local role="$4"
+    local status actual_fingerprint
+
+    [[ -f "${signature}" ]] || fail "${role} signature is missing."
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature}" "${signed_record}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use the designated trusted key."
+}
+
+correlation_directory="$(dirname "${correlation}")"
+redis_directory="$(dirname "${redis}")"
+record_directory="$(dirname "${record}")"
+verify_signature \
+    "${correlation}" \
+    "${correlation_directory}/$(jq -r '.approvals[] | select(.role == "Solution Architect") | .signature' "${correlation}")" \
+    "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB" \
+    "Correlation approval Solution Architect"
+verify_signature \
+    "${correlation}" \
+    "${correlation_directory}/$(jq -r '.approvals[] | select(.role == "Security") | .signature' "${correlation}")" \
+    "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124" \
+    "Correlation approval Security"
+verify_signature \
+    "${redis}" \
+    "${redis_directory}/$(jq -r '.approval.signature' "${redis}")" \
+    "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124" \
+    "Redis gap Engineering Lead"
+verify_signature \
+    "${record}" \
+    "${record_directory}/$(jq -r '.approvals[] | select(.role == "Solution Architect") | .signature' "${record}")" \
+    "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB" \
+    "Universal DoR Solution Architect"
+verify_signature \
+    "${record}" \
+    "${record_directory}/$(jq -r '.approvals[] | select(.role == "Engineering Lead") | .signature' "${record}")" \
+    "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124" \
+    "Universal DoR Engineering Lead"
+
+echo "FEAT-PLAT-003 PHASE 0 DOR: PASS"
+echo "All universal readiness criteria, source baselines, decisions and detached signatures are verified."

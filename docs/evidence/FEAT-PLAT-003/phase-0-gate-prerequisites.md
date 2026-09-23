@@ -60,3 +60,53 @@ Result:
 PASS (2026-09-23)
 
 The gate verifies the fixed error-code namespace and `ProblemDetail` type URI base, the approved idempotency semantics, the ratified architecture commit, three distinct role-pinned signers, and all detached signatures. Its self-test confirms that contract drift, signed-record tampering, and missing approval evidence are rejected.
+
+## P0.4 - Correlation-Identifier Form
+
+The Solution Architect and Security approved canonical ULID correlation identifiers. An accepted `X-Correlation-Id` must match `^[0-7][0-9A-HJKMNP-TV-Z]{25}$`; absent, malformed, oversized, lowercase, ambiguous-character or control-character-bearing input is replaced with a server-generated ULID and is never echoed or logged.
+
+Evidence:
+
+- `ci/dor/FEAT-PLAT-003/P0.4-correlation-identifier-approval.json`
+- `ci/dor/FEAT-PLAT-003/P0.4-correlation-identifier-approval.solution-architect.sig`
+- `ci/dor/FEAT-PLAT-003/P0.4-correlation-identifier-approval.security.sig`
+
+Status: APPROVED. This settles `TASK-PLAT3-DEFECT-006` before `P4.13`.
+
+## P0.5 - Production Redis Ownership Gap
+
+The Engineering Lead accepted an explicit Phase 6 deferral for production Redis provisioning. `FEAT-PLAT-003` owns the port, adapter, Testcontainers substrate and local-development service only. Provisioning, sizing, high availability, failover, network policy and operational ownership remain unassigned and must receive a feature owner before `P8.7`; production deployment is blocked while the owner is absent.
+
+Evidence:
+
+- `docs/defects/TASK-PLAT3-DEFECT-005.md`
+- `ci/dor/FEAT-PLAT-003/P0.5-production-redis-gap.json`
+- `ci/dor/FEAT-PLAT-003/P0.5-production-redis-gap.engineering-lead.sig`
+
+Status: DEFERRED TO PHASE 6. The gap no longer blocks Phase 0 design or implementation because Redis remains non-authoritative and the feature's test and local substrates are explicitly owned; it remains a production-release gate.
+
+## P0.6 - Universal Definition of Ready
+
+All seven plan section 8.0 readiness criteria are satisfied:
+
+| Criterion | Evidence | Result |
+|---|---|---|
+| Upstream requirements approved and unchanged | Requirements v3.7 content hash retained in the signed record | SATISFIED |
+| Acceptance criteria stated and testable | Plan section 8.1 outcomes and task-list Appendix A mappings | SATISFIED |
+| Architecture references resolve | Ratified architecture v1.4 sections 8.4, 10.4 and 10.5 | SATISFIED |
+| Hard dependencies delivered or scheduled ahead | `P0.2` FEAT-PLAT-001 dependency verification | SATISFIED |
+| No open blocking question applies | Requirements section 21 closed; `P0.4` settled; `P0.5` production-only deferral recorded | SATISFIED |
+| Security expectations identified | Allowlist, non-disclosure and strict correlation-input contract | SATISFIED |
+| Consumed interfaces defined | FEAT-PLAT-001 propagation/conformance interfaces and architecture error/idempotency contracts | SATISFIED |
+
+The feature-specific DoR is independently satisfied by signed `P0.3` evidence. Production Redis ownership remains a Phase 6 production-release gate and does not approve production release here.
+
+Evidence:
+
+- `ci/dor/FEAT-PLAT-003/P0.6-universal-dor.json`
+- `ci/dor/FEAT-PLAT-003/P0.6-universal-dor.solution-architect.sig`
+- `ci/dor/FEAT-PLAT-003/P0.6-universal-dor.engineering-lead.sig`
+- `ci/verify-feat-plat-003-phase-0-dor`
+- `ci/test-feat-plat-003-phase-0-dor`
+
+Status: APPROVED FOR IMPLEMENTATION; PRODUCTION RELEASE NOT APPROVED.

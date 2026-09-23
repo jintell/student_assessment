@@ -83,9 +83,9 @@ work in Phase 4 here, not an assumption someone remembers later.
 1. [*] Confirm which authorisation scope is in force from `tasks.md` `P0.5` or `P0.6` and record it. Deliverable: one-line phase-log entry. Acceptance: no Phase 3+ task starts under `implementationAllowed: false`.
 2. [*] Confirm `FEAT-PLAT-001` has delivered the module skeleton, the placeholder carriers, the propagation mechanism and the conformance-rule harness this feature builds on. Deliverable: dependency-satisfied record. Depends on `tasks.md` `P4.2`, `P4.6`–`P4.9`, `P4.18`–`P4.25`.
 3. [*] Obtain agreement on the §10.4 error taxonomy and the §10.5 idempotency semantics from the Solution Architect, Security and the API consumer representatives, as the feature's additional Definition of Ready. Deliverable: signed DoR record. Acceptance: the error-code namespace and the `type` URI base are fixed here, because both are client-visible and expensive to change later.
-4. [ ] Raise the correlation-identifier form (`TASK-PLAT3-DEFECT-006`) for approval: ULID, strict validation, replace-not-echo on malformed input. Deliverable: approval record or a named alternative form. Acceptance: settled before `P4.13`.
-5. [ ] Raise the unowned production-Redis gap (`TASK-PLAT3-DEFECT-005`) to the Engineering Lead and record which feature will own provisioning. Deliverable: gap record with a named owner or an explicit deferral to Phase 6.
-6. [ ] Confirm the universal Definition of Ready (plan §8.0) holds and record any item that does not, with its blocker. Deliverable: signed DoR record.
+4. [*] Raise the correlation-identifier form (`TASK-PLAT3-DEFECT-006`) for approval: ULID, strict validation, replace-not-echo on malformed input. Deliverable: approval record or a named alternative form. Acceptance: settled before `P4.13`.
+5. [*] Raise the unowned production-Redis gap (`TASK-PLAT3-DEFECT-005`) to the Engineering Lead and record which feature will own provisioning. Deliverable: gap record with a named owner or an explicit deferral to Phase 6.
+6. [*] Confirm the universal Definition of Ready (plan §8.0) holds and record any item that does not, with its blocker. Deliverable: signed DoR record.
 
 ---
 

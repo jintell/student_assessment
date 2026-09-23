@@ -1,0 +1,86 @@
+{
+  "recordId": "DOR-FEAT-PLAT-003-P0.6",
+  "feature": "FEAT-PLAT-003",
+  "dependency": "P0.6",
+  "status": "APPROVED",
+  "assessmentDate": "2026-09-23",
+  "baselines": {
+    "requirementsVersion": "3.7",
+    "requirementsSha256": "df1e22d2f64cf8a24ba0c502bcbb14632b47ca7344c755ac769dabe898713ee1",
+    "architectureVersion": "1.4",
+    "architectureSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da",
+    "ratifiedArchitectureCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "planSha256": "a331acc77b4f3bf36074c263cdb413a988bdb485505fdd41ea0296ec6deb213f"
+  },
+  "criteria": [
+    {
+      "id": "UPSTREAM_REQUIREMENTS_APPROVED_AND_UNCHANGED",
+      "status": "SATISFIED",
+      "evidence": "Requirements v3.7 baseline hash and the FEAT-PLAT-003 upstream requirement identifiers in plan section 8.1."
+    },
+    {
+      "id": "ACCEPTANCE_CRITERIA_STATED_AND_TESTABLE",
+      "status": "SATISFIED",
+      "evidence": "Plan section 8.1 acceptance outcomes and tasks Appendix A map each outcome to implementation and verification tasks."
+    },
+    {
+      "id": "ARCHITECTURE_REFERENCES_RESOLVE",
+      "status": "SATISFIED",
+      "evidence": "Architecture v1.4 sections 8.4, 10.4, 10.5 and decisions ARC-PLAT-010 and ARC-PLAT-011 resolve against the ratified baseline."
+    },
+    {
+      "id": "HARD_DEPENDENCIES_DELIVERED_OR_SCHEDULED_AHEAD",
+      "status": "SATISFIED",
+      "evidence": "P0.2 verifies FEAT-PLAT-001 module, placeholder-carrier, propagation and conformance deliverables in the repository."
+    },
+    {
+      "id": "NO_OPEN_BLOCKING_QUESTION_APPLIES",
+      "status": "SATISFIED",
+      "evidence": "Requirements section 21 is closed; P0.4 settles correlation identifiers; P0.5 explicitly defers the production-only Redis ownership gap to Phase 6."
+    },
+    {
+      "id": "SECURITY_EXPECTATIONS_IDENTIFIED",
+      "status": "SATISFIED",
+      "evidence": "The plan identifies allowlisted non-disclosing errors and non-personal correlation identifiers; P0.4 adds strict input validation and replace-not-echo behavior."
+    },
+    {
+      "id": "CONSUMED_INTERFACES_DEFINED",
+      "status": "SATISFIED",
+      "evidence": "FEAT-PLAT-001 propagation and conformance interfaces are delivered, while architecture sections 10.4 and 10.5 define the error and idempotency contracts this feature implements."
+    }
+  ],
+  "additionalDefinitionOfReady": {
+    "task": "P0.3",
+    "status": "SATISFIED",
+    "record": "P0.3-api-contract-dor.json"
+  },
+  "unmetItems": [],
+  "deferredItems": [
+    {
+      "item": "Production Redis provisioning ownership",
+      "record": "P0.5-production-redis-gap.json",
+      "blocksCurrentFeatureImplementation": false,
+      "blocksProductionDeploymentWhileUnassigned": true
+    }
+  ],
+  "decision": {
+    "readyForImplementation": true,
+    "productionReleaseApproved": false
+  },
+  "approvals": [
+    {
+      "role": "Solution Architect",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-23T21:22:00+01:00",
+      "signature": "P0.6-universal-dor.solution-architect.sig",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB"
+    },
+    {
+      "role": "Engineering Lead",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-23T21:24:00+01:00",
+      "signature": "P0.6-universal-dor.engineering-lead.sig",
+      "fingerprint": "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124"
+    }
+  ]
+}
