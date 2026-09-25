@@ -133,16 +133,16 @@ agreed.
 
 **No schema change.** This feature defines shared value types only (plan `Data impact`: "None").
 
-1. [ ] Create the `shared.kernel` package with its Modulith descriptor, exposing only its port and value types. Deliverable: package plus descriptor, extending `tasks.md` `P4.3`. Acceptance: `ApplicationModules.of(...).verify()` still passes.
-2. [ ] Add the build-level dependency constraint that `shared.kernel` has no framework dependency on the compile classpath. Deliverable: build configuration. Acceptance: adding a Spring import to the kernel fails the build at compile time as well as at conformance time.
-3. [ ] Create the `platform.infra` package for the kernel's adapters, with its descriptor. Deliverable: package plus descriptor.
-4. [ ] Add the Redis client dependency, resolved through the managed BOM and locked. Deliverable: dependency block plus lockfile update. Acceptance: CI stage 2 lockfile-drift gate stays green; the driver is absent from the `shared.kernel` classpath.
-5. [ ] Add the Testcontainers Redis substrate to the CI stage 8 integration harness, alongside the existing PostgreSQL container. Deliverable: test harness extension, consistent with `tasks.md` `P3.3`.
-6. [ ] Add a local `docker-compose` Redis service on a pinned image digest for developer use. Deliverable: compose extension. Acceptance: the integration suite runs locally with one command.
-7. [ ] Wire the four `P2.17` conformance rules into the existing `conformanceTest` source set and CI stage 4 entry point. Deliverable: rule registration, extending `tasks.md` `P3.6`, `P3.7`.
-8. [ ] Add the CI stage 10 entry point for the `ProblemDetail` allowlist test and the error-response limb of the secret-leak scan, runnable standalone. Deliverable: `ci/` script plus Gradle task. Acceptance: blocking, per §18.1 stage 10 and `NFR-SEC-002`.
-9. [ ] Add `problem-detail-allowlist` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `tasks.md` `P3.9`.
-10. [ ] Publish the error-code catalogue as a build-time generated artifact so the OpenAPI document and the client documentation are generated from it, not written alongside it. Deliverable: catalogue generation step. Acceptance: a new code appears in the OpenAPI document without a second edit.
+1. [*] Create the `shared.kernel` package with its Modulith descriptor, exposing only its port and value types. Deliverable: package plus descriptor, extending `tasks.md` `P4.3`. Acceptance: `ApplicationModules.of(...).verify()` still passes.
+2. [*] Add the build-level dependency constraint that `shared.kernel` has no framework dependency on the compile classpath. Deliverable: build configuration. Acceptance: adding a Spring import to the kernel fails the build at compile time as well as at conformance time.
+3. [*] Create the `platform.infra` package for the kernel's adapters, with its descriptor. Deliverable: package plus descriptor.
+4. [*] Add the Redis client dependency, resolved through the managed BOM and locked. Deliverable: dependency block plus lockfile update. Acceptance: CI stage 2 lockfile-drift gate stays green; the driver is absent from the `shared.kernel` classpath.
+5. [*] Add the Testcontainers Redis substrate to the CI stage 8 integration harness, alongside the existing PostgreSQL container. Deliverable: test harness extension, consistent with `tasks.md` `P3.3`.
+6. [*] Add a local `docker-compose` Redis service on a pinned image digest for developer use. Deliverable: compose extension. Acceptance: the integration suite runs locally with one command.
+7. [*] Wire the four `P2.17` conformance rules into the existing `conformanceTest` source set and CI stage 4 entry point. Deliverable: rule registration, extending `tasks.md` `P3.6`, `P3.7`.
+8. [*] Add the CI stage 10 entry point for the `ProblemDetail` allowlist test and the error-response limb of the secret-leak scan, runnable standalone. Deliverable: `ci/` script plus Gradle task. Acceptance: blocking, per §18.1 stage 10 and `NFR-SEC-002`.
+9. [*] Add `problem-detail-allowlist` to the `main` branch-protection required checks. Deliverable: protection configuration record extending `tasks.md` `P3.9`.
+10. [*] Publish the error-code catalogue as a build-time generated artifact so the OpenAPI document and the client documentation are generated from it, not written alongside it. Deliverable: catalogue generation step. Acceptance: a new code appears in the OpenAPI document without a second edit.
 
 ---
 
