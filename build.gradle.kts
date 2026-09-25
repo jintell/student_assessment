@@ -33,6 +33,11 @@ extra["springModulithVersion"] = "2.1.1"
 val conformanceTestSourceSet = sourceSets.create("conformanceTest")
 val integrationTestSourceSet = sourceSets.create("integrationTest")
 val compatibilityProbeSourceSet = sourceSets.create("compatibilityProbe")
+val kernelCompileClasspath =
+    configurations.create("kernelCompileClasspath") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+    }
 
 conformanceTestSourceSet.compileClasspath += sourceSets.main.get().output
 conformanceTestSourceSet.runtimeClasspath += conformanceTestSourceSet.output + conformanceTestSourceSet.compileClasspath
@@ -77,11 +82,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-r2dbc")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.springframework.modulith:spring-modulith-starter-insight")
+    implementation("org.yaml:snakeyaml")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
@@ -116,6 +123,67 @@ dependencies {
         "com.github.jsqlparser:jsqlparser:5.3",
     )
     add(conformanceTestSourceSet.implementationConfigurationName, "org.ow2.asm:asm:9.10.1")
+    add(kernelCompileClasspath.name, "org.reactivestreams:reactive-streams")
+}
+
+val compileKernelJava =
+    tasks.register<JavaCompile>("compileKernelJava") {
+        description = "Compiles shared.kernel against its framework-free dependency boundary."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        source(
+            fileTree("src/main/java/org/meldtech/platform/shared/kernel") {
+                include("**/*.java")
+                exclude("package-info.java")
+            },
+        )
+        classpath = kernelCompileClasspath
+        destinationDirectory.set(layout.buildDirectory.dir("classes/java/kernel-check"))
+        options.release.set(21)
+    }
+
+tasks.named("compileJava") {
+    dependsOn(compileKernelJava)
+}
+
+val generatedErrorCatalogueResources =
+    layout.buildDirectory.dir("generated/resources/errorCatalogue")
+
+val generateErrorCatalogue =
+    tasks.register<JavaExec>("generateErrorCatalogue") {
+        description = "Generates runtime, OpenAPI, and client error-catalogue artifacts."
+        group = LifecycleBasePlugin.BUILD_GROUP
+        dependsOn(tasks.compileJava)
+        classpath =
+            files(
+                sourceSets.main
+                    .get()
+                    .output.classesDirs,
+                configurations.runtimeClasspath,
+            )
+        mainClass.set(
+            "org.meldtech.platform.platform.infra.kernel.error.ErrorCatalogueGenerator",
+        )
+        val source = layout.projectDirectory.file("src/main/resources/error-catalogue.yaml")
+        val runtimeOutput = generatedErrorCatalogueResources.map { it.file("error-catalogue.json") }
+        val openApiOutput = layout.buildDirectory.file("generated/openapi/openapi.yaml")
+        val documentationOutput =
+            layout.buildDirectory.file("generated/docs/error-catalogue.md")
+        inputs.file(source)
+        outputs.files(runtimeOutput, openApiOutput, documentationOutput)
+        args(
+            source.asFile.absolutePath,
+            runtimeOutput.get().asFile.absolutePath,
+            openApiOutput.get().asFile.absolutePath,
+            documentationOutput.get().asFile.absolutePath,
+        )
+    }
+
+sourceSets.main {
+    resources.srcDir(generatedErrorCatalogueResources)
+}
+
+tasks.processResources {
+    dependsOn(generateErrorCatalogue)
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -218,6 +286,23 @@ val integrationTest =
         classpath = integrationTestSourceSet.runtimeClasspath
         dependsOn(tasks.testClasses, ":migration-verify:generateStage12Dataset")
         shouldRunAfter(tasks.test, sliceTest)
+    }
+
+val problemDetailAllowlistTest =
+    tasks.register<Test>("problemDetailAllowlistTest") {
+        description = "Runs the ProblemDetail allowlist and error-response leak tests."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include(
+            "**/ProblemDetailAllowlistTest.class",
+            "**/ErrorResponseSecretLeakTest.class",
+        )
+        dependsOn(tasks.testClasses)
+        shouldRunAfter(integrationTest)
     }
 
 tasks.register<JavaExec>("generateGrantMatrixMigration") {
@@ -448,6 +533,12 @@ tasks.register("ciStage8") {
     description = "CI stage 8: runs PostgreSQL integration tests."
     group = "ci"
     dependsOn(integrationTest)
+}
+
+tasks.register("ciStage10") {
+    description = "CI stage 10: verifies the ProblemDetail allowlist and response secrecy."
+    group = "ci"
+    dependsOn(problemDetailAllowlistTest)
 }
 
 val documentationConformanceSelfTest =

@@ -1,0 +1,8 @@
+catalogueVersion: 1
+problems:
+  CBT-PLAT-INTERNAL:
+    type: https://errors.meld-tech.com/problems/internal
+    title: Unexpected error
+    status: 500
+    detail: The request could not be completed.
+    extensions: {}
