@@ -1,5 +1,76 @@
 # FEAT-PLAT-002 Phase 7 Testing Evidence
 
+## P7.1 ARC-VERIFY-002 Static Schema-Ownership Limb
+
+Status: PASS (2026-09-26)
+
+`R3SchemaOwnershipTests.tenantQueriesReferenceOnlyTheirOwningSchema` scans compiled production query types,
+extracts SQL constants with ASM, parses relation names with JSQLParser, and rejects every schema qualifier
+that differs from the query type's owning module. Both classes named `Queries` and implementations of
+`TenantScopedQuery` are covered.
+
+The rule has no exemption for `app_txn_examentry` or any other composite role. Cross-module collaboration
+therefore does not authorize a slice query to reference a foreign schema; it must proceed through the
+published module APIs and the single transaction owned by `TransactionalCollaboration`.
+
+`rejectsAQueryNamingAForeignSchema` imports a deliberate fixture and proves the same Stage 4 assertion fails
+with `R3 schema ownership violated:` rather than merely passing the current production tree.
+
+Verification:
+
+```text
+./gradlew conformanceTest \
+  --tests 'org.meldtech.platform.conformance.R3SchemaOwnershipTests'
+
+BUILD SUCCESSFUL
+```
+
+## P7.2 ARC-VERIFY-002 Live Grant-Matrix Limb
+
+Status: PASS (2026-09-26)
+
+`PersistenceSecurityGatesIntegrationTest.liveDatabaseGrantsExactlyMatchTheDeclaredMatrix` migrates a real
+PostgreSQL 17 database and compares the complete live authorization state with
+`db/grants/grant-matrix.json`. `GrantDiffGate` includes role attributes, memberships, schema privileges,
+relation privileges, column privileges, routine privileges, and default privileges. Any extra or missing
+fact fails with `ARC-VERIFY-002 grant drift`.
+
+Each module role is limited to its owning module schema. The only cross-schema facts allowed by the matrix
+are `USAGE` plus `INSERT` for the shared `audit.audit_event` and `outbox.outbox_event` infrastructure
+contracts; no role receives access to another module's schema. Because the comparison is exact, an
+undeclared foreign-schema grant cannot pass as harmless surplus privilege.
+
+Verification:
+
+```text
+./gradlew integrationTest \
+  --tests \
+  'org.meldtech.platform.platform.infra.persistence.PersistenceSecurityGatesIntegrationTest.liveDatabaseGrantsExactlyMatchTheDeclaredMatrix'
+
+BUILD SUCCESSFUL
+```
+
+## P7.3 ARC-VERIFY-005 Omitted-Predicate Backstop
+
+Status: PASS (2026-09-26)
+
+`PersistenceFoundationIntegrationTest.forcedRlsHidesForeignRowWhenTenantPredicateIsOmitted` inserts probe
+rows for tenants A and B, installs tenant A's transaction-local context, and deliberately queries tenant B's
+probe identifier without any `tenant_id` predicate. PostgreSQL forced RLS returns a count of zero.
+
+This is the database-layer assertion for `ARC-VERIFY-005`; it does not depend on the R5 query-signature rule
+or on application query construction.
+
+Verification:
+
+```text
+./gradlew integrationTest \
+  --tests \
+  'org.meldtech.platform.migration.PersistenceFoundationIntegrationTest.forcedRlsHidesForeignRowWhenTenantPredicateIsOmitted'
+
+BUILD SUCCESSFUL
+```
+
 ## P7.11 R10 Negative Tests
 
 Status: PASS (2026-09-26)
