@@ -26,11 +26,11 @@ import org.reactivestreams.Publisher;
 import org.springframework.http.HttpMethod;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.ServerResponse;
-import org.springframework.web.reactive.function.server.ServerRequest;
-import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.HandlerFunction;
+import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.RouterFunctions;
+import org.springframework.web.reactive.function.server.ServerRequest;
+import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -74,11 +74,10 @@ class IdempotencyRequestFilterTest {
     @IdempotencyPolicy(createsDurableRecord = false, mechanism = IdempotencyMechanism.REDIS_HEADER)
     private static final class RedisHeaderRoute implements PolicyProtectedRoute {
 
-        private final RouterFunction<ServerResponse>
-                delegate =
-                        RouterFunctions.route()
-                                .POST("/operations", request -> ServerResponse.noContent().build())
-                                .build();
+        private final RouterFunction<ServerResponse> delegate =
+                RouterFunctions.route()
+                        .POST("/operations", request -> ServerResponse.noContent().build())
+                        .build();
 
         @Override
         public RouteDescriptor descriptor() {

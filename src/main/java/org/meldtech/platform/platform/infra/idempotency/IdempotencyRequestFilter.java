@@ -123,8 +123,7 @@ final class IdempotencyRequestFilter implements WebFilter {
                     }
 
                     @Override
-                    public ServerHttpResponse
-                            getResponse() {
+                    public ServerHttpResponse getResponse() {
                         return response;
                     }
                 };
