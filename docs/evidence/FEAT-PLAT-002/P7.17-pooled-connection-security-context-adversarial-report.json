@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "task": "P7.17",
+  "verification": "ARC-VERIFY-024",
+  "launchCondition": "L9",
+  "verdict": "PASS",
+  "startedAt": "2026-09-26T21:46:42.762Z",
+  "finishedAt": "2026-09-26T21:46:54Z",
+  "source": {
+    "gitCommit": "ab807a12c92ce2aff2a99167d5abdc62d86dbff0",
+    "testInputsSha256": "e868eaef26b06650d11eb28c7b371962a84f637224d3686c96d19e1f4ff464a6"
+  },
+  "staging": {
+    "kubernetesContext": "cbt-staging",
+    "namespace": "cbt-staging-rollback",
+    "namespaceEnvironmentLabel": "staging",
+    "databaseDeploymentUid": "193e40f8-57de-4e7e-8011-f60fff46f1f9",
+    "applicationDeploymentUid": "f88b270d-686b-492b-a99a-b994ce0d2b3f",
+    "postgresImage": "postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
+    "applicationImage": "ghcr.io/jintell/cbt-platform@sha256:e1a20c5351368ef2a45970404424ae8ab46da0230e60425a960217d4a515219a"
+  },
+  "execution": {
+    "gradleTask": "stagingAdversarialTest",
+    "testClass": "org.meldtech.platform.platform.infra.persistence.AdversarialConnectionReuseIntegrationTest",
+    "clientLocation": "authenticated checkout through a temporary Kubernetes port-forward",
+    "databaseLocation": "cbt-staging/cbt-staging-rollback service cbt-platform-postgres",
+    "tests": 4,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "durationSeconds": 1.561,
+    "junitResultSha256": "d0d4e0d21f67caf2d860808cb399c9fe0cfc7dc305013bf167c0cb0cdd6ad298"
+  },
+  "assertions": [
+    "single physical connection is reused across alternating tenants, roles, and Reactor termination paths",
+    "both physical connections in a saturated two-connection pool are recycled and reset",
+    "raw pooled statements have no application privilege and no tenant setting",
+    "strict missing tenant context raises SQLSTATE 42704",
+    "FORCE ROW LEVEL SECURITY restricts the table owner"
+  ],
+  "secretsRetained": false
+}

@@ -1,0 +1,26 @@
+{
+  "formatVersion" : 1,
+  "assertions" : [ {
+    "routeId" : "platform.getConformanceReference",
+    "method" : "GET",
+    "pathTemplate" : "/api/v1/platform/conformance-reference",
+    "owningModule" : "platform",
+    "operation" : "READ",
+    "expectedForeignResourceStatus" : 404
+  }, {
+    "routeId" : "platform.getConformanceReference",
+    "method" : "GET",
+    "pathTemplate" : "/api/v1/platform/conformance-reference",
+    "owningModule" : "platform",
+    "operation" : "WRITE",
+    "expectedForeignResourceStatus" : 404
+  }, {
+    "routeId" : "platform.getConformanceReference",
+    "method" : "GET",
+    "pathTemplate" : "/api/v1/platform/conformance-reference",
+    "owningModule" : "platform",
+    "operation" : "ENUMERATE",
+    "expectedForeignResourceStatus" : 404
+  } ],
+  "platformExclusions" : [ ]
+}
