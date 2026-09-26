@@ -1,8 +1,8 @@
 package org.meldtech.platform.platform.slice.getConformanceReference;
 
 import org.meldtech.platform.shared.api.PolicyDecision;
-import org.meldtech.platform.shared.api.RequestCarrier;
 import org.meldtech.platform.shared.api.SlicePolicy;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -17,7 +17,7 @@ final class Policy implements SlicePolicy<Request> {
     }
 
     @Override
-    public Mono<PolicyDecision> evaluate(RequestCarrier carrier, Request request) {
+    public Mono<PolicyDecision> evaluate(ActorContext actor, Request request) {
         return Mono.just(PolicyDecision.DENY);
     }
 }

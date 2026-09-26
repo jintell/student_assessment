@@ -7,7 +7,7 @@ import java.util.function.Function;
 import org.meldtech.platform.platform.api.TransactionalCollaboration;
 import org.meldtech.platform.platform.api.TransactionalConnection;
 import org.meldtech.platform.shared.api.AtomicCrossModuleFlow;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
 
 final class DefaultTransactionalCollaboration implements TransactionalCollaboration {
@@ -22,7 +22,7 @@ final class DefaultTransactionalCollaboration implements TransactionalCollaborat
 
     @Override
     public <T> Mono<T> inExamEntryTransaction(
-            RequestTenantId tenantId, Function<TransactionalConnection, Mono<T>> work) {
+            TenantId tenantId, Function<TransactionalConnection, Mono<T>> work) {
         Objects.requireNonNull(tenantId, "tenantId");
         Objects.requireNonNull(work, "work");
         return Mono.deferContextual(

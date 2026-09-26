@@ -10,23 +10,24 @@ import io.micrometer.tracing.handler.DefaultTracingObservationHandler;
 import io.micrometer.tracing.test.simple.SimpleTracer;
 import io.micrometer.tracing.test.simple.TracerAssert;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyResolver;
-import org.meldtech.platform.shared.api.RequestActor;
-import org.meldtech.platform.shared.api.RequestActorType;
-import org.meldtech.platform.shared.api.RequestCarrier;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.infra.web.RequestContextPropagation;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.context.ActorId;
+import org.meldtech.platform.shared.kernel.context.ActorType;
+import org.meldtech.platform.shared.kernel.context.CorrelationId;
+import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
+import org.meldtech.platform.shared.kernel.context.SourceIp;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.WebFilter;
@@ -35,14 +36,15 @@ import reactor.test.StepVerifier;
 
 class SliceTest {
 
-    private static final RequestTenantId TENANT_ID =
-            new RequestTenantId(UUID.fromString("ad25adad-f989-4a62-9754-3a600e5bf347"));
-    private static final RequestCarrier TENANT_REQUEST =
-            new RequestCarrier(
-                    "request-123",
-                    Optional.of(TENANT_ID),
-                    Optional.of(new RequestActor(RequestActorType.WORKFORCE_USER, "operator-123")),
-                    "127.0.0.1");
+    private static final String CORRELATION_ID = "01J9Z9Q9J6Y7TQ4PXKJ4D0M3NV";
+    private static final TenantId TENANT_ID =
+            TenantId.parse("ad25adad-f989-4a62-9754-3a600e5bf347");
+    private static final ActorContext TENANT_REQUEST =
+            ActorContext.tenantWorkforce(
+                    new ActorId("operator-123"),
+                    TENANT_ID,
+                    CorrelationId.parse(CORRELATION_ID),
+                    SourceIp.parse("127.0.0.1"));
     private static final Queries.ConformanceMetadata METADATA =
             new Queries.ConformanceMetadata(
                     "test-version",
@@ -69,11 +71,14 @@ class SliceTest {
 
     @Test
     void rejectsAHandlerInvocationWithoutTenantContext() {
-        RequestCarrier carrier =
-                new RequestCarrier("request-123", Optional.empty(), Optional.empty(), "127.0.0.1");
+        ActorContext actor =
+                ActorContext.platformWorkforce(
+                        new ActorId("operator-123"),
+                        CorrelationId.parse(CORRELATION_ID),
+                        SourceIp.parse("127.0.0.1"));
         Handler handler = new Handler(tenantId -> Mono.just(METADATA));
 
-        StepVerifier.create(handler.handle(carrier, Request.INSTANCE))
+        StepVerifier.create(handler.handle(actor, Request.INSTANCE))
                 .expectError(IllegalStateException.class)
                 .verify();
     }
@@ -109,7 +114,7 @@ class SliceTest {
     }
 
     @Test
-    void endpointReturnsANonDisclosingPolicyDenial() {
+    void endpointDelegatesPolicyDenialToTheUniformErrorBoundary() {
         Endpoint endpoint =
                 new Endpoint(
                         policyResolver(PolicyDecision.DENY),
@@ -123,17 +128,9 @@ class SliceTest {
                 .expectStatus()
                 .isForbidden()
                 .expectHeader()
-                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .expectHeader()
-                .valueEquals("Cache-Control", "no-store")
-                .expectBody(new ParameterizedTypeReference<Map<String, Object>>() {})
-                .value(
-                        body -> {
-                            assertEquals(Set.of("status", "code", "correlationId"), body.keySet());
-                            assertEquals(403, body.get("status"));
-                            assertEquals("ACCESS_DENIED", body.get("code"));
-                            assertEquals(TENANT_REQUEST.correlationId(), body.get("correlationId"));
-                        });
+                .doesNotExist("Content-Type")
+                .expectBody()
+                .isEmpty();
     }
 
     @Test
@@ -190,10 +187,10 @@ class SliceTest {
                 .hasTag("module", "platform")
                 .hasTag("slice", "getConformanceReference")
                 .hasTag("audience", "operator")
-                .hasTag("actorType", RequestActorType.WORKFORCE_USER.name())
+                .hasTag("actorType", ActorType.WORKFORCE_USER.name())
                 .hasTag("operation", "READ")
-                .hasTag("correlationId", TENANT_REQUEST.correlationId())
-                .hasTag("tenantId", TENANT_ID.value().toString());
+                .hasTag("correlationId", TENANT_REQUEST.correlationId().toString())
+                .hasTag("tenantId", TENANT_ID.toString());
     }
 
     @Test
@@ -204,8 +201,8 @@ class SliceTest {
                 .observationHandler(new DefaultTracingObservationHandler(tracer));
         Endpoint endpoint =
                 new Endpoint(
-                        policyResolver(PolicyDecision.DENY),
-                        new Handler(unusedQueries()),
+                        policyResolver(PolicyDecision.ALLOW),
+                        new Handler(tenantId -> Mono.just(METADATA)),
                         registry);
         Logger logger = (Logger) LoggerFactory.getLogger(Endpoint.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -215,18 +212,24 @@ class SliceTest {
         try (AnnotationConfigApplicationContext context =
                 new AnnotationConfigApplicationContext(ContextPropagationTestConfiguration.class)) {
             WebFilter requestContextFilter = context.getBean(WebFilter.class);
+            RequestContextPropagation propagation =
+                    context.getBean(RequestContextPropagation.class);
 
             WebTestClient.bindToRouterFunction(endpoint)
-                    .webFilter(requestContextFilter)
+                    .webFilter(
+                            (exchange, chain) -> {
+                                propagation.attach(exchange, TENANT_REQUEST);
+                                return requestContextFilter.filter(exchange, chain);
+                            })
                     .build()
                     .get()
                     .uri(Endpoint.PATH)
-                    .header("X-Correlation-Id", "request-123")
+                    .header("X-Correlation-Id", CORRELATION_ID)
                     .exchange()
                     .expectStatus()
-                    .isForbidden()
+                    .isOk()
                     .expectHeader()
-                    .valueEquals("X-Correlation-Id", "request-123");
+                    .valueEquals("X-Correlation-Id", CORRELATION_ID);
 
             ILoggingEvent logEvent =
                     appender.list.stream()
@@ -237,11 +240,11 @@ class SliceTest {
                                                             "Conformance reference slice completed"))
                             .findFirst()
                             .orElseThrow();
-            assertEquals("request-123", logEvent.getMDCPropertyMap().get("correlationId"));
+            assertEquals(CORRELATION_ID, logEvent.getMDCPropertyMap().get("correlationId"));
             TracerAssert.assertThat(tracer)
                     .onlySpan()
                     .hasNameEqualTo(Endpoint.SPAN_NAME)
-                    .hasTag("correlationId", "request-123");
+                    .hasTag("correlationId", CORRELATION_ID);
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -263,7 +266,18 @@ class SliceTest {
                                 "org\\.meldtech\\.platform\\.shared\\.infra\\.web\\."
                                         + "ReactorContextPropagationConfiguration")
             })
-    static class ContextPropagationTestConfiguration {}
+    static class ContextPropagationTestConfiguration {
+
+        @Bean
+        RequestContextPropagation requestContextPropagation() {
+            return new RequestContextPropagation();
+        }
+
+        @Bean
+        CorrelationIdGenerator correlationIdGenerator() {
+            return () -> CorrelationId.parse(CORRELATION_ID);
+        }
+    }
 
     private static WebTestClient clientWithRequestContext(Endpoint endpoint) {
         return WebTestClient.bindToRouterFunction(endpoint)
@@ -273,8 +287,19 @@ class SliceTest {
                                         .contextWrite(
                                                 context ->
                                                         context.put(
-                                                                RequestCarrier.class,
+                                                                ActorContext.class,
                                                                 TENANT_REQUEST)))
+                .webFilter(
+                        (exchange, chain) ->
+                                chain.filter(exchange)
+                                        .onErrorResume(
+                                                org.springframework.security.access
+                                                        .AccessDeniedException.class,
+                                                failure -> {
+                                                    exchange.getResponse()
+                                                            .setStatusCode(HttpStatus.FORBIDDEN);
+                                                    return exchange.getResponse().setComplete();
+                                                }))
                 .build();
     }
 
@@ -282,7 +307,7 @@ class SliceTest {
         return new PolicyResolver() {
             @Override
             public <R> Mono<PolicyDecision> evaluate(
-                    String routeId, RequestCarrier carrier, R request) {
+                    String routeId, ActorContext actor, R request) {
                 return Mono.just(decision);
             }
         };

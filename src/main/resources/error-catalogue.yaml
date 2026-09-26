@@ -1,8 +1,55 @@
 catalogueVersion: 1
 problems:
+  CBT-PLAT-CONFLICT:
+    type: https://errors.meld-tech.com/problems/conflict
+    title: Conflict
+    status: 409
+    detail: The request conflicts with the current state.
+    extensions: {}
+  CBT-PLAT-FORBIDDEN:
+    type: https://errors.meld-tech.com/problems/forbidden
+    title: Forbidden
+    status: 403
+    detail: The requested operation is not permitted.
+    extensions: {}
+  CBT-PLAT-IDEMPOTENCY-UNAVAILABLE:
+    type: https://errors.meld-tech.com/problems/idempotency-unavailable
+    title: Duplicate request protection unavailable
+    status: 409
+    detail: The request cannot be safely repeated at this time.
+    extensions: {}
   CBT-PLAT-INTERNAL:
     type: https://errors.meld-tech.com/problems/internal
     title: Unexpected error
     status: 500
     detail: The request could not be completed.
+    extensions: {}
+  CBT-PLAT-NOT-FOUND:
+    type: https://errors.meld-tech.com/problems/not-found
+    title: Not found
+    status: 404
+    detail: The requested resource was not found.
+    extensions: {}
+  CBT-PLAT-RATE-LIMITED:
+    type: https://errors.meld-tech.com/problems/rate-limited
+    title: Too many requests
+    status: 429
+    detail: Too many requests were received. Try again later.
+    extensions:
+      retryAfterSeconds:
+        type: integer
+        required: true
+        minimum: 1
+        maximum: 86400
+  CBT-PLAT-UNAUTHORISED:
+    type: https://errors.meld-tech.com/problems/unauthorised
+    title: Unauthorised
+    status: 401
+    detail: Authentication is required to perform this operation.
+    extensions: {}
+  CBT-PLAT-VALIDATION:
+    type: https://errors.meld-tech.com/problems/validation
+    title: Validation failed
+    status: 400
+    detail: One or more request values are invalid.
     extensions: {}

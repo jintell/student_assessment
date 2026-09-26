@@ -1,13 +1,13 @@
 package org.meldtech.platform.platform.slice.getConformanceReference;
 
 import java.util.List;
-import org.meldtech.platform.shared.api.RequestTenantId;
 import org.meldtech.platform.shared.api.TenantScopedQuery;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
 
 public interface Queries extends TenantScopedQuery {
 
-    Mono<ConformanceMetadata> load(RequestTenantId tenantId);
+    Mono<ConformanceMetadata> load(TenantId tenantId);
 
     record ConformanceMetadata(
             String applicationVersion,

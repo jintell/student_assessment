@@ -4,27 +4,31 @@ import io.micrometer.context.ThreadLocalAccessor;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
 
-final class MdcCorrelationIdAccessor implements ThreadLocalAccessor<String> {
+final class MdcFieldAccessor implements ThreadLocalAccessor<String> {
 
-    static final String KEY = "correlationId";
+    private final String key;
+
+    MdcFieldAccessor(String key) {
+        this.key = key;
+    }
 
     @Override
     public Object key() {
-        return KEY;
+        return key;
     }
 
     @Override
     public @Nullable String getValue() {
-        return MDC.get(KEY);
+        return MDC.get(key);
     }
 
     @Override
     public void setValue(String value) {
-        MDC.put(KEY, value);
+        MDC.put(key, value);
     }
 
     @Override
     public void setValue() {
-        MDC.remove(KEY);
+        MDC.remove(key);
     }
 }

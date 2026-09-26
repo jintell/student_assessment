@@ -37,10 +37,13 @@ final class ErrorCatalogueLoader {
             Set.of("type", "title", "status", "code", "detail", "instance", "correlationId");
 
     ErrorCatalogue load(Path source) throws IOException {
-        Object loaded;
         try (Reader reader = Files.newBufferedReader(source)) {
-            loaded = Objects.requireNonNull(new Yaml().load(reader), "error catalogue is empty");
+            return load(reader);
         }
+    }
+
+    ErrorCatalogue load(Reader reader) {
+        Object loaded = Objects.requireNonNull(new Yaml().load(reader), "error catalogue is empty");
 
         Map<?, ?> root = requireMap(loaded, "catalogue");
         requireExactFields(root, ROOT_FIELDS, "catalogue");

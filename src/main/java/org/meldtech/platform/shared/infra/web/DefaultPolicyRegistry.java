@@ -6,8 +6,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyResolver;
-import org.meldtech.platform.shared.api.RequestCarrier;
 import org.meldtech.platform.shared.api.SlicePolicy;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -25,9 +25,9 @@ final class DefaultPolicyRegistry implements PolicyResolver {
     }
 
     @Override
-    public <R> Mono<PolicyDecision> evaluate(String routeId, RequestCarrier carrier, R request) {
+    public <R> Mono<PolicyDecision> evaluate(String routeId, ActorContext actor, R request) {
         Objects.requireNonNull(routeId, "routeId");
-        Objects.requireNonNull(carrier, "carrier");
+        Objects.requireNonNull(actor, "actor");
         Objects.requireNonNull(request, "request");
 
         List<SlicePolicy<?>> policies = policiesByRoute.getOrDefault(routeId, List.of());
@@ -35,7 +35,7 @@ final class DefaultPolicyRegistry implements PolicyResolver {
             return Mono.just(PolicyDecision.DENY);
         }
 
-        return evaluate(policies.getFirst(), carrier, request)
+        return evaluate(policies.getFirst(), actor, request)
                 .defaultIfEmpty(PolicyDecision.DENY)
                 .onErrorReturn(PolicyDecision.DENY);
     }
@@ -46,7 +46,7 @@ final class DefaultPolicyRegistry implements PolicyResolver {
 
     @SuppressWarnings("unchecked")
     private static <R> Mono<PolicyDecision> evaluate(
-            SlicePolicy<?> policy, RequestCarrier carrier, R request) {
-        return ((SlicePolicy<R>) policy).evaluate(carrier, request);
+            SlicePolicy<?> policy, ActorContext actor, R request) {
+        return ((SlicePolicy<R>) policy).evaluate(actor, request);
     }
 }

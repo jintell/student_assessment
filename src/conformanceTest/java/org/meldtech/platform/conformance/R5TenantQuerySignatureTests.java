@@ -9,8 +9,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.meldtech.platform.shared.api.RequestTenantId;
 import org.meldtech.platform.shared.api.TenantScopedQuery;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 
 class R5TenantQuerySignatureTests {
 
@@ -53,7 +53,7 @@ class R5TenantQuerySignatureTests {
                                             .noneMatch(
                                                     parameter ->
                                                             parameter.isAssignableTo(
-                                                                    RequestTenantId.class)))
+                                                                    TenantId.class)))
                     .forEach(
                             method ->
                                     violations.add(
@@ -62,7 +62,7 @@ class R5TenantQuerySignatureTests {
                                                     + "."
                                                     + method.getName()
                                                     + " accesses tenant-scoped data without a "
-                                                    + "RequestTenantId parameter."));
+                                                    + "TenantId parameter."));
         }
 
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));

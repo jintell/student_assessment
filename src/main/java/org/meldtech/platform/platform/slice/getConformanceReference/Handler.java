@@ -1,6 +1,6 @@
 package org.meldtech.platform.platform.slice.getConformanceReference;
 
-import org.meldtech.platform.shared.api.RequestCarrier;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -15,8 +15,8 @@ class Handler {
     }
 
     @Transactional(readOnly = true)
-    public Mono<Response> handle(RequestCarrier carrier, Request request) {
-        return Mono.justOrEmpty(carrier.tenantId())
+    public Mono<Response> handle(ActorContext actor, Request request) {
+        return Mono.justOrEmpty(actor.tenantId())
                 .switchIfEmpty(Mono.error(new IllegalStateException("tenant context is required")))
                 .flatMap(queries::load)
                 .map(Handler::toResponse);

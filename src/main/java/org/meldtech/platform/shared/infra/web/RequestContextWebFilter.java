@@ -1,10 +1,10 @@
 package org.meldtech.platform.shared.infra.web;
 
-import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.regex.Pattern;
-import org.meldtech.platform.shared.api.RequestCarrier;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.context.CorrelationId;
+import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -18,36 +18,48 @@ import reactor.core.publisher.Mono;
 final class RequestContextWebFilter implements WebFilter {
 
     static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
-    private static final Pattern VALID_CORRELATION_ID = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+
+    private final CorrelationIdGenerator correlationIds;
+    private final RequestContextPropagation propagation;
+
+    RequestContextWebFilter(
+            CorrelationIdGenerator correlationIds, RequestContextPropagation propagation) {
+        this.correlationIds = correlationIds;
+        this.propagation = propagation;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String correlationId = resolveCorrelationId(exchange);
-        RequestCarrier carrier =
-                new RequestCarrier(
-                        correlationId,
-                        Optional.empty(),
-                        Optional.empty(),
-                        resolveSourceIp(exchange));
-
+        String correlationId = resolveCorrelationId(exchange).toString();
         exchange.getResponse().getHeaders().set(CORRELATION_ID_HEADER, correlationId);
+        Optional<ActorContext> actor = propagation.attached(exchange);
+        actor.ifPresent(value -> requireMatchingRequestMetadata(value, correlationId));
         return chain.filter(exchange)
                 .contextWrite(
-                        context ->
-                                context.put(RequestCarrier.class, carrier)
-                                        .put(MdcCorrelationIdAccessor.KEY, correlationId));
+                        context -> {
+                            reactor.util.context.Context seeded =
+                                    context.put(
+                                            RequestContextPropagation.CORRELATION_ID_KEY,
+                                            correlationId);
+                            return actor.map(value -> propagation.write(seeded, value))
+                                    .orElse(seeded);
+                        });
     }
 
-    private static String resolveCorrelationId(ServerWebExchange exchange) {
-        String supplied = exchange.getRequest().getHeaders().getFirst(CORRELATION_ID_HEADER);
-        if (supplied != null && VALID_CORRELATION_ID.matcher(supplied).matches()) {
-            return supplied;
+    private CorrelationId resolveCorrelationId(ServerWebExchange exchange) {
+        List<String> supplied = exchange.getRequest().getHeaders().get(CORRELATION_ID_HEADER);
+        if (supplied != null
+                && supplied.size() == 1
+                && CorrelationId.isValid(supplied.getFirst())) {
+            return CorrelationId.parse(supplied.getFirst());
         }
-        return UUID.randomUUID().toString();
+        return correlationIds.generate();
     }
 
-    private static String resolveSourceIp(ServerWebExchange exchange) {
-        InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
-        return remoteAddress == null ? "unknown" : remoteAddress.getAddress().getHostAddress();
+    private static void requireMatchingRequestMetadata(ActorContext actor, String correlationId) {
+        if (!actor.correlationId().toString().equals(correlationId)) {
+            throw new IllegalArgumentException(
+                    "Attached ActorContext must carry the validated request correlation identifier");
+        }
     }
 }
