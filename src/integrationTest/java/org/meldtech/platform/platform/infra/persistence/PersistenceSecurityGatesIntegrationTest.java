@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -137,6 +138,15 @@ class PersistenceSecurityGatesIntegrationTest {
     }
 
     @Test
+    void liveGrantSetPreservesCompositeRoleNarrowness() throws SQLException {
+        GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
+        try (Connection connection = clusterOwnerConnection()) {
+            GrantDiffGate.verify(connection, matrix);
+            CompositeRoleNarrownessVerifier.verify(matrix);
+        }
+    }
+
+    @Test
     void moduleRoleGrantsMatchOwnedSchemaAndSharedInsertContracts() throws SQLException {
         GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
         Set<String> moduleSchemas =
@@ -210,6 +220,52 @@ class PersistenceSecurityGatesIntegrationTest {
 
         try (Connection connection = clusterOwnerConnection()) {
             GrantDiffGate.verify(connection, matrix);
+        }
+    }
+
+    @Test
+    void auditDefaultPrivilegesApplyToTablesCreatedByLaterMigrations() throws SQLException {
+        migrateDefaultPrivilegeProbe();
+        try {
+            executeAsRole(
+                    "app_delivery",
+                    """
+                    INSERT INTO audit.p7_default_privilege_probe (probe_id, payload)
+                    VALUES ('70000000-0000-0000-0000-000000000015', 'insert allowed')
+                    """);
+
+            assertPrivilegeDenied(
+                    "UPDATE audit.p7_default_privilege_probe SET payload = 'forbidden'");
+            assertPrivilegeDenied("DELETE FROM audit.p7_default_privilege_probe");
+
+            assertThat(
+                            queryIntAsClusterOwner(
+                                    """
+                                    SELECT count(*)
+                                    FROM information_schema.role_table_grants
+                                    WHERE grantee = 'app_delivery'
+                                      AND table_schema = 'audit'
+                                      AND table_name = 'p7_default_privilege_probe'
+                                      AND privilege_type = 'INSERT'
+                                    """))
+                    .isEqualTo(1);
+            assertThat(
+                            queryIntAsClusterOwner(
+                                    """
+                                    SELECT count(*)
+                                    FROM information_schema.role_table_grants
+                                    WHERE grantee = 'app_delivery'
+                                      AND table_schema = 'audit'
+                                      AND table_name = 'p7_default_privilege_probe'
+                                      AND privilege_type IN ('UPDATE', 'DELETE')
+                                    """))
+                    .isZero();
+        } finally {
+            executeAsClusterOwner(
+                    """
+                    DROP TABLE IF EXISTS audit.p7_default_privilege_probe;
+                    DROP TABLE IF EXISTS platform_migrations.flyway_schema_history_p7_15;
+                    """);
         }
     }
 
@@ -358,6 +414,42 @@ class PersistenceSecurityGatesIntegrationTest {
                 var statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    private void executeAsRole(String role, String sql) throws SQLException {
+        try (Connection connection = clusterOwnerConnection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("SET LOCAL ROLE " + role);
+                statement.execute(sql);
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    private void assertPrivilegeDenied(String sql) {
+        assertThatThrownBy(() -> executeAsRole("app_delivery", sql))
+                .isInstanceOf(SQLException.class)
+                .satisfies(
+                        failure ->
+                                assertThat(((SQLException) failure).getSQLState())
+                                        .isEqualTo("42501"));
+    }
+
+    private void migrateDefaultPrivilegeProbe() {
+        Flyway.configure()
+                .dataSource(postgres.getJdbcUrl(), "app_migrator", MIGRATOR_PASSWORD)
+                .defaultSchema("platform_migrations")
+                .schemas("platform_migrations")
+                .createSchemas(true)
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .table("flyway_schema_history_p7_15")
+                .locations("classpath:db/test-migration/p7_15")
+                .load()
+                .migrate();
     }
 
     private Connection clusterOwnerConnection() throws SQLException {

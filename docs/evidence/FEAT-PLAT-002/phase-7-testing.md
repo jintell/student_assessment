@@ -291,3 +291,174 @@ BUILD SUCCESSFUL
 
 BUILD SUCCESSFUL
 ```
+
+## P7.13 ARC-VERIFY-024 Small-Pool Saturation
+
+Status: PASS (2026-09-26)
+
+`AdversarialConnectionReuseIntegrationTest.saturatedSmallPoolResetsEveryRecycledConnection`
+constrains the pool to two physical connections and submits twelve transactions concurrently. The transactions
+alternate tenant A/`app_delivery` and tenant B/`app_people`, hold both connections long enough to create pool
+contention, and assert the expected context inside every transaction.
+
+Both PostgreSQL backend PIDs must serve multiple transactions. After the contention run, both connections are
+reacquired concurrently and must have returned to the `app_api` login role with no `app.tenant_id` setting. The
+reacquired backend PID set must exactly equal the transaction backend PID set, proving reset-on-release for every
+physical connection in the saturated pool rather than sampling only one connection.
+
+Verification:
+
+```text
+./gradlew integrationTest \
+  --tests \
+  'org.meldtech.platform.platform.infra.persistence.AdversarialConnectionReuseIntegrationTest.saturatedSmallPoolResetsEveryRecycledConnection' \
+  --rerun-tasks
+
+BUILD SUCCESSFUL
+```
+
+## P7.14 ARC-VERIFY-023 Composite-Role Grant Narrowness
+
+Status: PASS (2026-09-26)
+
+`PersistenceSecurityGatesIntegrationTest.liveGrantSetPreservesCompositeRoleNarrowness` first applies
+`GrantDiffGate` to prove the complete live PostgreSQL role, membership, schema, relation, routine, column, and
+default-privilege facts equal the declared grant matrix. It then applies the P4.18
+`CompositeRoleNarrownessVerifier` to that exact matrix.
+
+The combined assertion proves the live `app_txn_examentry` grant set remains a strict subset of the four replaced
+module-role envelopes, has no schema-wide table grant, reaches no undeclared schema, keeps tenancy read-only, and
+keeps audit/outbox append-only. This is only the `ARC-VERIFY-023` grant-list contribution; transaction atomicity
+remains owned by `FEAT-EXAM-007`.
+
+Verification:
+
+```text
+./gradlew integrationTest \
+  --tests \
+  'org.meldtech.platform.platform.infra.persistence.PersistenceSecurityGatesIntegrationTest.liveGrantSetPreservesCompositeRoleNarrowness' \
+  --rerun-tasks
+
+BUILD SUCCESSFUL
+```
+
+## P7.15 Audit Default-Privilege Bootstrap
+
+Status: PASS (2026-09-26)
+
+The isolated Flyway migration
+`db/test-migration/p7_15/V1__create_audit_default_privilege_probe.sql` connects as `app_migrator` and creates
+`audit.p7_default_privilege_probe` after the audit default privileges have been installed. It contains no explicit
+grant statement.
+
+`PersistenceSecurityGatesIntegrationTest.auditDefaultPrivilegesApplyToTablesCreatedByLaterMigrations` proves that
+`app_delivery` inherits `INSERT`, successfully inserts through an assumed role, and has neither `UPDATE` nor
+`DELETE`. Both prohibited statements fail with SQLSTATE `42501`. The probe and isolated Flyway history are removed
+in `finally`, preserving the shared integration database for the live grant-diff gate.
+
+Verification:
+
+```text
+./gradlew integrationTest \
+  --tests \
+  'org.meldtech.platform.platform.infra.persistence.PersistenceSecurityGatesIntegrationTest.auditDefaultPrivilegesApplyToTablesCreatedByLaterMigrations' \
+  --rerun-tasks
+
+BUILD SUCCESSFUL
+```
+
+## P7.16 ARC-VERIFY-004 Tenant-Isolation Matrix Gate
+
+Status: PASS (2026-09-26)
+
+`TenantIsolationMatrixGateTest.everyTenantRouteHasCompleteIsolationCoverage` starts the application context and
+uses the complete set of `PolicyProtectedRoute` beans as the route table. The generated artifact at
+`build/generated/isolation/tenant-isolation-matrix.json` contains the current tenant route
+`platform.getConformanceReference` and exactly three assertion rows: READ, WRITE, and ENUMERATE.
+
+`TenantIsolationMatrixGateTest.removingEndpointCoverageFailsTheGate` removes the registered scenario provider and
+proves generation fails with the uncovered route id. The dedicated `tenantIsolationMatrixTest` is a blocking
+dependency of `ciStage10`, so a new tenant endpoint without scenario coverage cannot pass the stage.
+
+Verification:
+
+```text
+./gradlew tenantIsolationMatrixTest --rerun-tasks
+
+BUILD SUCCESSFUL
+
+./gradlew ciStage10 --rerun-tasks
+
+BUILD SUCCESSFUL
+```
+
+## P7.17 ARC-VERIFY-024 Staging Rerun
+
+Status: PASS (2026-09-26)
+
+The full `AdversarialConnectionReuseIntegrationTest` ran through the dedicated `stagingAdversarialTest` task
+against PostgreSQL in Kubernetes context `cbt-staging`, namespace `cbt-staging-rollback`. The namespace carries
+the `environment=staging` label and uses the approved immutable PostgreSQL 17 digest.
+
+The client ran from the authenticated checkout through a temporary Kubernetes port-forward; all database
+connections, assumed roles, RLS policies, probe rows, and physical backend PIDs belonged to the staging database.
+Credentials were injected from `cbt-platform-database`, were not printed, and are not present in retained evidence.
+
+The credential-free L9 artifact is retained at
+`docs/evidence/FEAT-PLAT-002/P7.17-pooled-connection-security-context-adversarial-report.json`. It records four
+tests, zero skips, zero failures, zero errors, source and JUnit checksums, immutable deployment identities, and the
+five adversarial guarantees exercised.
+
+Verification:
+
+```text
+CBT_TARGET_ENVIRONMENT=staging \
+CBT_STAGING_ADVERSARIAL=true \
+./gradlew stagingAdversarialTest --rerun-tasks
+
+BUILD SUCCESSFUL
+```
+
+## P7.18 Verification Evidence Register
+
+Status: PASS (2026-09-26)
+
+The central §19.9 register now retains both feature-owned release artifacts:
+
+| Evidence ID | Artifact | SHA-256 |
+|---|---|---|
+| `FEAT-PLAT-002-P7.16-TENANT-ISOLATION-MATRIX` | `FEAT-PLAT-002/P7.16-tenant-isolation-matrix.json` | `05ca21a8b1167b3f5ef470c0940e899466ecad0f72374d1ea889a59f7b290429` |
+| `FEAT-PLAT-002-P7.17-POOLED-CONTEXT-ADVERSARIAL` | `FEAT-PLAT-002/P7.17-pooled-connection-security-context-adversarial-report.json` | `08dfe2bd646e29c269d61c19fb295664858c2275fd0485f7c328d2eaf49d6e27` |
+
+Both artifacts are retained in repository history and included in the release bundle rather than existing only as
+console observations or ephemeral `build/` output.
+
+## P7.19 Clean-Checkout Pipeline Run
+
+Status: PASS (2026-09-26)
+
+A detached worktree was created from repository commit `ab807a12c92ce2aff2a99167d5abdc62d86dbff0`, the
+feature changes were applied and committed only inside that worktree as verification snapshot `db0fe40`, and an
+empty `git status --porcelain` established the clean-checkout precondition.
+
+The blocking feature stages then passed through their repository entrypoints:
+
+| Stage | Command | Result |
+|---|---|---|
+| 4 | `ci/stage-4` | PASS |
+| 8 | `ci/stage-8` | PASS |
+| 10 | `ci/stage-10` | PASS |
+
+The retained run record is `docs/evidence/FEAT-PLAT-002/P7.19-clean-pipeline-run.md` and is referenced from the
+Phase 0 entry/exit criteria log.
+
+## P7.20 Feature-Card Acceptance Verification
+
+Status: VERIFIED (2026-09-26)
+
+`docs/evidence/FEAT-PLAT-002/P7.20-acceptance-verification.md` maps each of the six feature-card acceptance
+outcomes to named implementation tasks, executable tests or gates, and retained evidence. All six outcomes are
+verified, and the additional feature Definition of Done checks are green.
+
+The verification preserves two ownership boundaries: future endpoint-matrix expansion belongs to
+`FEAT-SEC-001`, and exam-entry atomicity under fault injection belongs to `FEAT-EXAM-007`.

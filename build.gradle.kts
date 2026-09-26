@@ -288,6 +288,23 @@ val integrationTest =
         shouldRunAfter(tasks.test, sliceTest)
     }
 
+tasks.register<Test>("stagingAdversarialTest") {
+    description = "Runs ARC-VERIFY-024 against an explicitly configured staging database."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = integrationTestSourceSet.output.classesDirs
+    classpath = integrationTestSourceSet.runtimeClasspath
+    include("**/AdversarialConnectionReuseIntegrationTest.class")
+    dependsOn(tasks.testClasses, integrationTestSourceSet.classesTaskName)
+    doFirst {
+        require(System.getenv("CBT_TARGET_ENVIRONMENT") == "staging") {
+            "CBT_TARGET_ENVIRONMENT must be staging"
+        }
+        require(System.getenv("CBT_STAGING_ADVERSARIAL") == "true") {
+            "CBT_STAGING_ADVERSARIAL must be true"
+        }
+    }
+}
+
 val problemDetailAllowlistTest =
     tasks.register<Test>("problemDetailAllowlistTest") {
         description = "Runs the ProblemDetail allowlist and error-response leak tests."
@@ -301,6 +318,20 @@ val problemDetailAllowlistTest =
             "**/ProblemDetailAllowlistTest.class",
             "**/ErrorResponseSecretLeakTest.class",
         )
+        dependsOn(tasks.testClasses)
+        shouldRunAfter(integrationTest)
+    }
+
+val tenantIsolationMatrixTest =
+    tasks.register<Test>("tenantIsolationMatrixTest") {
+        description = "Generates and verifies complete tenant-isolation route coverage."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include("**/TenantIsolationMatrixGateTest.class")
         dependsOn(tasks.testClasses)
         shouldRunAfter(integrationTest)
     }
@@ -536,9 +567,10 @@ tasks.register("ciStage8") {
 }
 
 tasks.register("ciStage10") {
-    description = "CI stage 10: verifies the ProblemDetail allowlist and response secrecy."
+    description =
+        "CI stage 10: verifies tenant isolation, the ProblemDetail allowlist, and response secrecy."
     group = "ci"
-    dependsOn(problemDetailAllowlistTest)
+    dependsOn(problemDetailAllowlistTest, tenantIsolationMatrixTest)
 }
 
 val documentationConformanceSelfTest =

@@ -23,9 +23,13 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -44,29 +48,34 @@ class AdversarialConnectionReuseIntegrationTest {
 
     private static final TenantId TENANT_A = TenantId.parse("00000000-0000-0000-0000-000000000071");
     private static final TenantId TENANT_B = TenantId.parse("00000000-0000-0000-0000-000000000072");
-    private static final String MIGRATOR_PASSWORD = UUID.randomUUID().toString();
-    private static final String API_PASSWORD = UUID.randomUUID().toString();
+    private static final String STAGING_MODE = "CBT_STAGING_ADVERSARIAL";
 
-    private PostgreSQLContainer postgres;
+    private Optional<DatabaseTarget> databaseTarget = Optional.empty();
+    private String migratorPassword = UUID.randomUUID().toString();
+    private String apiPassword = UUID.randomUUID().toString();
     private ConnectionPool pool;
     private SecurityContextInitializer initializer;
     private ConnectionFactory migratorFactory;
 
     @BeforeAll
     void migrateDatabaseAndCreateSingleConnectionPool() throws Exception {
-        postgres = PostgreSqlTestContainer.instance();
-        postgres.start();
-        executeAsClusterOwner(readResource("db/provisioning/V1__create_migration_role.sql"));
-        executeAsClusterOwner("ALTER ROLE app_migrator PASSWORD '%s'".formatted(MIGRATOR_PASSWORD));
-        MigrationApplication.run(
-                new String[] {
-                    "--migrate-only",
-                    "--cbt.migration.jdbc-url=" + postgres.getJdbcUrl(),
-                    "--cbt.migration.username=app_migrator",
-                    "--cbt.migration.classification=EXPAND",
-                    "--cbt.database.roles.app-migrator.password=" + MIGRATOR_PASSWORD
-                });
-        executeAsClusterOwner("ALTER ROLE app_api PASSWORD '%s'".formatted(API_PASSWORD));
+        boolean stagingMode = Boolean.parseBoolean(System.getenv(STAGING_MODE));
+        DatabaseTarget target = stagingMode ? stagingDatabaseTarget() : localDatabaseTarget();
+        databaseTarget = Optional.of(target);
+        if (!stagingMode) {
+            executeAsClusterOwner(readResource("db/provisioning/V1__create_migration_role.sql"));
+            executeAsClusterOwner(
+                    "ALTER ROLE app_migrator PASSWORD '%s'".formatted(migratorPassword));
+            MigrationApplication.run(
+                    new String[] {
+                        "--migrate-only",
+                        "--cbt.migration.jdbc-url=" + target.ownerJdbcUrl(),
+                        "--cbt.migration.username=app_migrator",
+                        "--cbt.migration.classification=EXPAND",
+                        "--cbt.database.roles.app-migrator.password=" + migratorPassword
+                    });
+            executeAsClusterOwner("ALTER ROLE app_api PASSWORD '%s'".formatted(apiPassword));
+        }
         executeAsClusterOwner(
                 """
                 INSERT INTO platform.tenant_scope_probe (tenant_id, probe_id)
@@ -77,7 +86,7 @@ class AdversarialConnectionReuseIntegrationTest {
                 """
                         .formatted(TENANT_A, TENANT_B));
 
-        ConnectionFactory apiFactory = connectionFactory("app_api", API_PASSWORD);
+        ConnectionFactory apiFactory = connectionFactory("app_api", apiPassword);
         pool =
                 new ConnectionPool(
                         ConnectionPoolConfiguration.builder(apiFactory)
@@ -88,7 +97,7 @@ class AdversarialConnectionReuseIntegrationTest {
                                 .preRelease(SecurityContextInitializer::resetBeforeRelease)
                                 .build());
         initializer = new SecurityContextInitializer(pool);
-        migratorFactory = connectionFactory("app_migrator", MIGRATOR_PASSWORD);
+        migratorFactory = connectionFactory("app_migrator", migratorPassword);
     }
 
     @AfterAll
@@ -128,7 +137,7 @@ class AdversarialConnectionReuseIntegrationTest {
 
         StepVerifier.create(
                         withConnection(
-                                connectionFactory("app_api", API_PASSWORD),
+                                connectionFactory("app_api", apiPassword),
                                 this::queryTenantSetting))
                 .expectErrorMatches(AdversarialConnectionReuseIntegrationTest::isSqlState42704)
                 .verify();
@@ -159,6 +168,76 @@ class AdversarialConnectionReuseIntegrationTest {
                                         .then(Mono.from(connection.close())));
 
         StepVerifier.create(visibleRows).expectNext(1).verifyComplete();
+    }
+
+    @Test
+    void saturatedSmallPoolResetsEveryRecycledConnection() {
+        ConnectionPool saturatedPool =
+                new ConnectionPool(
+                        ConnectionPoolConfiguration.builder(
+                                        connectionFactory("app_api", apiPassword))
+                                .name("arc-verify-024-saturation")
+                                .initialSize(2)
+                                .maxSize(2)
+                                .maxIdleTime(Duration.ofMinutes(1))
+                                .preRelease(SecurityContextInitializer::resetBeforeRelease)
+                                .build());
+        SecurityContextInitializer saturatedInitializer =
+                new SecurityContextInitializer(saturatedPool);
+
+        Mono<SaturationResult> result =
+                Flux.range(0, 12)
+                        .flatMap(
+                                index -> {
+                                    AssumableDatabaseRole role =
+                                            index % 2 == 0
+                                                    ? AssumableDatabaseRole.DELIVERY
+                                                    : AssumableDatabaseRole.PEOPLE;
+                                    TenantId tenantId = index % 2 == 0 ? TENANT_A : TENANT_B;
+                                    return saturatedInitializer
+                                            .inTenantTransaction(
+                                                    role,
+                                                    tenantId,
+                                                    connection ->
+                                                            queryContext(connection)
+                                                                    .delayElement(
+                                                                            Duration.ofMillis(40)))
+                                            .map(
+                                                    snapshot ->
+                                                            new SaturationObservation(
+                                                                    role, tenantId, snapshot));
+                                },
+                                12)
+                        .collectList()
+                        .flatMap(
+                                observations ->
+                                        Flux.range(0, 2)
+                                                .flatMap(
+                                                        ignored ->
+                                                                withConnection(
+                                                                        saturatedPool,
+                                                                        connection ->
+                                                                                queryReleasedContext(
+                                                                                                connection)
+                                                                                        .delayElement(
+                                                                                                Duration
+                                                                                                        .ofMillis(
+                                                                                                                40))),
+                                                        2)
+                                                .collectList()
+                                                .map(
+                                                        releasedContexts ->
+                                                                new SaturationResult(
+                                                                        observations,
+                                                                        releasedContexts)));
+
+        try {
+            StepVerifier.create(result)
+                    .assertNext(AdversarialConnectionReuseIntegrationTest::assertSaturationResult)
+                    .verifyComplete();
+        } finally {
+            StepVerifier.create(saturatedPool.disposeLater()).verifyComplete();
+        }
     }
 
     private void verifySuccess(
@@ -327,6 +406,39 @@ class AdversarialConnectionReuseIntegrationTest {
                 .single();
     }
 
+    private Mono<ReleasedContext> queryReleasedContext(Connection connection) {
+        return Flux.from(
+                        connection
+                                .createStatement(
+                                        """
+                                        SELECT pg_backend_pid() AS backend_pid,
+                                               current_role AS database_role,
+                                               coalesce(
+                                                   nullif(current_setting('app.tenant_id', true), ''),
+                                                   ''
+                                               ) = '' AS tenant_setting_is_absent
+                                        """)
+                                .execute())
+                .flatMap(
+                        queryResult ->
+                                queryResult.map(
+                                        (row, metadata) ->
+                                                new ReleasedContext(
+                                                        Objects.requireNonNull(
+                                                                row.get(
+                                                                        "backend_pid",
+                                                                        Integer.class)),
+                                                        Objects.requireNonNull(
+                                                                row.get(
+                                                                        "database_role",
+                                                                        String.class)),
+                                                        Boolean.TRUE.equals(
+                                                                row.get(
+                                                                        "tenant_setting_is_absent",
+                                                                        Boolean.class)))))
+                .single();
+    }
+
     private <T> Mono<T> withRawPooledConnection(
             java.util.function.Function<Connection, Mono<T>> work) {
         return withConnection(pool, work);
@@ -353,6 +465,47 @@ class AdversarialConnectionReuseIntegrationTest {
         assertThat(snapshot.tenantId()).isEqualTo(tenantId.toString());
     }
 
+    private static void assertSaturationResult(SaturationResult result) {
+        assertThat(result.observations())
+                .hasSize(12)
+                .allSatisfy(
+                        observation ->
+                                assertContext(
+                                        observation.snapshot(),
+                                        observation.role(),
+                                        observation.tenantId()));
+
+        Set<Integer> transactionBackendPids =
+                result.observations().stream()
+                        .map(observation -> observation.snapshot().backendPid())
+                        .collect(Collectors.toUnmodifiableSet());
+        assertThat(transactionBackendPids).hasSize(2);
+        transactionBackendPids.forEach(
+                backendPid ->
+                        assertThat(
+                                        result.observations().stream()
+                                                .filter(
+                                                        observation ->
+                                                                observation.snapshot().backendPid()
+                                                                        == backendPid)
+                                                .count())
+                                .as("transactions served by backend %s", backendPid)
+                                .isGreaterThan(1));
+
+        assertThat(result.releasedContexts())
+                .hasSize(2)
+                .allSatisfy(
+                        releasedContext -> {
+                            assertThat(releasedContext.databaseRole()).isEqualTo("app_api");
+                            assertThat(releasedContext.tenantSettingIsAbsent()).isTrue();
+                        });
+        assertThat(
+                        result.releasedContexts().stream()
+                                .map(ReleasedContext::backendPid)
+                                .collect(Collectors.toUnmodifiableSet()))
+                .containsExactlyInAnyOrderElementsOf(transactionBackendPids);
+    }
+
     private static boolean isSqlState42501(Throwable failure) {
         return failure instanceof R2dbcException exception
                 && "42501".equals(exception.getSqlState());
@@ -369,12 +522,13 @@ class AdversarialConnectionReuseIntegrationTest {
     }
 
     private ConnectionFactory connectionFactory(String username, String password) {
+        DatabaseTarget target = databaseTarget();
         ConnectionFactoryOptions options =
                 ConnectionFactoryOptions.builder()
                         .option(DRIVER, "postgresql")
-                        .option(HOST, postgres.getHost())
-                        .option(PORT, postgres.getMappedPort(5432))
-                        .option(DATABASE, postgres.getDatabaseName())
+                        .option(HOST, target.host())
+                        .option(PORT, target.port())
+                        .option(DATABASE, target.databaseName())
                         .option(USER, username)
                         .option(PASSWORD, password)
                         .build();
@@ -382,14 +536,52 @@ class AdversarialConnectionReuseIntegrationTest {
     }
 
     private void executeAsClusterOwner(String sql) throws SQLException {
+        DatabaseTarget target = databaseTarget();
         try (var connection =
                         DriverManager.getConnection(
-                                postgres.getJdbcUrl(),
-                                postgres.getUsername(),
-                                postgres.getPassword());
+                                target.ownerJdbcUrl(),
+                                target.ownerUsername(),
+                                target.ownerPassword());
                 var statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    private DatabaseTarget localDatabaseTarget() {
+        PostgreSQLContainer postgres = PostgreSqlTestContainer.instance();
+        postgres.start();
+        return new DatabaseTarget(
+                postgres.getHost(),
+                postgres.getMappedPort(5432),
+                postgres.getDatabaseName(),
+                postgres.getJdbcUrl(),
+                postgres.getUsername(),
+                postgres.getPassword());
+    }
+
+    private DatabaseTarget stagingDatabaseTarget() {
+        migratorPassword = requiredEnvironment("CBT_STAGING_MIGRATOR_PASSWORD");
+        apiPassword = requiredEnvironment("CBT_STAGING_API_PASSWORD");
+        return new DatabaseTarget(
+                requiredEnvironment("CBT_STAGING_DATABASE_HOST"),
+                Integer.parseInt(requiredEnvironment("CBT_STAGING_DATABASE_PORT")),
+                requiredEnvironment("CBT_STAGING_DATABASE_NAME"),
+                requiredEnvironment("CBT_STAGING_JDBC_URL"),
+                requiredEnvironment("CBT_STAGING_OWNER_USERNAME"),
+                requiredEnvironment("CBT_STAGING_OWNER_PASSWORD"));
+    }
+
+    private DatabaseTarget databaseTarget() {
+        return databaseTarget.orElseThrow(
+                () -> new IllegalStateException("Database is not configured"));
+    }
+
+    private static String requiredEnvironment(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("Required staging setting is missing: " + name);
+        }
+        return value;
     }
 
     private String readResource(String path) throws IOException {
@@ -399,6 +591,23 @@ class AdversarialConnectionReuseIntegrationTest {
     }
 
     private record ContextSnapshot(int backendPid, String databaseRole, String tenantId) {}
+
+    private record SaturationObservation(
+            AssumableDatabaseRole role, TenantId tenantId, ContextSnapshot snapshot) {}
+
+    private record ReleasedContext(
+            int backendPid, String databaseRole, boolean tenantSettingIsAbsent) {}
+
+    private record SaturationResult(
+            List<SaturationObservation> observations, List<ReleasedContext> releasedContexts) {}
+
+    private record DatabaseTarget(
+            String host,
+            int port,
+            String databaseName,
+            String ownerJdbcUrl,
+            String ownerUsername,
+            String ownerPassword) {}
 
     private static final class ApplicationFailure extends RuntimeException {
 
