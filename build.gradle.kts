@@ -133,7 +133,7 @@ val compileKernelJava =
         source(
             fileTree("src/main/java/org/meldtech/platform/shared/kernel") {
                 include("**/*.java")
-                exclude("package-info.java")
+                exclude("**/package-info.java")
             },
         )
         classpath = kernelCompileClasspath

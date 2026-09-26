@@ -81,22 +81,33 @@ class R2ModuleBoundaryTests {
                 if (targetModule.isEmpty() || targetModule.equals(originModule)) {
                     continue;
                 }
-                String apiPackage = BASE_PACKAGE + "." + targetModule.orElseThrow() + ".api";
-                if (!target.getPackageName().equals(apiPackage)
-                        && !target.getPackageName().startsWith(apiPackage + ".")) {
+                if (!isPublishedInterface(targetModule.orElseThrow(), target)) {
                     violations.add(
                             "R2 module boundary violated: "
                                     + origin.getName()
-                                    + " imports non-api type "
+                                    + " imports non-published type "
                                     + target.getName()
                                     + " from "
                                     + targetModule.orElseThrow()
-                                    + "; only declared module::api dependencies are permitted.");
+                                    + "; only declared named interfaces are permitted.");
                 }
             }
         }
 
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+    }
+
+    private static boolean isPublishedInterface(String module, JavaClass target) {
+        String packageName = target.getPackageName();
+        String apiPackage = BASE_PACKAGE + "." + module + ".api";
+        if (packageName.equals(apiPackage) || packageName.startsWith(apiPackage + ".")) {
+            return true;
+        }
+
+        String kernelPackage = BASE_PACKAGE + ".shared.kernel";
+        return module.equals("shared")
+                && (packageName.equals(kernelPackage)
+                        || packageName.startsWith(kernelPackage + "."));
     }
 
     private static Optional<String> moduleOf(JavaClass javaClass) {
