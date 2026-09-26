@@ -1,13 +1,17 @@
 package org.meldtech.platform.platform.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -50,6 +54,38 @@ class PersistenceSecurityGatesIntegrationTest {
     }
 
     @Test
+    void forcedRlsGateRejectsAnUnprotectedTenantTableAndRollsItBack() throws SQLException {
+        GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
+        var applicationSchemas =
+                matrix.schemas().stream().map(GrantMatrix.SchemaGrant::name).toList();
+        try (Connection connection = clusterOwnerConnection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute(
+                        """
+                        CREATE TABLE platform.p7_unforced_rls (
+                            tenant_id uuid NOT NULL,
+                            probe_id uuid PRIMARY KEY
+                        )
+                        """);
+
+                assertThatThrownBy(
+                                () ->
+                                        PostgreSqlCatalogGate.verifyForcedRls(
+                                                connection, applicationSchemas))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("RLS_CATALOG_GATE: platform.p7_unforced_rls")
+                        .hasMessageContaining("must enable and force RLS");
+            } finally {
+                connection.rollback();
+            }
+
+            PostgreSqlCatalogGate.verifyForcedRls(connection, applicationSchemas);
+        }
+    }
+
+    @Test
     void noForeignKeySpansApplicationSchemas() throws SQLException {
         GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
         try (Connection connection = clusterOwnerConnection()) {
@@ -60,8 +96,118 @@ class PersistenceSecurityGatesIntegrationTest {
     }
 
     @Test
+    void crossSchemaForeignKeyGateRejectsAViolationAndRollsItBack() throws SQLException {
+        GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
+        var applicationSchemas =
+                matrix.schemas().stream().map(GrantMatrix.SchemaGrant::name).toList();
+        try (Connection connection = clusterOwnerConnection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("CREATE TABLE tenancy.p7_fk_parent (id uuid PRIMARY KEY)");
+                statement.execute(
+                        """
+                        CREATE TABLE platform.p7_fk_child (
+                            id uuid PRIMARY KEY,
+                            parent_id uuid REFERENCES tenancy.p7_fk_parent(id)
+                        )
+                        """);
+
+                assertThatThrownBy(
+                                () ->
+                                        PostgreSqlCatalogGate.verifyNoCrossSchemaForeignKeys(
+                                                connection, applicationSchemas))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("CROSS_SCHEMA_FOREIGN_KEY_GATE")
+                        .hasMessageContaining("platform.p7_fk_child -> tenancy.p7_fk_parent");
+            } finally {
+                connection.rollback();
+            }
+
+            PostgreSqlCatalogGate.verifyNoCrossSchemaForeignKeys(connection, applicationSchemas);
+        }
+    }
+
+    @Test
     void liveDatabaseGrantsExactlyMatchTheDeclaredMatrix() throws SQLException {
         GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
+        try (Connection connection = clusterOwnerConnection()) {
+            GrantDiffGate.verify(connection, matrix);
+        }
+    }
+
+    @Test
+    void moduleRoleGrantsMatchOwnedSchemaAndSharedInsertContracts() throws SQLException {
+        GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
+        Set<String> moduleSchemas =
+                matrix.schemas().stream()
+                        .map(GrantMatrix.SchemaGrant::name)
+                        .filter(schema -> !Set.of("audit", "outbox", "platform").contains(schema))
+                        .collect(Collectors.toUnmodifiableSet());
+        Set<String> moduleRoles =
+                moduleSchemas.stream()
+                        .map(schema -> "app_" + schema)
+                        .collect(Collectors.toUnmodifiableSet());
+
+        assertThat(moduleRoles).hasSize(12);
+        for (String schema : moduleSchemas) {
+            String role = "app_" + schema;
+            assertThat(
+                            matrix.objectGrants().stream()
+                                    .filter(grant -> grant.grantee().equals(role))
+                                    .map(
+                                            grant ->
+                                                    grant.objectType()
+                                                            + ":"
+                                                            + grant.schema()
+                                                            + ":"
+                                                            + grant.privileges())
+                                    .toList())
+                    .as("declared object grants for %s", role)
+                    .containsExactlyInAnyOrder(
+                            "SCHEMA:" + schema + ":[USAGE]",
+                            "ALL_TABLES_IN_SCHEMA:" + schema + ":[DELETE, INSERT, SELECT, UPDATE]",
+                            "SCHEMA:audit:[USAGE]",
+                            "SCHEMA:outbox:[USAGE]");
+        }
+
+        for (String sharedSchema : List.of("audit", "outbox")) {
+            assertThat(matrix.defaultPrivileges())
+                    .filteredOn(grant -> grant.schema().equals(sharedSchema))
+                    .singleElement()
+                    .satisfies(
+                            grant -> {
+                                assertThat(grant.owner()).isEqualTo("app_migrator");
+                                assertThat(grant.objectType())
+                                        .isEqualTo(GrantMatrix.ObjectType.TABLE);
+                                assertThat(grant.grantees()).containsAll(moduleRoles);
+                                assertThat(grant.privileges())
+                                        .containsExactly(GrantMatrix.Privilege.INSERT);
+                            });
+        }
+
+        String quotedModuleRoles =
+                moduleRoles.stream()
+                        .sorted()
+                        .map(role -> "'" + role + "'")
+                        .collect(Collectors.joining(","));
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM pg_catalog.pg_default_acl AS defaults
+                                JOIN pg_catalog.pg_namespace AS namespace
+                                  ON namespace.oid = defaults.defaclnamespace
+                                CROSS JOIN LATERAL pg_catalog.aclexplode(defaults.defaclacl) AS acl
+                                JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+                                WHERE namespace.nspname = 'audit'
+                                  AND grantee.rolname IN (%s)
+                                  AND acl.privilege_type IN ('UPDATE', 'DELETE')
+                                """
+                                        .formatted(quotedModuleRoles)))
+                .as("module-role audit mutation default privileges")
+                .isZero();
+
         try (Connection connection = clusterOwnerConnection()) {
             GrantDiffGate.verify(connection, matrix);
         }

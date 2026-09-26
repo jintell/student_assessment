@@ -297,7 +297,7 @@ class SecurityContextInitializerTest {
     }
 
     @Test
-    void recordsContextInstallationAndConnectionResetFailures() {
+    void recordsContextInstallationFailures() {
         MeterRegistry installRegistry = new SimpleMeterRegistry();
         SecurityContextInitializer installFailure =
                 initializer(
@@ -319,10 +319,15 @@ class SecurityContextInitializerTest {
                                 .counter()
                                 .count())
                 .isEqualTo(1.0);
+    }
 
+    @Test
+    void refusesSuccessfulReleaseWhenConnectionResetFails() {
         MeterRegistry resetRegistry = new SimpleMeterRegistry();
+        List<String> events = new ArrayList<>();
         SecurityContextInitializer resetFailure =
-                initializer(new ArrayList<>(), resetRegistry, Optional.of("RESET ROLE"));
+                initializer(events, resetRegistry, Optional.of("RESET ROLE"));
+
         StepVerifier.create(
                         resetFailure.inTenantTransaction(
                                 AssumableDatabaseRole.DELIVERY,
@@ -330,6 +335,8 @@ class SecurityContextInitializerTest {
                                 connection -> Mono.just("done")))
                 .expectError(RuntimeException.class)
                 .verify();
+
+        assertThat(events).endsWith("COMMIT", "RESET ROLE", "RESET ALL", "CLOSE");
         assertThat(resetRegistry.get("db_connection_reset_failure_total").counter().count())
                 .isEqualTo(1.0);
     }
