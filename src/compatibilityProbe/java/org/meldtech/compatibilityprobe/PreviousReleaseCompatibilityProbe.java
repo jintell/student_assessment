@@ -1,22 +1,27 @@
 package org.meldtech.compatibilityprobe;
 
 import io.r2dbc.spi.Row;
+import io.r2dbc.spi.Statement;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.UUID;
-import org.meldtech.platform.CbtPlatformApplication;
-import org.meldtech.platform.platform.api.TransactionalCollaboration;
-import org.meldtech.platform.platform.api.TransactionalConnection;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import java.util.function.Function;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ApplicationContext;
 import reactor.core.publisher.Mono;
 
 /** Runs compatibility operations through code loaded from the retained application image. */
 public final class PreviousReleaseCompatibilityProbe {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
-    private static final RequestTenantId TENANT_ID =
-            new RequestTenantId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+    private static final String TENANT_ID = "00000000-0000-0000-0000-000000000001";
+    private static final String APPLICATION_TYPE = "org.meldtech.platform.CbtPlatformApplication";
+    private static final String TRANSACTION_TYPE =
+            "org.meldtech.platform.platform.api.TransactionalCollaboration";
+    private static final String CONNECTION_TYPE =
+            "org.meldtech.platform.platform.api.TransactionalConnection";
     private static final String READ_VALUE_SQL =
             "SELECT nullable_value FROM platform.migration_fixture WHERE fixture_id = $1";
     private static final String INSERT_SQL =
@@ -51,12 +56,12 @@ public final class PreviousReleaseCompatibilityProbe {
             throw new IllegalArgumentException("Unknown compatibility case");
         }
         try (var context =
-                new SpringApplicationBuilder(CbtPlatformApplication.class)
+                new SpringApplicationBuilder(requiredType(APPLICATION_TYPE))
                         .web(WebApplicationType.NONE)
                         .profiles("api")
                         .properties("spring.flyway.enabled=false")
                         .run()) {
-            var boundary = context.getBean(TransactionalCollaboration.class);
+            var boundary = RetainedTransactionBoundary.from(context);
             boolean existingRead = readValue(boundary, 1L).equals("seed");
             long createdId = insertOldRepresentation(boundary);
             boolean updated = updateOldRepresentation(boundary, createdId);
@@ -68,7 +73,7 @@ public final class PreviousReleaseCompatibilityProbe {
         }
     }
 
-    private static String readValue(TransactionalCollaboration boundary, long fixtureId) {
+    private static String readValue(RetainedTransactionBoundary boundary, long fixtureId) {
         return inTransaction(
                 boundary,
                 connection ->
@@ -85,7 +90,7 @@ public final class PreviousReleaseCompatibilityProbe {
                                                                         string(row, 0)))));
     }
 
-    private static long insertOldRepresentation(TransactionalCollaboration boundary) {
+    private static long insertOldRepresentation(RetainedTransactionBoundary boundary) {
         return inTransaction(
                 boundary,
                 connection ->
@@ -106,7 +111,7 @@ public final class PreviousReleaseCompatibilityProbe {
     }
 
     private static boolean updateOldRepresentation(
-            TransactionalCollaboration boundary, long fixtureId) {
+            RetainedTransactionBoundary boundary, long fixtureId) {
         Long updatedRows =
                 inTransaction(
                         boundary,
@@ -122,7 +127,7 @@ public final class PreviousReleaseCompatibilityProbe {
         return updatedRows == 1L;
     }
 
-    private static boolean readInvariant(TransactionalCollaboration boundary, long fixtureId) {
+    private static boolean readInvariant(RetainedTransactionBoundary boundary, long fixtureId) {
         return inTransaction(
                 boundary,
                 connection ->
@@ -144,9 +149,8 @@ public final class PreviousReleaseCompatibilityProbe {
     }
 
     private static <T> T inTransaction(
-            TransactionalCollaboration boundary,
-            java.util.function.Function<TransactionalConnection, Mono<T>> work) {
-        return boundary.inExamEntryTransaction(TENANT_ID, work).block(TIMEOUT);
+            RetainedTransactionBoundary boundary, Function<StatementFactory, Mono<T>> work) {
+        return boundary.execute(work).block(TIMEOUT);
     }
 
     private static String string(Row row, int index) {
@@ -155,5 +159,109 @@ public final class PreviousReleaseCompatibilityProbe {
             throw new IllegalStateException("Compatibility query returned null");
         }
         return value;
+    }
+
+    private static Class<?> requiredType(String name) {
+        try {
+            return Class.forName(name);
+        } catch (ClassNotFoundException exception) {
+            throw new IllegalStateException(
+                    "Retained application type is unavailable: " + name, exception);
+        }
+    }
+
+    private static Object invoke(Method method, Object target, Object... arguments) {
+        try {
+            return method.invoke(target, arguments);
+        } catch (IllegalAccessException exception) {
+            throw new IllegalStateException(
+                    "Retained application method is inaccessible", exception);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("Retained application method failed", cause);
+        }
+    }
+
+    @FunctionalInterface
+    private interface StatementFactory {
+
+        Statement createStatement(String sql);
+    }
+
+    private static final class RetainedTransactionBoundary {
+
+        private final Object target;
+        private final Object tenantId;
+        private final Method transaction;
+        private final Method createStatement;
+
+        private RetainedTransactionBoundary(
+                Object target, Object tenantId, Method transaction, Method createStatement) {
+            this.target = target;
+            this.tenantId = tenantId;
+            this.transaction = transaction;
+            this.createStatement = createStatement;
+        }
+
+        static RetainedTransactionBoundary from(ApplicationContext context) {
+            Class<?> transactionType = requiredType(TRANSACTION_TYPE);
+            Method transaction =
+                    java.util.Arrays.stream(transactionType.getMethods())
+                            .filter(method -> method.getName().equals("inExamEntryTransaction"))
+                            .filter(method -> method.getParameterCount() == 2)
+                            .filter(
+                                    method ->
+                                            Function.class.isAssignableFrom(
+                                                    method.getParameterTypes()[1]))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalStateException(
+                                                    "Retained transaction boundary is incompatible"));
+            Object tenantId = tenantId(transaction.getParameterTypes()[0]);
+            try {
+                Method createStatement =
+                        requiredType(CONNECTION_TYPE).getMethod("createStatement", String.class);
+                return new RetainedTransactionBoundary(
+                        context.getBean(transactionType), tenantId, transaction, createStatement);
+            } catch (NoSuchMethodException exception) {
+                throw new IllegalStateException(
+                        "Retained transaction connection is incompatible", exception);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        <T> Mono<T> execute(Function<StatementFactory, Mono<T>> work) {
+            Function<Object, Mono<T>> retainedWork =
+                    connection ->
+                            work.apply(sql -> (Statement) invoke(createStatement, connection, sql));
+            Object result = invoke(transaction, target, tenantId, retainedWork);
+            if (!(result instanceof Mono<?> mono)) {
+                throw new IllegalStateException("Retained transaction boundary returned no Mono");
+            }
+            return (Mono<T>) mono;
+        }
+
+        private static Object tenantId(Class<?> tenantType) {
+            try {
+                try {
+                    return invoke(tenantType.getMethod("parse", String.class), null, TENANT_ID);
+                } catch (NoSuchMethodException ignored) {
+                    return tenantType
+                            .getConstructor(UUID.class)
+                            .newInstance(UUID.fromString(TENANT_ID));
+                }
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException(
+                        "Retained tenant identifier is incompatible: " + tenantType.getName(),
+                        exception);
+            }
+        }
     }
 }
