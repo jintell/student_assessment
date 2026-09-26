@@ -23,6 +23,7 @@ import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.context.SystemActor;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -64,6 +65,33 @@ class SecurityContextInitializerTest {
                         "SET LOCAL ROLE app_delivery",
                         "SET LOCAL app.tenant_id = '10000000-0000-0000-0000-000000000001'",
                         "SET LOCAL search_path = pg_catalog, delivery");
+    }
+
+    @Test
+    void defersApplicationWorkUntilContextInstallationCompletes() {
+        List<String> events = new ArrayList<>();
+
+        StepVerifier.create(
+                        initializer(events)
+                                .inTenantTransaction(
+                                        AssumableDatabaseRole.DELIVERY,
+                                        tenantId(),
+                                        connection ->
+                                                Flux.from(
+                                                                connection
+                                                                        .createStatement("SELECT 1")
+                                                                        .execute())
+                                                        .then(Mono.just("done"))))
+                .expectNext("done")
+                .verifyComplete();
+
+        assertThat(events)
+                .containsSubsequence(
+                        "SET LOCAL ROLE app_delivery",
+                        "SET LOCAL app.tenant_id = '10000000-0000-0000-0000-000000000001'",
+                        "SET LOCAL search_path = pg_catalog, delivery",
+                        "SELECT 1",
+                        "COMMIT");
     }
 
     @Test
