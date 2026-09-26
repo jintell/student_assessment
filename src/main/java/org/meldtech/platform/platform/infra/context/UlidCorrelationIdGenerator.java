@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.time.Clock;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,6 +19,7 @@ public final class UlidCorrelationIdGenerator implements CorrelationIdGenerator 
     private final Clock clock;
     private final SecureRandom random;
 
+    @Autowired
     public UlidCorrelationIdGenerator(Clock clock) {
         this(clock, new SecureRandom());
     }
