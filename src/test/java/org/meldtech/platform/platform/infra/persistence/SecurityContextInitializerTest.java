@@ -15,13 +15,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PlatformOperation;
-import org.meldtech.platform.shared.api.RequestActor;
-import org.meldtech.platform.shared.api.RequestActorType;
-import org.meldtech.platform.shared.api.RequestCarrier;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.context.ActorId;
+import org.meldtech.platform.shared.kernel.context.CorrelationId;
+import org.meldtech.platform.shared.kernel.context.SourceIp;
+import org.meldtech.platform.shared.kernel.context.SystemActor;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -46,8 +47,7 @@ class SecurityContextInitializerTest {
         Connection connection = recordingConnection(events);
         SecurityContextInitializer initializer =
                 new SecurityContextInitializer(factory(connection, () -> "test-database"));
-        RequestTenantId tenantId =
-                new RequestTenantId(UUID.fromString("10000000-0000-0000-0000-000000000001"));
+        TenantId tenantId = TenantId.parse("10000000-0000-0000-0000-000000000001");
 
         Mono<Void> transaction =
                 Mono.from(initializer.create())
@@ -156,19 +156,16 @@ class SecurityContextInitializerTest {
     @Test
     void installsOnlyTheEnumeratedPlatformScopeForAnAuthorizedSystemActor() {
         List<String> events = new ArrayList<>();
-        RequestCarrier carrier =
-                new RequestCarrier(
-                        "correlation",
-                        Optional.empty(),
-                        Optional.of(new RequestActor(RequestActorType.SYSTEM, "RETENTION_ENGINE")),
-                        "127.0.0.1");
+        ActorContext actor =
+                ActorContext.platformSystem(
+                        SystemActor.RETENTION_ENGINE, correlationId(), sourceIp());
 
         StepVerifier.create(
                         initializer(events)
                                 .inPlatformTransaction(
                                         AssumableDatabaseRole.TENANCY,
                                         PlatformOperation.RETENTION_SWEEP,
-                                        carrier,
+                                        actor,
                                         connection -> Mono.just("done")))
                 .expectNext("done")
                 .verifyComplete();
@@ -183,18 +180,12 @@ class SecurityContextInitializerTest {
 
     @Test
     void rejectsTenantContextAndUnapprovedActorsForPlatformScope() {
-        RequestCarrier tenantCarrier =
-                new RequestCarrier(
-                        "correlation",
-                        Optional.of(tenantId()),
-                        Optional.of(new RequestActor(RequestActorType.SYSTEM, "RETENTION_ENGINE")),
-                        "127.0.0.1");
-        RequestCarrier candidateCarrier =
-                new RequestCarrier(
-                        "correlation",
-                        Optional.empty(),
-                        Optional.of(new RequestActor(RequestActorType.CANDIDATE, "candidate")),
-                        "127.0.0.1");
+        ActorContext tenantCarrier =
+                ActorContext.tenantSystem(
+                        SystemActor.RETENTION_ENGINE, tenantId(), correlationId(), sourceIp());
+        ActorContext unapprovedActor =
+                ActorContext.platformWorkforce(
+                        new ActorId("unapproved-operator"), correlationId(), sourceIp());
 
         StepVerifier.create(
                         initializer(new ArrayList<>())
@@ -210,7 +201,7 @@ class SecurityContextInitializerTest {
                                 .inPlatformTransaction(
                                         AssumableDatabaseRole.TENANCY,
                                         PlatformOperation.RETENTION_SWEEP,
-                                        candidateCarrier,
+                                        unapprovedActor,
                                         connection -> Mono.just("unused")))
                 .expectError(SecurityException.class)
                 .verify();
@@ -338,8 +329,16 @@ class SecurityContextInitializerTest {
                 new SecurityContextInitializer.DatabaseContextMetrics(registry));
     }
 
-    private RequestTenantId tenantId() {
-        return new RequestTenantId(UUID.fromString("10000000-0000-0000-0000-000000000001"));
+    private TenantId tenantId() {
+        return TenantId.parse("10000000-0000-0000-0000-000000000001");
+    }
+
+    private CorrelationId correlationId() {
+        return CorrelationId.parse("01J9Z9Q9J6Y7TQ4PXKJ4D0M3NV");
+    }
+
+    private SourceIp sourceIp() {
+        return SourceIp.parse("127.0.0.1");
     }
 
     private ConnectionFactory factory(Connection connection, ConnectionFactoryMetadata metadata) {

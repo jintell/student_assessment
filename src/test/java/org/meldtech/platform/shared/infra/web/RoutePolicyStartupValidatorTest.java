@@ -7,9 +7,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
-import org.meldtech.platform.shared.api.RequestCarrier;
 import org.meldtech.platform.shared.api.RouteDescriptor;
 import org.meldtech.platform.shared.api.SlicePolicy;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.server.HandlerFunction;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -74,7 +74,7 @@ class RoutePolicyStartupValidatorTest {
             }
 
             @Override
-            public Mono<PolicyDecision> evaluate(RequestCarrier carrier, String request) {
+            public Mono<PolicyDecision> evaluate(ActorContext actor, String request) {
                 return Mono.just(PolicyDecision.DENY);
             }
         };

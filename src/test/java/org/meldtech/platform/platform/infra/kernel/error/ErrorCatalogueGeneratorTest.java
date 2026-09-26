@@ -5,10 +5,30 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class ErrorCatalogueGeneratorTest {
+
+    @Test
+    void platformCatalogueContainsTheCompleteInitialErrorSet() throws Exception {
+        ErrorCatalogue catalogue =
+                new ErrorCatalogueLoader()
+                        .load(Path.of("src", "main", "resources", "error-catalogue.yaml"));
+
+        assertThat(catalogue.problems().keySet())
+                .containsExactlyInAnyOrderElementsOf(
+                        Set.of(
+                                "CBT-PLAT-VALIDATION",
+                                "CBT-PLAT-NOT-FOUND",
+                                "CBT-PLAT-CONFLICT",
+                                "CBT-PLAT-UNAUTHORISED",
+                                "CBT-PLAT-FORBIDDEN",
+                                "CBT-PLAT-RATE-LIMITED",
+                                "CBT-PLAT-IDEMPOTENCY-UNAVAILABLE",
+                                "CBT-PLAT-INTERNAL"));
+    }
 
     @Test
     void oneSourceEditPublishesANewCodeToOpenApiAndClientDocumentation(

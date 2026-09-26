@@ -10,10 +10,9 @@ import io.r2dbc.spi.Statement;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.platform.api.TransactionalConnection;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -134,7 +133,7 @@ class DefaultTransactionalCollaborationTest {
                         });
     }
 
-    private RequestTenantId tenantId() {
-        return new RequestTenantId(UUID.fromString("10000000-0000-0000-0000-000000000001"));
+    private TenantId tenantId() {
+        return TenantId.parse("10000000-0000-0000-0000-000000000001");
     }
 }

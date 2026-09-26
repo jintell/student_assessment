@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.meldtech.platform.shared.api.PlatformOperation;
-import org.meldtech.platform.shared.api.RequestCarrier;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -58,11 +58,11 @@ final class SecurityContextInitializer implements ConnectionFactory {
     }
 
     static <T> Mono<T> withTenantScope(
-            AssumableDatabaseRole role, RequestTenantId tenantId, Publisher<T> work) {
+            AssumableDatabaseRole role, TenantId tenantId, Publisher<T> work) {
         DatabaseSecurityContext securityContext =
                 new DatabaseSecurityContext(
                         Objects.requireNonNull(role, "role"),
-                        "SET LOCAL app.tenant_id = '" + tenantId.value() + "'");
+                        "SET LOCAL app.tenant_id = '" + tenantId + "'");
         return Mono.from(work)
                 .contextWrite(
                         context -> context.put(DatabaseSecurityContext.class, securityContext));
@@ -71,16 +71,16 @@ final class SecurityContextInitializer implements ConnectionFactory {
     static <T> Mono<T> withPlatformScope(
             AssumableDatabaseRole role,
             PlatformOperation operation,
-            RequestCarrier carrier,
+            ActorContext actor,
             Publisher<T> work) {
         Objects.requireNonNull(operation, "operation");
-        Objects.requireNonNull(carrier, "carrier");
-        if (carrier.tenantId().isPresent()) {
+        Objects.requireNonNull(actor, "actor");
+        if (actor.tenantId().isPresent()) {
             return Mono.error(
                     new IllegalArgumentException(
                             "Tenant and platform database scopes are mutually exclusive"));
         }
-        if (carrier.actor().filter(operation::permits).isEmpty()) {
+        if (!operation.permits(actor)) {
             return Mono.error(
                     new SecurityException(
                             "Actor is not permitted for platform operation " + operation));
@@ -96,7 +96,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
 
     <T> Mono<T> inTenantTransaction(
             AssumableDatabaseRole role,
-            RequestTenantId tenantId,
+            TenantId tenantId,
             Function<Connection, ? extends Publisher<T>> work) {
         Objects.requireNonNull(work, "work");
         return withTenantScope(role, tenantId, managedTransaction(work));
@@ -105,11 +105,11 @@ final class SecurityContextInitializer implements ConnectionFactory {
     <T> Mono<T> inPlatformTransaction(
             AssumableDatabaseRole role,
             PlatformOperation operation,
-            RequestCarrier carrier,
+            ActorContext actor,
             Function<Connection, ? extends Publisher<T>> work) {
         Objects.requireNonNull(work, "work");
         Mono<T> transaction = managedTransaction(work);
-        return withPlatformScope(role, operation, carrier, transaction);
+        return withPlatformScope(role, operation, actor, transaction);
     }
 
     private <T> Mono<T> managedTransaction(Function<Connection, ? extends Publisher<T>> work) {

@@ -5,14 +5,15 @@ import io.micrometer.observation.ObservationRegistry;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.PolicyResolver;
-import org.meldtech.platform.shared.api.RequestCarrier;
 import org.meldtech.platform.shared.api.RouteDescriptor;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.HandlerFunction;
 import org.springframework.web.reactive.function.server.RequestPredicates;
@@ -64,7 +65,7 @@ final class Endpoint implements PolicyProtectedRoute {
     private Mono<ServerResponse> handle(ServerRequest serverRequest) {
         return Mono.deferContextual(
                 context ->
-                        context.<RequestCarrier>getOrEmpty(RequestCarrier.class)
+                        context.<ActorContext>getOrEmpty(ActorContext.class)
                                 .map(this::authorizeAndHandle)
                                 .orElseGet(
                                         () ->
@@ -73,23 +74,24 @@ final class Endpoint implements PolicyProtectedRoute {
                                                         .build()));
     }
 
-    private Mono<ServerResponse> authorizeAndHandle(RequestCarrier carrier) {
-        return Mono.defer(() -> policyResolver.evaluate(ROUTE_ID, carrier, Request.INSTANCE))
+    private Mono<ServerResponse> authorizeAndHandle(ActorContext actor) {
+        return Mono.defer(() -> policyResolver.evaluate(ROUTE_ID, actor, Request.INSTANCE))
                 .flatMap(
                         decision ->
                                 decision == PolicyDecision.ALLOW
-                                        ? success(carrier)
-                                        : forbidden(carrier.correlationId()))
+                                        ? success(actor)
+                                        : Mono.error(
+                                                new AccessDeniedException(
+                                                        "Policy denied the operation")))
                 .doOnSuccess(ignored -> LOGGER.info("Conformance reference slice completed"))
                 .name(SPAN_NAME)
                 .tap(
                         Micrometer.observation(
                                 observationRegistry,
-                                registry -> sliceObservation(registry, carrier)));
+                                registry -> sliceObservation(registry, actor)));
     }
 
-    private static Observation sliceObservation(
-            ObservationRegistry registry, RequestCarrier carrier) {
+    private static Observation sliceObservation(ObservationRegistry registry, ActorContext actor) {
         Observation observation =
                 Observation.createNotStarted(SPAN_NAME, registry)
                         .contextualName(SPAN_NAME)
@@ -97,22 +99,18 @@ final class Endpoint implements PolicyProtectedRoute {
                         .lowCardinalityKeyValue("slice", "getConformanceReference")
                         .lowCardinalityKeyValue("audience", "operator")
                         .lowCardinalityKeyValue("operation", "READ")
-                        .highCardinalityKeyValue("correlationId", carrier.correlationId());
-        carrier.actor()
-                .ifPresent(
-                        actor ->
-                                observation.lowCardinalityKeyValue(
-                                        "actorType", actor.type().name()));
-        carrier.tenantId()
+                        .highCardinalityKeyValue("correlationId", actor.correlationId().toString())
+                        .lowCardinalityKeyValue("actorType", actor.actorType().name());
+        actor.tenantId()
                 .ifPresent(
                         tenantId ->
                                 observation.highCardinalityKeyValue(
-                                        "tenantId", tenantId.value().toString()));
+                                        "tenantId", tenantId.toString()));
         return observation;
     }
 
-    private Mono<ServerResponse> success(RequestCarrier carrier) {
-        return handler.handle(carrier, Request.INSTANCE)
+    private Mono<ServerResponse> success(ActorContext actor) {
+        return handler.handle(actor, Request.INSTANCE)
                 .flatMap(
                         response ->
                                 ServerResponse.ok()
@@ -120,15 +118,4 @@ final class Endpoint implements PolicyProtectedRoute {
                                         .cacheControl(CacheControl.noStore())
                                         .bodyValue(response));
     }
-
-    private static Mono<ServerResponse> forbidden(String correlationId) {
-        return ServerResponse.status(HttpStatus.FORBIDDEN)
-                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .cacheControl(CacheControl.noStore())
-                .bodyValue(
-                        new DeniedProblem(
-                                HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", correlationId));
-    }
-
-    private record DeniedProblem(int status, String code, String correlationId) {}
 }

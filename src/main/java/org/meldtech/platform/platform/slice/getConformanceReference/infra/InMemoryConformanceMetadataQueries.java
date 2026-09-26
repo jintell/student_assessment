@@ -3,7 +3,7 @@ package org.meldtech.platform.platform.slice.getConformanceReference.infra;
 import java.util.List;
 import java.util.Objects;
 import org.meldtech.platform.platform.slice.getConformanceReference.Queries;
-import org.meldtech.platform.shared.api.RequestTenantId;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -20,7 +20,7 @@ final class InMemoryConformanceMetadataQueries implements Queries {
                     List.of("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"));
 
     @Override
-    public Mono<ConformanceMetadata> load(RequestTenantId tenantId) {
+    public Mono<ConformanceMetadata> load(TenantId tenantId) {
         Objects.requireNonNull(tenantId, "tenantId");
         return Mono.just(METADATA);
     }

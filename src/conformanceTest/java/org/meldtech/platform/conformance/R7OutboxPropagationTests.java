@@ -14,10 +14,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
-import org.meldtech.platform.outbox.api.OutboxWriter;
 import org.meldtech.platform.shared.api.AtomicCrossModuleFlow;
 import org.meldtech.platform.shared.api.CrossModuleCommandApi;
 import org.meldtech.platform.shared.api.SynchronousAtomicFlow;
+import org.meldtech.platform.shared.kernel.outbox.OutboxWriter;
 
 class R7OutboxPropagationTests {
 
@@ -71,7 +71,7 @@ class R7OutboxPropagationTests {
     }
 
     private static void rejectDirectBrokerDependencies(JavaClass origin, List<String> violations) {
-        if (origin.getPackageName().startsWith("org.meldtech.platform.outbox.infra")) {
+        if (origin.getPackageName().startsWith("org.meldtech.platform.platform.infra.outbox")) {
             return;
         }
         origin.getDirectDependenciesFromSelf().stream()
@@ -95,7 +95,7 @@ class R7OutboxPropagationTests {
                 || !origin.isAssignableTo(OutboxWriter.class)) {
             return;
         }
-        if (!origin.getPackageName().startsWith("org.meldtech.platform.outbox.infra")) {
+        if (!origin.getPackageName().startsWith("org.meldtech.platform.platform.infra.outbox")) {
             violations.add(
                     violation(
                             origin,
