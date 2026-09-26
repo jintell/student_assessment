@@ -193,8 +193,8 @@ The distinguishing obligation of this feature: every isolation layer must be **p
 not merely observed to pass. All integration tests run against real PostgreSQL 17 with real migrations and
 real RLS (plan §14.1).
 
-1. [ ] Assert `ARC-VERIFY-002` static limb holds with the composite role in place: no slice SQL references a foreign schema. Deliverable: CI stage 4 assertion, extending `tasks.md` `P4.20`.
-2. [ ] Assert `ARC-VERIFY-002` database limb: no module role holds any foreign-schema grant, and the live grant set equals the declared matrix. Deliverable: integration assertion using `P4.16`.
+1. [*] Assert `ARC-VERIFY-002` static limb holds with the composite role in place: no slice SQL references a foreign schema. Deliverable: CI stage 4 assertion, extending `tasks.md` `P4.20`.
+2. [*] Assert `ARC-VERIFY-002` database limb: no module role holds any foreign-schema grant, and the live grant set equals the declared matrix. Deliverable: integration assertion using `P4.16`.
 3. [ ] Assert `ARC-VERIFY-005`: with the tenant predicate deliberately removed from a probe-table query, the result set is empty. Deliverable: integration test.
 4. [ ] Assert a statement issued before its transaction installs context is **refused for want of privilege**, not silently executed — tested at the database level with the decorator's own refusal disabled, so the grant matrix is proven to be the backstop. Deliverable: integration test.
 5. [ ] Assert `current_setting('app.tenant_id', false)` **raises** rather than returning null when no context is installed. Deliverable: integration test. Acceptance: the raised error is asserted by class, not by message text.
