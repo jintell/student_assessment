@@ -117,7 +117,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
                 Mono.from(create()),
                 connection ->
                         Mono.from(connection.beginTransaction())
-                                .then(Mono.from(work.apply(connection))),
+                                .then(Mono.defer(() -> Mono.from(work.apply(connection)))),
                 connection ->
                         Mono.from(connection.commitTransaction())
                                 .then(Mono.from(connection.close())),
