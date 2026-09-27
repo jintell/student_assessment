@@ -25,6 +25,13 @@ the defective path.
 ships exercised P1/P2 alert rules. This record hands off dashboard registration
 and operational routing; it does not claim the launch dashboard exists.
 
+## Next-Baseline Action
+
+Add the four database security-context metrics to architecture section 16.2,
+retain the P1/P2 alert rows in section 16.4, and add the panel group below to
+section 16.5 dashboard 6. Name `FEAT-OBS-001` as metric-catalogue owner and
+`FEAT-OPS-004` as dashboard, routing, and exercise owner.
+
 ## Proposed Platform Health Panel
 
 Add a **Database security-context enforcement** panel group to dashboard 6.

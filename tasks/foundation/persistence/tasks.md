@@ -240,16 +240,16 @@ real RLS (plan §14.1).
 
 # Phase 10 – Documentation and Knowledge Transfer
 
-1. [ ] Publish the §9.2 ownership table from `P1.1` as the normative module→schema→tables map. Deliverable: `docs/schema-ownership.md`.
-2. [ ] Publish the grant matrix from `P1.2` as the feature's durable artifact, including the pool-login-roles-hold-nothing rule. Deliverable: `docs/grant-matrix.md`.
-3. [ ] Publish the three-layer isolation model from `P1.4` with the failure mode each layer defeats and the feature owning each. Deliverable: `docs/tenant-isolation.md`.
-4. [ ] Publish the R9/R10 rule card from `P1.5` with enforcement mechanism and failure message per rule, extending `tasks.md`'s `docs/conformance-rules.md`. Deliverable: updated rule card.
-5. [ ] Write the composite-role amendment procedure: adding a flow is an ADR amendment with a Solution Architect, Engineering Lead and Security approval, not a configuration change. Deliverable: `docs/composite-role-amendment.md`. Acceptance: states that a second composite role is a meaningful architectural event.
-6. [ ] Write the tenant-scoped table authoring guide: the RLS DDL template, the `tenant_id` column convention, and what the catalogue gate will reject. Deliverable: `docs/tenant-scoped-tables.md` — the guide every later feature follows.
-7. [ ] Write the migration authoring note for module owners: own-schema only, per-module Flyway location, no cross-schema foreign key, no DDL from the application. Deliverable: `docs/module-migrations.md`.
-8. [ ] Raise `TASK-PLAT2-DEFECT-001` through `-005` and `TASK-PLAT2-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted. Deliverable: six defect records.
-9. [ ] Update the plan §19 traceability matrix with this feature's evidence: task ranges, verification ids and retained artifacts. Deliverable: updated matrix rows.
-10. [ ] Run a walkthrough with the engineering team covering the grant matrix, the R9 installation protocol, the reset-on-release hazard and how to author a tenant-scoped table. Deliverable: session record plus attendance.
+1. [*] Publish the §9.2 ownership table from `P1.1` as the normative module→schema→tables map. Deliverable: `docs/schema-ownership.md`.
+2. [*] Publish the grant matrix from `P1.2` as the feature's durable artifact, including the pool-login-roles-hold-nothing rule. Deliverable: `docs/grant-matrix.md`.
+3. [*] Publish the three-layer isolation model from `P1.4` with the failure mode each layer defeats and the feature owning each. Deliverable: `docs/tenant-isolation.md`.
+4. [*] Publish the R9/R10 rule card from `P1.5` with enforcement mechanism and failure message per rule, extending `tasks.md`'s `docs/conformance-rules.md`. Deliverable: updated rule card.
+5. [*] Write the composite-role amendment procedure: adding a flow is an ADR amendment with a Solution Architect, Engineering Lead and Security approval, not a configuration change. Deliverable: `docs/composite-role-amendment.md`. Acceptance: states that a second composite role is a meaningful architectural event.
+6. [*] Write the tenant-scoped table authoring guide: the RLS DDL template, the `tenant_id` column convention, and what the catalogue gate will reject. Deliverable: `docs/tenant-scoped-tables.md` — the guide every later feature follows.
+7. [*] Write the migration authoring note for module owners: own-schema only, per-module Flyway location, no cross-schema foreign key, no DDL from the application. Deliverable: `docs/module-migrations.md`.
+8. [*] Raise `TASK-PLAT2-DEFECT-001` through `-005` and `TASK-PLAT2-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted. Deliverable: six defect records.
+9. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, verification ids and retained artifacts. Deliverable: updated matrix rows.
+10. [*] Run a walkthrough with the engineering team covering the grant matrix, the R9 installation protocol, the reset-on-release hazard and how to author a tenant-scoped table. Deliverable: session record plus attendance.
 
 ---
 
