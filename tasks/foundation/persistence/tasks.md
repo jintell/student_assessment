@@ -222,19 +222,19 @@ real RLS (plan §14.1).
 2. [ ] Confirm each workload deploys with its own login role and pool size from `P3.14`, and that no workload can assume a role outside its granted membership. Deliverable: workload-to-role verification. Acceptance: the mapping is the input `FEAT-PLAT-006` consumes for its three profiles.
 3. [ ] State the rollback path: schemas, roles and grants are additive, so a rollback reverts the application without dropping a schema; role and grant revocation is a separate, reviewed migration. Deliverable: rollback statement. Acceptance: no rollback path drops a schema containing data.
 4. [ ] Verify the connection-envelope figures this feature contributes — pool sizes per workload — are reported for `ARC-PERF-006`, and record that the envelope inequality itself is enforced by CI stage 4a limb (b), owned by `FEAT-OPS-004`/`FEAT-OPS-005`. Deliverable: envelope input record.
-5. [ ] Record the deferrals explicitly with their owning features: expand/contract discipline and CI stage 12 (`FEAT-PLAT-005`), runtime profiles and advisory-lock singletons (`FEAT-PLAT-006`), PgBouncer adoption and its two binding conditions (§15.2, not at MVP). Deliverable: deferral register.
+5. [*] Record the deferrals explicitly with their owning features: expand/contract discipline and CI stage 12 (`FEAT-PLAT-005`), runtime profiles and advisory-lock singletons (`FEAT-PLAT-006`), PgBouncer adoption and its two binding conditions (§15.2, not at MVP). Deliverable: deferral register.
 
 ---
 
 # Phase 9 – Monitoring and Operations
 
-1. [ ] Register `db_context_install_failure_total` by role and confirm it increments when a slice attempts a role it is not a member of. Deliverable: metric plus evidence.
-2. [ ] Register `db_context_missing_total` and confirm it increments when a statement is refused for want of context. Deliverable: metric plus evidence. Acceptance: a non-zero value is a latent isolation defect, not a nuisance — documented as such.
-3. [ ] Register `db_role_assumption_total` by role and `db_connection_reset_failure_total`. Deliverable: two metrics plus evidence.
-4. [ ] Configure the §16.4 alerts: **P1** on any increment of `db_context_missing_total`, **P2** on `db_context_install_failure_total > 0`. Deliverable: alert rules. Acceptance: both fire in a drill, not merely on paper.
-5. [ ] Raise `TASK-PLAT2-OBS-001` to `FEAT-OBS-001`: a P1 alert exists with no dashboard panel to triage it. Deliverable: gap record with a proposed panel definition for panel 5 or 6.
-6. [ ] Write the operations runbook for a `db_context_missing_total` P1: what the alert means, why the backstop held, how to find the defective calling path, and why it is not silenceable. Deliverable: runbook.
-7. [ ] Confirm isolation-violation attempts and context-installation failures are observable and alertable rather than silent, as the feature's observability expectation requires. Deliverable: observability conformance record.
+1. [*] Register `db_context_install_failure_total` by role and confirm it increments when a slice attempts a role it is not a member of. Deliverable: metric plus evidence.
+2. [*] Register `db_context_missing_total` and confirm it increments when a statement is refused for want of context. Deliverable: metric plus evidence. Acceptance: a non-zero value is a latent isolation defect, not a nuisance — documented as such.
+3. [*] Register `db_role_assumption_total` by role and `db_connection_reset_failure_total`. Deliverable: two metrics plus evidence.
+4. [*] Configure the §16.4 alerts: **P1** on any increment of `db_context_missing_total`, **P2** on `db_context_install_failure_total > 0`. Deliverable: alert rules. Acceptance: both fire in a drill, not merely on paper.
+5. [*] Raise `TASK-PLAT2-OBS-001` to `FEAT-OBS-001`: a P1 alert exists with no dashboard panel to triage it. Deliverable: gap record with a proposed panel definition for panel 5 or 6.
+6. [*] Write the operations runbook for a `db_context_missing_total` P1: what the alert means, why the backstop held, how to find the defective calling path, and why it is not silenceable. Deliverable: runbook.
+7. [*] Confirm isolation-violation attempts and context-installation failures are observable and alertable rather than silent, as the feature's observability expectation requires. Deliverable: observability conformance record.
 
 ---
 

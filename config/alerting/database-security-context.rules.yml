@@ -1,0 +1,20 @@
+groups:
+  - name: database-security-context
+    rules:
+      - alert: DatabaseSecurityContextMissing
+        expr: increase(db_context_missing_total[5m]) > 0
+        labels:
+          severity: p1
+          owner: platform
+        annotations:
+          summary: Database statement refused because security context was missing
+          runbook: docs/runbook-database-security-context-missing.md
+
+      - alert: DatabaseContextInstallFailure
+        expr: increase(db_context_install_failure_total[5m]) > 0
+        labels:
+          severity: p2
+          owner: platform
+        annotations:
+          summary: Database role or tenant context installation failed
+          runbook: docs/runbook-database-security-context-missing.md

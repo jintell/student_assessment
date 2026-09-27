@@ -1,0 +1,38 @@
+rule_files:
+  - database-security-context.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: db_context_missing_total
+        values: 0 0 1 1 1 1
+      - series: 'db_context_install_failure_total{role="app_delivery"}'
+        values: 0 0 1 1 1 1
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: DatabaseSecurityContextMissing
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: DatabaseContextInstallFailure
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: DatabaseSecurityContextMissing
+        exp_alerts:
+          - exp_labels:
+              owner: platform
+              severity: p1
+            exp_annotations:
+              runbook: docs/runbook-database-security-context-missing.md
+              summary: Database statement refused because security context was missing
+      - eval_time: 3m
+        alertname: DatabaseContextInstallFailure
+        exp_alerts:
+          - exp_labels:
+              owner: platform
+              role: app_delivery
+              severity: p2
+            exp_annotations:
+              runbook: docs/runbook-database-security-context-missing.md
+              summary: Database role or tenant context installation failed
