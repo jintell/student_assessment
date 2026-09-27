@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +56,9 @@ class IdempotencyRequestFilterTest {
         PolicyProtectedRoute route = new RedisHeaderRoute();
         IdempotencyRequestFilter filter =
                 new IdempotencyRequestFilter(
-                        new IdempotencyRouteRegistry(List.of(route)), new UnavailableStore());
+                        new IdempotencyRouteRegistry(List.of(route)),
+                        new UnavailableStore(),
+                        new IdempotencyMetrics(new SimpleMeterRegistry()));
         MockServerWebExchange exchange =
                 MockServerWebExchange.from(
                         MockServerHttpRequest.post("/operations")
@@ -84,7 +87,9 @@ class IdempotencyRequestFilterTest {
         RecordingStore store = new RecordingStore();
         IdempotencyRequestFilter filter =
                 new IdempotencyRequestFilter(
-                        new IdempotencyRouteRegistry(List.of(new RedisHeaderRoute())), store);
+                        new IdempotencyRouteRegistry(List.of(new RedisHeaderRoute())),
+                        store,
+                        new IdempotencyMetrics(new SimpleMeterRegistry()));
         MockServerWebExchange exchange =
                 MockServerWebExchange.from(
                         MockServerHttpRequest.post("/operations")

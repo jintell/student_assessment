@@ -25,13 +25,14 @@ class KernelConformanceRuleRegistrationTests {
                         "actor_context_required",
                         "system_actor_closed",
                         "controlled_time",
-                        "exact_decimal"),
+                        "exact_decimal",
+                        "kernel_is_framework_and_module_independent"),
                 rules.keySet());
         assertTrue(rules.values().stream().allMatch(this::hasCompleteRegistration));
     }
 
     private boolean hasCompleteRegistration(KernelConformanceRule rule) {
         return !rule.failurePrefix().isBlank()
-                && rule.implementationTask().matches("P4\\.(18|19|20)");
+                && rule.implementationTask().matches("P4\\.(18|19|20|21)");
     }
 }
