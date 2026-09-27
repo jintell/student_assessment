@@ -1,5 +1,6 @@
 package org.meldtech.platform.platform.infra.kernel.error;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -21,8 +22,8 @@ import org.springframework.security.core.AuthenticationException;
 class KernelErrorConfiguration {
 
     @Bean
-    ProblemDetailMetrics problemDetailMetrics() {
-        return ProblemDetailMetrics.NOOP;
+    ProblemDetailMetrics problemDetailMetrics(MeterRegistry meterRegistry) {
+        return new MicrometerProblemDetailMetrics(meterRegistry);
     }
 
     @Bean

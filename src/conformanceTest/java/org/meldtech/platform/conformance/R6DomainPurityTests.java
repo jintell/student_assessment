@@ -6,10 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -19,13 +21,12 @@ class R6DomainPurityTests {
     private static final Set<String> AMBIENT_TIME_TYPES =
             Set.of(
                     "java.lang.System",
+                    "java.time.Clock",
                     "java.time.Instant",
                     "java.time.LocalDate",
                     "java.time.LocalDateTime",
                     "java.time.OffsetDateTime",
                     "java.time.ZonedDateTime");
-    private static final Set<String> FLOATING_POINT_TYPES =
-            Set.of("double", "float", "java.lang.Double", "java.lang.Float");
 
     @Test
     void domainCodeHasNoFrameworkOrAdapterDependencies() {
@@ -82,27 +83,25 @@ class R6DomainPurityTests {
                         AssertionError.class,
                         () -> assertUsesNoAmbientClockOutsideTheClockAbstraction(fixture));
 
-        assertTrue(String.valueOf(failure.getMessage()).contains("uses ambient time source"));
+        assertTrue(String.valueOf(failure.getMessage()).contains("R6 controlled time violated:"));
     }
 
     private static void assertUsesNoAmbientClockOutsideTheClockAbstraction(JavaClasses classes) {
         List<String> violations = new ArrayList<>();
         for (JavaClass origin : classes) {
-            if (isClockAbstraction(origin)) {
+            if (isSystemClockAdapter(origin)) {
                 continue;
             }
             origin.getMethodCallsFromSelf().stream()
-                    .filter(call -> AMBIENT_TIME_TYPES.contains(call.getTargetOwner().getName()))
-                    .filter(call -> isAmbientTimeMethod(call.getTarget().getName()))
-                    .filter(call -> call.getTarget().getRawParameterTypes().isEmpty())
+                    .filter(R6DomainPurityTests::isAmbientTimeCall)
                     .forEach(
                             call ->
                                     violations.add(
-                                            "R6 domain purity violated: "
+                                            "R6 controlled time violated: "
                                                     + origin.getName()
-                                                    + " uses ambient time source "
+                                                    + " calls ambient time source "
                                                     + call.getTarget().getFullName()
-                                                    + "; use the shared Clock abstraction."));
+                                                    + "; inject shared.kernel Clock."));
         }
 
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
@@ -124,62 +123,18 @@ class R6DomainPurityTests {
                         AssertionError.class,
                         () -> assertGradingDomainUsesNoFloatingPointTypes(fixture));
 
-        assertTrue(String.valueOf(failure.getMessage()).contains("forbidden floating-point type"));
+        String message = String.valueOf(failure.getMessage());
+        assertTrue(message.contains("R6 exact decimal violated:"));
+        assertTrue(message.contains("shared.kernel Decimal conventions"));
     }
 
     private static void assertGradingDomainUsesNoFloatingPointTypes(JavaClasses classes) {
-        List<String> violations = new ArrayList<>();
+        Set<String> violations = new LinkedHashSet<>();
         for (JavaClass javaClass : classes) {
-            if (!javaClass.getPackageName().startsWith("org.meldtech.platform.grading.domain")) {
+            if (!isScoringCode(javaClass)) {
                 continue;
             }
-            javaClass.getFields().stream()
-                    .filter(field -> FLOATING_POINT_TYPES.contains(field.getRawType().getName()))
-                    .forEach(
-                            field ->
-                                    violations.add(
-                                            floatingPointViolation(
-                                                    javaClass, "field " + field.getFullName())));
-            javaClass
-                    .getMethods()
-                    .forEach(
-                            method -> {
-                                if (FLOATING_POINT_TYPES.contains(
-                                        method.getRawReturnType().getName())) {
-                                    violations.add(
-                                            floatingPointViolation(
-                                                    javaClass,
-                                                    "return type of " + method.getFullName()));
-                                }
-                                method.getRawParameterTypes().stream()
-                                        .filter(
-                                                type ->
-                                                        FLOATING_POINT_TYPES.contains(
-                                                                type.getName()))
-                                        .forEach(
-                                                type ->
-                                                        violations.add(
-                                                                floatingPointViolation(
-                                                                        javaClass,
-                                                                        "parameter of "
-                                                                                + method
-                                                                                        .getFullName())));
-                            });
-            javaClass
-                    .getConstructors()
-                    .forEach(
-                            constructor ->
-                                    constructor.getRawParameterTypes().stream()
-                                            .filter(
-                                                    type ->
-                                                            FLOATING_POINT_TYPES.contains(
-                                                                    type.getName()))
-                                            .forEach(
-                                                    type ->
-                                                            violations.add(
-                                                                    floatingPointViolation(
-                                                                            javaClass,
-                                                                            "constructor parameter"))));
+            FloatingPointBytecodeInspector.inspect(javaClass, violations);
         }
 
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
@@ -189,22 +144,33 @@ class R6DomainPurityTests {
         return new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
     }
 
-    private static boolean isClockAbstraction(JavaClass javaClass) {
-        return javaClass.getName().equals("org.meldtech.platform.shared.api.Clock")
-                || javaClass.getPackageName().startsWith("org.meldtech.platform.shared.api.time");
+    private static boolean isSystemClockAdapter(JavaClass javaClass) {
+        return javaClass.getName().equals("org.meldtech.platform.platform.infra.time.SystemClock");
     }
 
-    private static boolean isAmbientTimeMethod(String methodName) {
-        return methodName.equals("now")
-                || methodName.equals("currentTimeMillis")
-                || methodName.equals("nanoTime");
+    private static boolean isAmbientTimeCall(JavaMethodCall call) {
+        String owner = call.getTargetOwner().getName();
+        String method = call.getTarget().getName();
+        if (!AMBIENT_TIME_TYPES.contains(owner)) {
+            return false;
+        }
+        if (owner.equals("java.time.Clock")) {
+            return method.startsWith("system")
+                    || method.equals("tickMillis")
+                    || method.equals("tickSeconds")
+                    || method.equals("tickMinutes");
+        }
+        return call.getTarget().getRawParameterTypes().isEmpty()
+                && (method.equals("now")
+                        || method.equals("currentTimeMillis")
+                        || method.equals("nanoTime"));
     }
 
-    private static String floatingPointViolation(JavaClass javaClass, String location) {
-        return "R6 domain purity violated: "
-                + javaClass.getName()
-                + " uses forbidden floating-point type in "
-                + location
-                + "; use exact Decimal conventions.";
+    private static boolean isScoringCode(JavaClass javaClass) {
+        String packageName = javaClass.getPackageName();
+        return packageName.endsWith(".grading")
+                || packageName.contains(".grading.")
+                || packageName.endsWith(".scoring")
+                || packageName.contains(".scoring.");
     }
 }

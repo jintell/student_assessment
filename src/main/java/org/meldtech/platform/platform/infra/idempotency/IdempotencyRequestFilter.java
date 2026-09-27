@@ -41,10 +41,13 @@ final class IdempotencyRequestFilter implements WebFilter {
 
     private final IdempotencyRouteRegistry routes;
     private final IdempotencyStore store;
+    private final IdempotencyMetrics metrics;
 
-    IdempotencyRequestFilter(IdempotencyRouteRegistry routes, IdempotencyStore store) {
+    IdempotencyRequestFilter(
+            IdempotencyRouteRegistry routes, IdempotencyStore store, IdempotencyMetrics metrics) {
         this.routes = routes;
         this.store = store;
+        this.metrics = metrics;
     }
 
     @Override
@@ -92,6 +95,7 @@ final class IdempotencyRequestFilter implements WebFilter {
         return Mono.from(store.reserveOrReplay(scope, key, fingerprint))
                 .flatMap(
                         outcome -> {
+                            metrics.record(outcome);
                             if (outcome instanceof ReservationOutcome.Reserved reserved) {
                                 return executeReserved(exchange, chain, body, reserved.token());
                             }

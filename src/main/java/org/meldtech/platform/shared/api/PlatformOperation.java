@@ -1,24 +1,35 @@
 package org.meldtech.platform.shared.api;
 
+import java.util.Optional;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorType;
+import org.meldtech.platform.shared.kernel.context.SystemActor;
 
 /** Closed set of platform-scoped operations and the actor identity each permits. */
 public enum PlatformOperation {
-    PLATFORM_ADMINISTRATION(ActorType.WORKFORCE_USER, "platform-administrator"),
-    RETENTION_SWEEP(ActorType.SYSTEM, "RETENTION_ENGINE"),
-    RECONCILIATION(ActorType.SYSTEM, "IDP_RECONCILER");
+    PLATFORM_ADMINISTRATION("platform-administrator"),
+    RETENTION_SWEEP(SystemActor.RETENTION_ENGINE),
+    RECONCILIATION(SystemActor.IDP_RECONCILER);
 
-    private final ActorType actorType;
-    private final String actorId;
+    private final Optional<String> workforceActorId;
+    private final Optional<SystemActor> systemActor;
 
-    PlatformOperation(ActorType actorType, String actorId) {
-        this.actorType = actorType;
-        this.actorId = actorId;
+    PlatformOperation(String workforceActorId) {
+        this.workforceActorId = Optional.of(workforceActorId);
+        this.systemActor = Optional.empty();
+    }
+
+    PlatformOperation(SystemActor systemActor) {
+        this.workforceActorId = Optional.empty();
+        this.systemActor = Optional.of(systemActor);
     }
 
     public boolean permits(ActorContext actor) {
-        return actor.actorType() == actorType && actor.actorId().toString().equals(actorId);
+        if (systemActor.isPresent()) {
+            return actor.systemActorName().equals(systemActor);
+        }
+        return actor.actorType() == ActorType.WORKFORCE_USER
+                && workforceActorId.filter(actor.actorId().toString()::equals).isPresent();
     }
 
     public String settingValue() {

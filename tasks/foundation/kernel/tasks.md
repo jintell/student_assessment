@@ -164,12 +164,12 @@ agreed.
 14. [*] Implement `SecretFieldPattern` from `P2.15` and consume it in the mapper's field-emission path. Deliverable: pattern type plus its mapper usage. Acceptance: the pattern is exported for `FEAT-OBS-001` and `FEAT-AUD-001` to consume without copying.
 15. [*] Implement the real `RequestContextPropagation` payload and register it in `tasks.md` `P4.7`'s `WebFilter` and `P4.8`'s logging bridge. Deliverable: propagation implementation.
 16. [*] **Adopt the real types in `FEAT-PLAT-001`:** replace the `tasks.md` `P4.6` placeholder carriers with `TenantId` and `ActorContext`, and **delete** the placeholder types. Deliverable: adoption change set. Acceptance: a source-wide search finds no reference to a placeholder carrier, and `tasks.md` `P4.22`'s R5 signature rule is still green.
-17. [ ] **Adopt the real `TenantId` in `FEAT-PLAT-002`:** update the `SecurityContextInitializer` decorator (`tasks.md` `P4.2`–`P4.5`) to the real type. Deliverable: adoption change set. Acceptance: `tasks.md` `P7.12`'s `ARC-VERIFY-024` adversarial suite is re-run and green after the change.
-18. [ ] Implement the `ActorContext`-required conformance rule: no write path exists without an `ActorContext`, and system actors come from the enumeration (`ARC-VERIFY-011`). Deliverable: rule plus its failure message.
-19. [ ] Implement the no-ambient-time conformance rule as the kernel-side completion of `tasks.md` `P4.23`, scoped so that only the `SystemClock` adapter may reference an ambient time source. Deliverable: rule.
-20. [ ] Implement the no-binary-floating-point rule for scoring packages, as the kernel-side completion of `tasks.md` `P4.23`. Deliverable: rule. Acceptance: `double`, `float` and their boxed forms are all rejected, and the message names the decimal convention to use instead.
-21. [ ] Implement the kernel-purity conformance rule from `P2.16`. Deliverable: rule. Acceptance: a Spring, Jackson, R2DBC, Redis or module import in `shared.kernel` fails the build; verified by `P7.5`.
-22. [ ] Implement the four metrics from `TASK-PLAT3-OBS-001` — `problem_detail_emitted_total{code}`, `problem_detail_unmapped_total`, `idempotency_replay_total{outcome}`, `idempotency_store_unavailable_total`. Deliverable: metric instrumentation.
+17. [*] **Adopt the real `TenantId` in `FEAT-PLAT-002`:** update the `SecurityContextInitializer` decorator (`tasks.md` `P4.2`–`P4.5`) to the real type. Deliverable: adoption change set. Acceptance: `tasks.md` `P7.12`'s `ARC-VERIFY-024` adversarial suite is re-run and green after the change.
+18. [*] Implement the `ActorContext`-required conformance rule: no write path exists without an `ActorContext`, and system actors come from the enumeration (`ARC-VERIFY-011`). Deliverable: rule plus its failure message.
+19. [*] Implement the no-ambient-time conformance rule as the kernel-side completion of `tasks.md` `P4.23`, scoped so that only the `SystemClock` adapter may reference an ambient time source. Deliverable: rule.
+20. [*] Implement the no-binary-floating-point rule for scoring packages, as the kernel-side completion of `tasks.md` `P4.23`. Deliverable: rule. Acceptance: `double`, `float` and their boxed forms are all rejected, and the message names the decimal convention to use instead.
+21. [*] Implement the kernel-purity conformance rule from `P2.16`. Deliverable: rule. Acceptance: a Spring, Jackson, R2DBC, Redis or module import in `shared.kernel` fails the build; verified by `P7.5`.
+22. [*] Implement the four metrics from `TASK-PLAT3-OBS-001` — `problem_detail_emitted_total{code}`, `problem_detail_unmapped_total`, `idempotency_replay_total{outcome}`, `idempotency_store_unavailable_total`. Deliverable: metric instrumentation.
 
 ---
 

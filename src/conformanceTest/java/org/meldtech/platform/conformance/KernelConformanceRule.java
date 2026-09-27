@@ -4,7 +4,8 @@ enum KernelConformanceRule {
     ACTOR_CONTEXT_REQUIRED("actor_context_required", "ACTOR-CONTEXT:", "P4.18"),
     SYSTEM_ACTOR_CLOSED("system_actor_closed", "SYSTEM-ACTOR:", "P4.18"),
     CONTROLLED_TIME("controlled_time", "R6 controlled time violated:", "P4.19"),
-    EXACT_DECIMAL("exact_decimal", "R6 exact decimal violated:", "P4.20");
+    EXACT_DECIMAL("exact_decimal", "R6 exact decimal violated:", "P4.20"),
+    KERNEL_PURITY("kernel_is_framework_and_module_independent", "KERNEL-PURITY:", "P4.21");
 
     private final String id;
     private final String failurePrefix;
