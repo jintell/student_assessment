@@ -218,10 +218,10 @@ real RLS (plan §14.1).
 
 # Phase 8 – Deployment and Release
 
-1. [ ] Confirm the migration entrypoint runs to completion as a Kubernetes `Job` before any pod serves traffic, and that no application replica holds DDL privilege. Deliverable: deployment ordering evidence (`ARC-PLAT-007`).
-2. [ ] Confirm each workload deploys with its own login role and pool size from `P3.14`, and that no workload can assume a role outside its granted membership. Deliverable: workload-to-role verification. Acceptance: the mapping is the input `FEAT-PLAT-006` consumes for its three profiles.
-3. [ ] State the rollback path: schemas, roles and grants are additive, so a rollback reverts the application without dropping a schema; role and grant revocation is a separate, reviewed migration. Deliverable: rollback statement. Acceptance: no rollback path drops a schema containing data.
-4. [ ] Verify the connection-envelope figures this feature contributes — pool sizes per workload — are reported for `ARC-PERF-006`, and record that the envelope inequality itself is enforced by CI stage 4a limb (b), owned by `FEAT-OPS-004`/`FEAT-OPS-005`. Deliverable: envelope input record.
+1. [*] Confirm the migration entrypoint runs to completion as a Kubernetes `Job` before any pod serves traffic, and that no application replica holds DDL privilege. Deliverable: deployment ordering evidence (`ARC-PLAT-007`).
+2. [*] Confirm each workload deploys with its own login role and pool size from `P3.14`, and that no workload can assume a role outside its granted membership. Deliverable: workload-to-role verification. Acceptance: the mapping is the input `FEAT-PLAT-006` consumes for its three profiles.
+3. [*] State the rollback path: schemas, roles and grants are additive, so a rollback reverts the application without dropping a schema; role and grant revocation is a separate, reviewed migration. Deliverable: rollback statement. Acceptance: no rollback path drops a schema containing data.
+4. [*] Verify the connection-envelope figures this feature contributes — pool sizes per workload — are reported for `ARC-PERF-006`, and record that the envelope inequality itself is enforced by CI stage 4a limb (b), owned by `FEAT-OPS-004`/`FEAT-OPS-005`. Deliverable: envelope input record.
 5. [*] Record the deferrals explicitly with their owning features: expand/contract discipline and CI stage 12 (`FEAT-PLAT-005`), runtime profiles and advisory-lock singletons (`FEAT-PLAT-006`), PgBouncer adoption and its two binding conditions (§15.2, not at MVP). Deliverable: deferral register.
 
 ---
