@@ -14,8 +14,8 @@ architecture section 5.1. The executable R1-R8 checks run in the dedicated
 | R6 | Domain code has no Spring, R2DBC, Jackson, infrastructure, or slice dependency; production code uses the shared clock; grading uses exact decimal types. | ArchUnit dependency/method/signature checks; `ARC-VERIFY-003`. | `FEAT-PLAT-001` | `R6 domain purity violated: <class> <forbidden dependency, ambient time source, or floating-point detail>.` |
 | R7 | Asynchronous cross-module state propagation uses the outbox; a synchronous write uses only a closed `ADR-023` atomic flow. | ArchUnit broker, `OutboxWriter`, command-port, and flow-enumeration checks; later database role audit; `ARC-VERIFY-006`. | `FEAT-PLAT-001` | `R7 propagation violated: <class> <detail>; use OutboxWriter or an ADR-023 enumerated atomic flow.` |
 | R8 | A mutating handler emits at least one audit event inside its transaction. | ArchUnit transactional method-call check; later runtime audit coverage; `ARC-VERIFY-010`. | `FEAT-PLAT-001` | `R8 audit coverage violated: mutating handler <handler>.<method> can complete without emitting an audit event in its transaction.` |
-| R9 | Every transaction installs one permitted role and tenant/platform context as its first statements, and every connection release resets context. | Connection-factory decorator, privilege-denied login roles, and adversarial pool-reuse integration tests; `ARC-VERIFY-024`. | `FEAT-PLAT-002` | Reserved contract: `R9 security context violated: <statement-order, missing context, stale context, or reset detail>.` No executable R9 check exists in this feature. |
-| R10 | A handler assumes only its module role or an `ADR-023` enumerated composite role, with no later role switch. | ArchUnit flow-to-role enumeration, `pg_roles` grant audit, and fault-injection integration tests; `ARC-VERIFY-006` and `ARC-VERIFY-023`. | `FEAT-PLAT-002` | Reserved contract: `R10 role assumption violated: <handler, role, flow, or role-switch detail>.` No executable R10 check exists in this feature. |
+| R9 | Every transaction installs one permitted role and tenant/platform context as its first statements, and every connection release resets context. | ArchUnit rejects direct connection/transaction access; `SecurityContextInitializer` guards statement order and release; login roles have no direct grants; adversarial pool-reuse tests prove every termination path; `ARC-VERIFY-024`. | `FEAT-PLAT-002` | `R9_UNDECORATED_CONNECTION_ACCESS` for a bypassing handler/query; `R9_CONTEXT_NOT_FIRST` for missing or incomplete context. Reset failure propagates and increments `db_connection_reset_failure_total`. |
+| R10 | A handler assumes only its module role or an `ADR-023` enumerated composite role, with no later role switch. | ArchUnit enforces the closed handler-to-role/flow policy; `AssumableDatabaseRole` is an enum; `pg_roles` grant audit checks permitted memberships; the connection wrapper rejects later role statements; `ARC-VERIFY-006` and `ARC-VERIFY-023`. | `FEAT-PLAT-002` | `R10_DYNAMIC_ROLE_INPUT`, `R10_ROLE_NOT_ALLOWED`, or `R10_COMPOSITE_ROLE_UNDECLARED` for a static policy breach; `R10_ROLE_SWITCH` for repeated initialisation or a later role statement. |
 
 ## Ownership Boundary
 
@@ -24,10 +24,10 @@ rules also require later runtime evidence: database grants and isolation belong
 to `FEAT-PLAT-002`, the transactional outbox to `FEAT-PLAT-004`, and the audit
 store to `FEAT-AUD-001`.
 
-R9 and R10 are architectural obligations, but their enforcement point does not
-exist in this foundation feature. Their message prefixes above are reserved for
-the owning feature and must become asserted diagnostics when its checks are
-implemented. Until then, CI stage 4 does not claim R9 or R10 coverage.
+R9 and R10 are implemented by `FEAT-PLAT-002`. Their static policy checks run
+in CI stage 4, their lifecycle checks run in unit and PostgreSQL integration
+tests, and `ARC-VERIFY-024` is retained again from staging for launch condition
+`L9`. The failure prefixes above are asserted by deliberate negative fixtures.
 
 ## Run the Rules
 
@@ -36,7 +36,7 @@ implemented. Until then, CI stage 4 does not claim R9 or R10 coverage.
 ci/stage-4
 ```
 
-Each R1-R8 negative fixture asserts its stable prefix. A change that weakens or
+Each R1-R10 negative fixture asserts its stable prefix. A change that weakens or
 removes an assertion therefore fails the negative test rather than silently
 making the gate permissive. The detailed design and fixture strategy remain in
 [`architecture/conformance-suite.md`](architecture/conformance-suite.md).
