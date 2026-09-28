@@ -113,6 +113,11 @@ class R6DomainPurityTests {
     }
 
     @Test
+    void gradingDomainUsesOnlyTheCanonicalRoundingHelper() {
+        assertGradingDomainUsesOnlyTheCanonicalRoundingHelper(productionClasses());
+    }
+
+    @Test
     void rejectsFloatingPointInTheGradingDomain() {
         JavaClasses fixture =
                 new ClassFileImporter()
@@ -128,6 +133,22 @@ class R6DomainPurityTests {
         assertTrue(message.contains("shared.kernel Decimal conventions"));
     }
 
+    @Test
+    void rejectsASecondRoundingHelperInTheGradingDomain() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.grading.domain.r6fixture");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertGradingDomainUsesOnlyTheCanonicalRoundingHelper(fixture));
+
+        String message = String.valueOf(failure.getMessage());
+        assertTrue(message.contains("R6 exact decimal violated:"));
+        assertTrue(message.contains("roundHalfUpToWholeNumber"));
+    }
+
     private static void assertGradingDomainUsesNoFloatingPointTypes(JavaClasses classes) {
         Set<String> violations = new LinkedHashSet<>();
         for (JavaClass javaClass : classes) {
@@ -136,6 +157,24 @@ class R6DomainPurityTests {
             }
             FloatingPointBytecodeInspector.inspect(javaClass, violations);
         }
+
+        assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
+    }
+
+    private static void assertGradingDomainUsesOnlyTheCanonicalRoundingHelper(JavaClasses classes) {
+        List<String> violations = new ArrayList<>();
+        classes.stream()
+                .filter(R6DomainPurityTests::isScoringCode)
+                .flatMap(javaClass -> javaClass.getMethodCallsFromSelf().stream())
+                .filter(R6DomainPurityTests::isDirectRoundingCall)
+                .forEach(
+                        call ->
+                                violations.add(
+                                        "R6 exact decimal violated: "
+                                                + call.getOriginOwner().getName()
+                                                + " declares a second rounding path via "
+                                                + call.getTarget().getFullName()
+                                                + "; use shared.kernel Decimal.roundHalfUpToWholeNumber."));
 
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
     }
@@ -164,6 +203,11 @@ class R6DomainPurityTests {
                 && (method.equals("now")
                         || method.equals("currentTimeMillis")
                         || method.equals("nanoTime"));
+    }
+
+    private static boolean isDirectRoundingCall(JavaMethodCall call) {
+        return call.getTargetOwner().getName().equals("java.math.BigDecimal")
+                && call.getTarget().getName().equals("setScale");
     }
 
     private static boolean isScoringCode(JavaClass javaClass) {

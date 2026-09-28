@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "feature": "FEAT-PLAT-003",
+  "task": "P7.20",
+  "verification": "ProblemDetail allowlist gate",
+  "verdict": "PASS",
+  "recordedAt": "2026-09-28T09:37:54Z",
+  "baseCommit": "78aa49e65bc525b4a1138fdcf0abc303c579c922",
+  "workingTreeChangesIncluded": true,
+  "gradleTask": "problemDetailAllowlistTest",
+  "testClass": "org.meldtech.platform.platform.infra.kernel.error.ProblemDetailAllowlistTest",
+  "tests": 3,
+  "skipped": 0,
+  "failures": 0,
+  "errors": 0,
+  "durationSeconds": 0.123,
+  "junitResultSha256": "ee40d86edcb13ecd35d10022f3fa0767b02570ea56df631a4f989ca0957adf9e",
+  "assertions": [
+    "every production error code is declared in the canonical catalogue",
+    "an undeclared emittable code fails the gate",
+    "generated schemas reject additional properties"
+  ],
+  "identifierGap": {
+    "defect": "TASK-PLAT3-DEFECT-002",
+    "detail": "The architecture register assigns no dedicated verification identifier to shared-kernel context propagation; no identifier is invented by this feature."
+  }
+}

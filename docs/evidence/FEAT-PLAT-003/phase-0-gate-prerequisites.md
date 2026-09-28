@@ -110,3 +110,10 @@ Evidence:
 - `ci/test-feat-plat-003-phase-0-dor`
 
 Status: APPROVED FOR IMPLEMENTATION; PRODUCTION RELEASE NOT APPROVED.
+
+## Phase 0 Exit-Criteria Closure References
+
+The implementation-time pipeline condition is closed by
+`P7.21-clean-pipeline-run.md`: blocking CI stages 4, 8 and 10 are green from a
+fresh source tree. Production Redis ownership remains the explicit deferred
+release gate recorded by P0.5 and is not implied by that pipeline result.

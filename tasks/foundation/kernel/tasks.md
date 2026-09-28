@@ -202,28 +202,28 @@ volumes have a stable input.
 The distinguishing obligation of this feature: the mapper is on **every** failure path, so it must be proven
 against injected faults at every layer rather than against a handful of expected exceptions.
 
-1. [ ] Implement `ARC-VERIFY-013`: inject faults at the filter, controller, handler, domain, port-adapter, database and serialisation layers, and assert every resulting response is an allowlisted `ProblemDetail` carrying a correlation identifier. Deliverable: fault-injection suite in CI stage 10. Acceptance: coverage is per layer, and a layer with no injected fault fails the suite.
-2. [ ] Extend the fault-injection suite with the Reactor termination signals — error, cancellation and timeout — since a cancelled exchange is where an error handler most often leaks or hangs. Deliverable: three additional cases.
-3. [ ] Implement the `ProblemDetail` allowlist test from `P2.12`, blocking in CI stage 10. Deliverable: allowlist test. Acceptance: adding an emittable body shape without a catalogue entry fails the build.
-4. [ ] Assert the mapper is the only construction site: a static check plus a negative test in which a direct body write fails the build. Deliverable: assertion plus negative test.
-5. [ ] Add a negative test introducing a Spring import into `shared.kernel` and assert the purity rule fails the build. Deliverable: negative test with the import reverted and the failure retained as evidence.
-6. [ ] Test the canonical rounding against the `P2.4` boundary table: exactly `.5`, negative values, the `NUMERIC(12,4)` and `NUMERIC(9,6)` precision limits, and the largest representable score. Deliverable: boundary test set. Acceptance: this is the primitive `FEAT-GRD-001` inherits, so it ships proven.
-7. [ ] Add a negative test introducing a second rounding helper and a `double` into a scoring package, asserting both fail the build. Deliverable: two negative tests plus evidence.
-8. [ ] Implement `ARC-VERIFY-011`: assert no write path exists without an `ActorContext` and that every system actor is from the enumeration, with a negative test for a no-arg write path and for a free-text actor name. Deliverable: rule assertion plus two negative tests.
-9. [ ] Add a negative test for an ambient time source outside the `SystemClock` adapter, asserting the build fails. Deliverable: negative test.
-10. [ ] Test the correlation-identifier lifecycle: a valid ULID is honoured, an invalid one is replaced, an absent one is generated, and the same value appears in the response, the log line, the span and the `ProblemDetail`. Deliverable: four-way join test (`NFR-OBS-002`).
-11. [ ] Test the mapper's three failure-tolerance paths from `P4.12`, each asserting the generic response, the metric increment and the absence of a second escaping exception. Deliverable: three tests.
-12. [ ] Integration-test the Redis idempotency adapter against Testcontainers: reserve, replay returning the identical stored response, and expiry after the TTL. Deliverable: integration test.
-13. [ ] Test the idempotency route rule with a negative case: a route creating a durable record while accepting `Idempotency-Key` fails the build. Deliverable: negative test.
-14. [ ] Integration-test the Redis-unavailable degradation from `P1.7`: the store returns `UNAVAILABLE`, a generic `POST` returns a duplicate-request problem, no duplicate side effect occurs, and no candidate-path route is denied. Deliverable: degradation test. Acceptance: run with the container stopped, not with a mocked failure.
-15. [ ] Test typed-identifier non-assignability: a compile-time negative fixture proving a `CandidateId` cannot be passed where a `TenantId` is expected. Deliverable: compile-fail fixture.
-16. [ ] Test context propagation of the real payload across `publishOn`/`subscribeOn` and a scheduler hop, extending `tasks.md` `P4.9`. Deliverable: propagation test.
-17. [ ] Re-run `tasks.md`'s conformance suite after the `P4.16` adoption and confirm R5 and every R1–R8 rule is still green. Deliverable: adoption regression record.
-18. [ ] Re-run `tasks.md` `P7.12`'s `ARC-VERIFY-024` adversarial suite after the `P4.17` adoption and retain the result. Deliverable: adoption regression record. Acceptance: the retained `L9` evidence artifact reflects the real `TenantId`, not the placeholder.
-19. [ ] Run the error-response limb of the CI stage 10 secret-leak scan and confirm a clean baseline. Deliverable: scan result.
-20. [ ] Register the retained artifacts in the §19.9 verification evidence register: the fault-injection report and the allowlist test result. Deliverable: register entries, with `TASK-PLAT3-DEFECT-002`'s missing-identifier gap noted.
-21. [ ] Run the full pipeline on a clean checkout and confirm stages 4, 8 and 10 are blocking and green for this feature's contributions. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
-22. [ ] Verify each acceptance outcome in the `FEAT-PLAT-003` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
+1. [*] Implement `ARC-VERIFY-013`: inject faults at the filter, controller, handler, domain, port-adapter, database and serialisation layers, and assert every resulting response is an allowlisted `ProblemDetail` carrying a correlation identifier. Deliverable: fault-injection suite in CI stage 10. Acceptance: coverage is per layer, and a layer with no injected fault fails the suite.
+2. [*] Extend the fault-injection suite with the Reactor termination signals — error, cancellation and timeout — since a cancelled exchange is where an error handler most often leaks or hangs. Deliverable: three additional cases.
+3. [*] Implement the `ProblemDetail` allowlist test from `P2.12`, blocking in CI stage 10. Deliverable: allowlist test. Acceptance: adding an emittable body shape without a catalogue entry fails the build.
+4. [*] Assert the mapper is the only construction site: a static check plus a negative test in which a direct body write fails the build. Deliverable: assertion plus negative test.
+5. [*] Add a negative test introducing a Spring import into `shared.kernel` and assert the purity rule fails the build. Deliverable: negative test with the import reverted and the failure retained as evidence.
+6. [*] Test the canonical rounding against the `P2.4` boundary table: exactly `.5`, negative values, the `NUMERIC(12,4)` and `NUMERIC(9,6)` precision limits, and the largest representable score. Deliverable: boundary test set. Acceptance: this is the primitive `FEAT-GRD-001` inherits, so it ships proven.
+7. [*] Add a negative test introducing a second rounding helper and a `double` into a scoring package, asserting both fail the build. Deliverable: two negative tests plus evidence.
+8. [*] Implement `ARC-VERIFY-011`: assert no write path exists without an `ActorContext` and that every system actor is from the enumeration, with a negative test for a no-arg write path and for a free-text actor name. Deliverable: rule assertion plus two negative tests.
+9. [*] Add a negative test for an ambient time source outside the `SystemClock` adapter, asserting the build fails. Deliverable: negative test.
+10. [*] Test the correlation-identifier lifecycle: a valid ULID is honoured, an invalid one is replaced, an absent one is generated, and the same value appears in the response, the log line, the span and the `ProblemDetail`. Deliverable: four-way join test (`NFR-OBS-002`).
+11. [*] Test the mapper's three failure-tolerance paths from `P4.12`, each asserting the generic response, the metric increment and the absence of a second escaping exception. Deliverable: three tests.
+12. [*] Integration-test the Redis idempotency adapter against Testcontainers: reserve, replay returning the identical stored response, and expiry after the TTL. Deliverable: integration test.
+13. [*] Test the idempotency route rule with a negative case: a route creating a durable record while accepting `Idempotency-Key` fails the build. Deliverable: negative test.
+14. [*] Integration-test the Redis-unavailable degradation from `P1.7`: the store returns `UNAVAILABLE`, a generic `POST` returns a duplicate-request problem, no duplicate side effect occurs, and no candidate-path route is denied. Deliverable: degradation test. Acceptance: run with the container stopped, not with a mocked failure.
+15. [*] Test typed-identifier non-assignability: a compile-time negative fixture proving a `CandidateId` cannot be passed where a `TenantId` is expected. Deliverable: compile-fail fixture.
+16. [*] Test context propagation of the real payload across `publishOn`/`subscribeOn` and a scheduler hop, extending `tasks.md` `P4.9`. Deliverable: propagation test.
+17. [*] Re-run `tasks.md`'s conformance suite after the `P4.16` adoption and confirm R5 and every R1–R8 rule is still green. Deliverable: adoption regression record.
+18. [*] Re-run `tasks.md` `P7.12`'s `ARC-VERIFY-024` adversarial suite after the `P4.17` adoption and retain the result. Deliverable: adoption regression record. Acceptance: the retained `L9` evidence artifact reflects the real `TenantId`, not the placeholder.
+19. [*] Run the error-response limb of the CI stage 10 secret-leak scan and confirm a clean baseline. Deliverable: scan result.
+20. [*] Register the retained artifacts in the §19.9 verification evidence register: the fault-injection report and the allowlist test result. Deliverable: register entries, with `TASK-PLAT3-DEFECT-002`'s missing-identifier gap noted.
+21. [*] Run the full pipeline on a clean checkout and confirm stages 4, 8 and 10 are blocking and green for this feature's contributions. Deliverable: pipeline run record referenced by the Phase 0 exit criteria.
+22. [*] Verify each acceptance outcome in the `FEAT-PLAT-003` feature card against a named task and its evidence. Deliverable: completed acceptance-outcome verification table.
 
 ---
 

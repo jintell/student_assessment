@@ -16,6 +16,10 @@ public final class RedisTestContainer {
         return INSTANCE;
     }
 
+    public static GenericContainer<?> newInstance() {
+        return createContainer();
+    }
+
     private static GenericContainer<?> createContainer() {
         return new GenericContainer<>(DockerImageName.parse(IMAGE)).withExposedPorts(6379);
     }

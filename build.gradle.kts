@@ -315,7 +315,12 @@ val problemDetailAllowlistTest =
                 .output.classesDirs
         classpath = sourceSets.test.get().runtimeClasspath
         include(
+            "**/CorrelationIdLifecycleTest.class",
+            "**/FaultInjectionProblemDetailTest.class",
             "**/ProblemDetailAllowlistTest.class",
+            "**/ProblemDetailConstructionSiteTest.class",
+            "**/ProblemDetailFailureToleranceTest.class",
+            "**/ReactiveTerminationProblemDetailTest.class",
             "**/ErrorResponseSecretLeakTest.class",
         )
         dependsOn(tasks.testClasses)

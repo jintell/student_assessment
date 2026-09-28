@@ -1,5 +1,6 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -29,7 +30,25 @@ class ActorAttributionConformanceTests {
 
     @Test
     void everyWritePathRequiresActorContext() {
-        JavaClasses classes = productionClasses();
+        assertEveryWritePathRequiresActorContext(productionClasses());
+    }
+
+    @Test
+    void rejectsANoArgumentWritePath() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.conformance.fixtures.actor.noarg");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertEveryWritePathRequiresActorContext(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("ACTOR-CONTEXT:"));
+        assertTrue(String.valueOf(failure.getMessage()).contains("no direct ActorContext"));
+    }
+
+    private static void assertEveryWritePathRequiresActorContext(JavaClasses classes) {
         List<String> violations = new ArrayList<>();
 
         classes.stream()
@@ -41,9 +60,32 @@ class ActorAttributionConformanceTests {
 
     @Test
     void systemActorsCanOnlyBeConstructedThroughTheClosedEnumeration() {
+        assertSystemActorsCanOnlyBeConstructedThroughTheClosedEnumeration(productionClasses());
+    }
+
+    @Test
+    void rejectsAFreeTextSystemActorName() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages(
+                                "org.meldtech.platform.conformance.fixtures.actor.freetext");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () ->
+                                assertSystemActorsCanOnlyBeConstructedThroughTheClosedEnumeration(
+                                        fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("SYSTEM-ACTOR:"));
+        assertTrue(String.valueOf(failure.getMessage()).contains("free text"));
+    }
+
+    private static void assertSystemActorsCanOnlyBeConstructedThroughTheClosedEnumeration(
+            JavaClasses classes) {
         List<String> violations = new ArrayList<>();
 
-        for (JavaClass javaClass : productionClasses()) {
+        for (JavaClass javaClass : classes) {
             if (javaClass.isEquivalentTo(ActorContext.class)
                     || javaClass.isEquivalentTo(ActorType.class)) {
                 continue;
