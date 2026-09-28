@@ -58,7 +58,8 @@ class IdempotencyRequestFilterTest {
                 new IdempotencyRequestFilter(
                         new IdempotencyRouteRegistry(List.of(route)),
                         new UnavailableStore(),
-                        new IdempotencyMetrics(new SimpleMeterRegistry()));
+                        new IdempotencyMetrics(new SimpleMeterRegistry()),
+                        new StoredResponseReplayer());
         MockServerWebExchange exchange =
                 MockServerWebExchange.from(
                         MockServerHttpRequest.post("/operations")
@@ -89,7 +90,8 @@ class IdempotencyRequestFilterTest {
                 new IdempotencyRequestFilter(
                         new IdempotencyRouteRegistry(List.of(new RedisHeaderRoute())),
                         store,
-                        new IdempotencyMetrics(new SimpleMeterRegistry()));
+                        new IdempotencyMetrics(new SimpleMeterRegistry()),
+                        new StoredResponseReplayer());
         MockServerWebExchange exchange =
                 MockServerWebExchange.from(
                         MockServerHttpRequest.post("/operations")

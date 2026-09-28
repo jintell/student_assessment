@@ -184,16 +184,16 @@ volumes have a stable input.
 
 # Phase 6 – Security and Hardening
 
-1. [ ] Verify the allowlist denies by default: an exception with no catalogue entry produces the generic non-disclosing response, and adding a new exception type without a catalogue entry does not silently expose it. Deliverable: default-denial evidence.
-2. [ ] Verify no exception message, stack trace, SQL fragment, provider error text or secret value can reach a response body, by attempting each source individually. Deliverable: five adversarial leak attempts, each recorded and refused (`REQ-SEC-010`, `REQ-RSLT-041`).
-3. [ ] Verify the correlation identifier carries no personal data and is not derived from an actor, a tenant or an email. Deliverable: correlation-privacy review. Acceptance: support-traceable via the log store, not by inspection of the value itself.
-4. [ ] Verify a hostile `X-Correlation-Id` — over-long, control characters, newline, JSON fragment, ANSI escape — is replaced rather than echoed, and never reaches a log line or a response. Deliverable: header-hardening evidence (`TASK-PLAT3-DEFECT-006`). Acceptance: asserted against the log sink output, not only the response.
-5. [ ] Verify an idempotency replay cannot cross a tenant or an actor: the stored key includes the tenant, so a replay under a different tenant is a miss, not a leak of another tenant's response. Deliverable: replay-isolation evidence.
-6. [ ] Verify the idempotency store holds no personal data beyond what the original response already returned to that same caller, and that entries expire at 24 h. Deliverable: store-content review.
-7. [ ] Verify `SecretFieldPattern` is defined once and that no consuming limb carries its own copy. Deliverable: single-definition review.
-8. [ ] Verify the mapper cannot be bypassed: no controller, filter or exception handler writes a response body directly. Deliverable: bypass review plus the `P7.4` assertion.
-9. [ ] Confirm no credential or secret exists in the kernel, the catalogue or the Redis configuration, and that the Redis credential resolves from the secret manager. Deliverable: secret-scan result plus configuration review.
-10. [ ] Review the error contract against the §13.6 threat rows for information disclosure and record how each is mitigated or where it is carried. Deliverable: threat-model conformance record.
+1. [*] Verify the allowlist denies by default: an exception with no catalogue entry produces the generic non-disclosing response, and adding a new exception type without a catalogue entry does not silently expose it. Deliverable: default-denial evidence.
+2. [*] Verify no exception message, stack trace, SQL fragment, provider error text or secret value can reach a response body, by attempting each source individually. Deliverable: five adversarial leak attempts, each recorded and refused (`REQ-SEC-010`, `REQ-RSLT-041`).
+3. [*] Verify the correlation identifier carries no personal data and is not derived from an actor, a tenant or an email. Deliverable: correlation-privacy review. Acceptance: support-traceable via the log store, not by inspection of the value itself.
+4. [*] Verify a hostile `X-Correlation-Id` — over-long, control characters, newline, JSON fragment, ANSI escape — is replaced rather than echoed, and never reaches a log line or a response. Deliverable: header-hardening evidence (`TASK-PLAT3-DEFECT-006`). Acceptance: asserted against the log sink output, not only the response.
+5. [*] Verify an idempotency replay cannot cross a tenant or an actor: the stored key includes the tenant, so a replay under a different tenant is a miss, not a leak of another tenant's response. Deliverable: replay-isolation evidence.
+6. [*] Verify the idempotency store holds no personal data beyond what the original response already returned to that same caller, and that entries expire at 24 h. Deliverable: store-content review.
+7. [*] Verify `SecretFieldPattern` is defined once and that no consuming limb carries its own copy. Deliverable: single-definition review.
+8. [*] Verify the mapper cannot be bypassed: no controller, filter or exception handler writes a response body directly. Deliverable: bypass review plus the `P7.4` assertion.
+9. [*] Confirm no credential or secret exists in the kernel, the catalogue or the Redis configuration, and that the Redis credential resolves from the secret manager. Deliverable: secret-scan result plus configuration review.
+10. [*] Review the error contract against the §13.6 threat rows for information disclosure and record how each is mitigated or where it is carried. Deliverable: threat-model conformance record.
 
 ---
 

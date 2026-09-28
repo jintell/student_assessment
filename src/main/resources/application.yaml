@@ -2,7 +2,9 @@ spring:
   application:
     name: cbt-platform
   config:
-    import: optional:configtree:${CBT_DATABASE_SECRETS_PATH:/run/secrets/database/}
+    import:
+      - optional:configtree:${CBT_DATABASE_SECRETS_PATH:/run/secrets/database/}
+      - optional:configtree:${CBT_REDIS_SECRETS_PATH:/run/secrets/redis/}
   flyway:
     enabled: false
 cbt:
@@ -72,3 +74,16 @@ cbt:
         initial-size: 0
         max-size: 5
         max-idle-time: 30m
+---
+spring:
+  config:
+    activate:
+      on-profile: production
+  data:
+    redis:
+      host: ${CBT_REDIS_HOST}
+      port: ${CBT_REDIS_PORT:6379}
+      username: ${CBT_REDIS_USERNAME}
+      password: ${cbt.redis.password}
+      ssl:
+        enabled: true
