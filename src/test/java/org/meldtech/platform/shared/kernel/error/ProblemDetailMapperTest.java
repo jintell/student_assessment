@@ -3,6 +3,7 @@ package org.meldtech.platform.shared.kernel.error;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.util.LinkedHashMap;
@@ -33,11 +34,18 @@ class ProblemDetailMapperTest {
 
     @Test
     void unmappedFailureUsesTheGenericNonDisclosingEntry() {
+        String undisclosedMessage = "new provider failed with credential provider-secret";
         ProblemDetailDocument problem =
-                mapper().map(new RuntimeException("provider secret"), CONTEXT);
+                mapper().map(new NewlyIntroducedException(undisclosedMessage), CONTEXT);
 
         assertEquals(ProblemDetailMapper.INTERNAL_CODE, problem.code());
+        assertEquals(URI.create("https://errors.meld-tech.com/problems/internal"), problem.type());
+        assertEquals("Unexpected error", problem.title());
+        assertEquals(500, problem.status());
         assertEquals("The request could not be completed.", problem.detail());
+        assertEquals(CONTEXT.instance(), problem.instance());
+        assertEquals(CONTEXT.correlationId(), problem.correlationId());
+        assertTrue(problem.extensions().isEmpty());
     }
 
     @Test
@@ -180,6 +188,15 @@ class ProblemDetailMapperTest {
         @Override
         public void fallback(FallbackReason reason) {
             lastFallback = Optional.of(reason);
+        }
+    }
+
+    private static final class NewlyIntroducedException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        private NewlyIntroducedException(String message) {
+            super(message);
         }
     }
 }
