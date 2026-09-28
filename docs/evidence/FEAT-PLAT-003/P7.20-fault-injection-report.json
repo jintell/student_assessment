@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "feature": "FEAT-PLAT-003",
+  "task": "P7.20",
+  "verification": "ARC-VERIFY-013",
+  "verdict": "PASS",
+  "recordedAt": "2026-09-28T09:37:54Z",
+  "baseCommit": "78aa49e65bc525b4a1138fdcf0abc303c579c922",
+  "workingTreeChangesIncluded": true,
+  "gradleTask": "problemDetailAllowlistTest",
+  "testClass": "org.meldtech.platform.platform.infra.kernel.error.FaultInjectionProblemDetailTest",
+  "tests": 8,
+  "skipped": 0,
+  "failures": 0,
+  "errors": 0,
+  "durationSeconds": 0.031,
+  "junitResultSha256": "aaf7a1be4e9add48d7def6b71d128abdc2dfa52ce2244fb3e352162fa1f08986",
+  "faultLayers": [
+    "filter",
+    "controller",
+    "handler",
+    "domain",
+    "port-adapter",
+    "database",
+    "serialisation"
+  ],
+  "assertions": [
+    "every required layer has an injected fault",
+    "every response contains only allowlisted ProblemDetail fields",
+    "every response contains the request correlation identifier",
+    "internal fault detail is absent from every response"
+  ]
+}

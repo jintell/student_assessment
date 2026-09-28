@@ -9,6 +9,8 @@
 | `FEAT-PLAT-001-P7.25-ACCEPTANCE` | Five feature-card acceptance outcomes | VERIFIED | `feat-plat-001-acceptance-verification.md` | Computed by the release bundle | Repository history plus release bundle |
 | `FEAT-PLAT-002-P7.16-TENANT-ISOLATION-MATRIX` | `ARC-VERIFY-004` current tenant-route matrix | PASS, 1 route and 3 operation rows | `FEAT-PLAT-002/P7.16-tenant-isolation-matrix.json` | `05ca21a8b1167b3f5ef470c0940e899466ecad0f72374d1ea889a59f7b290429` | Repository history plus release bundle |
 | `FEAT-PLAT-002-P7.17-POOLED-CONTEXT-ADVERSARIAL` | `ARC-VERIFY-024`, launch condition `L9` | PASS in staging, 4 tests and 0 failures | `FEAT-PLAT-002/P7.17-pooled-connection-security-context-adversarial-report.json` | `08dfe2bd646e29c269d61c19fb295664858c2275fd0485f7c328d2eaf49d6e27` | Repository history plus release bundle |
+| `FEAT-PLAT-003-P7.20-FAULT-INJECTION` | `ARC-VERIFY-013`, seven-layer error-boundary injection | PASS, 8 tests and 0 failures | `FEAT-PLAT-003/P7.20-fault-injection-report.json` | `d2b0c9c28d9579ad6834b0c7a46acf4f0487fbe9c9d3d4882c3527d7e33d7442` | Repository history plus release bundle |
+| `FEAT-PLAT-003-P7.20-PROBLEM-ALLOWLIST` | ProblemDetail allowlist, CI stage 10 | PASS, 3 tests and 0 failures | `FEAT-PLAT-003/P7.20-problem-detail-allowlist-result.json` | `5e94e81e6241fc8f4298e46adfc418ea91b4c541240dd44f2251e3313da5d6fa` | Repository history plus release bundle |
 | `FEAT-PLAT-005-P7.11-MIGRATION-LOCK` | §19.9 migration lock-duration report | PASS | `FEAT-PLAT-005/P7.11-migration-lock-duration-report.json` | `731087d86e8775839af45357c0801ab79cc64d60be858691a655f7ad1a480676` | Repository history plus release bundle |
 | `FEAT-PLAT-005-P7.17-ROLLBACK` | Code-only rollback rehearsal against the expanded schema | PASS | `FEAT-PLAT-005/P7.17-rollback-rehearsal.json` | `116d2b6cf24d674403fa1863d2ecd5b886cedbfb47e38b843b99044a1cffeda7` | Repository history plus release bundle |
 | `FEAT-PLAT-005-P7.18-BACKFILL` | Throttled interruption and resumption rehearsal | PASS | `FEAT-PLAT-005/P7.18-backfill-rehearsal.md` | `981f2d053263f26ec3c2cdd073a8c96dec7302ec9ec7d935efed438e99380443` | Repository history plus release bundle |
@@ -21,3 +23,9 @@ lock-duration report and the feature rehearsals, but assigns no
 `FEAT-PLAT-005` task-owned identifiers above retain the evidence without
 inventing an architecture identifier; Architecture Owner assignment remains
 the documented follow-up.
+
+`TASK-PLAT3-DEFECT-002`: the plan attributes shared-kernel and context
+propagation to `ARC-VERIFY-008`, but the architecture register defines that
+identifier as route-policy resolution owned by identity/security features. The
+FEAT-PLAT-003 entries retain owned `ARC-VERIFY-013` and stage-10 allowlist
+evidence without inventing a replacement identifier for the propagation gap.

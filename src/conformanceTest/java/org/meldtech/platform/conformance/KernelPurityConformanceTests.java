@@ -1,5 +1,6 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.Dependency;
@@ -19,6 +20,26 @@ class KernelPurityConformanceTests {
     void kernelTypesDependOnlyOnTheJdkReactiveStreamsAndTheKernel() {
         JavaClasses classes =
                 new ClassFileImporter().importPath(Path.of("build", "classes", "java", "main"));
+
+        assertKernelTypesDependOnlyOnAllowedTypes(classes);
+    }
+
+    @Test
+    void rejectsASpringDependencyInTheKernel() {
+        JavaClasses fixture =
+                new ClassFileImporter()
+                        .importPackages("org.meldtech.platform.shared.kernel.r6fixture");
+
+        AssertionError failure =
+                assertThrows(
+                        AssertionError.class,
+                        () -> assertKernelTypesDependOnlyOnAllowedTypes(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains("KERNEL-PURITY:"));
+        assertTrue(String.valueOf(failure.getMessage()).contains("org.springframework"));
+    }
+
+    private static void assertKernelTypesDependOnlyOnAllowedTypes(JavaClasses classes) {
         List<String> violations = new ArrayList<>();
 
         classes.stream()
