@@ -3,6 +3,9 @@ package org.meldtech.platform.platform.infra.kernel.error;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
@@ -11,10 +14,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
+import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.error.ProblemCodeDefinition;
 import org.meldtech.platform.shared.kernel.error.ProblemDetailMapper;
 import org.meldtech.platform.shared.kernel.error.ProblemDetailMetrics;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -66,6 +75,50 @@ class ProblemDetailWebExceptionHandlerTest {
         String body = Objects.requireNonNull(exchange.getResponse().getBodyAsString().block());
         assertFalse(body.contains(forbiddenMarker), source + " reached the response body");
         assertFalse(body.contains(failureMessage), source + " was copied from the exception");
+    }
+
+    @Test
+    void logsTheMappedErrorCodeWithSafeRequestContextFields() {
+        ProblemDetailWebExceptionHandler handler =
+                new ProblemDetailWebExceptionHandler(mapper(), new ObjectMapper());
+        MockServerWebExchange exchange =
+                MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/assessments/42"));
+        ActorContext actor =
+                ActorContext.tenantWorkforce(
+                        new ActorId("operator-123"),
+                        TenantId.parse("ad25adad-f989-4a62-9754-3a600e5bf347"),
+                        CORRELATION_ID,
+                        SourceIp.parse("127.0.0.1"));
+        Logger logger = (Logger) LoggerFactory.getLogger(ProblemDetailWebExceptionHandler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        MDC.put("correlationId", actor.correlationId().toString());
+        MDC.put("actorType", actor.actorType().name());
+        MDC.put("actorId", actor.actorId().toString());
+        MDC.put("tenantId", actor.tenantId().orElseThrow().toString());
+        try {
+            handler.handle(exchange, new IllegalArgumentException("hidden"))
+                    .contextWrite(context -> context.put(ActorContext.class, actor))
+                    .block();
+
+            ILoggingEvent event = appender.list.getFirst();
+            assertEquals(
+                    actor.correlationId().toString(),
+                    event.getMDCPropertyMap().get("correlationId"));
+            assertEquals(actor.actorType().name(), event.getMDCPropertyMap().get("actorType"));
+            assertEquals(actor.actorId().toString(), event.getMDCPropertyMap().get("actorId"));
+            assertEquals(
+                    actor.tenantId().orElseThrow().toString(),
+                    event.getMDCPropertyMap().get("tenantId"));
+            assertEquals("CBT-PLAT-VALIDATION", event.getMDCPropertyMap().get("errorCode"));
+            assertFalse(event.getFormattedMessage().contains("hidden"));
+        } finally {
+            MDC.clear();
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     private static Stream<Arguments> internalLeakAttempts() {

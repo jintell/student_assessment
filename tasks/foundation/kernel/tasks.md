@@ -229,26 +229,26 @@ against injected faults at every layer rather than against a handful of expected
 
 # Phase 8 – Deployment and Release
 
-1. [ ] Publish the `X-Correlation-Id` request and response header contract as a platform-wide interface. Deliverable: header contract record consumed by the frontend volumes and `FEAT-OBS-001`.
-2. [ ] Confirm the kernel adds no configuration surface that differs per runtime role, so `FEAT-PLAT-006`'s three profiles share one kernel. Deliverable: configuration review.
-3. [ ] State the rollback path: the kernel is code-only with no schema change, so a rollback is a code revert; the error-code catalogue is additive, and removing a published `code` is a breaking client change requiring the §10.6 version treatment. Deliverable: rollback statement.
-4. [ ] Confirm the Redis adapter's absence is tolerated at startup — the application starts and serves the candidate path with Redis unreachable. Deliverable: startup-degradation evidence.
-5. [ ] Hand the `OutboxWriter` port to `FEAT-PLAT-004`, the `ActorContext` to `FEAT-AUD-001`, the decimal conventions to `FEAT-GRD-001`, the correlation identifier and `SecretFieldPattern` to `FEAT-OBS-001`, and the error contract to `FEAT-SEC-001`. Deliverable: five interface handover records.
-6. [ ] Confirm the adoption seams are closed before Phase 1 begins: `tasks.md` and `tasks.md` both build against the real types with their suites green. Deliverable: seam closure record referenced by the Phase 0 exit criteria.
-7. [ ] Record the deferrals with their owning features: production Redis provisioning (**unowned** — `TASK-PLAT3-DEFECT-005`, escalated in `P0.5`); the outbox implementation and relay (`FEAT-PLAT-004`); the audit port and hash chain (`FEAT-AUD-001`); the scoring evaluation sequence and fixtures A–E (`FEAT-GRD-001`); logging, metric registration and dashboards (`FEAT-OBS-001`); authorization evaluation (`FEAT-IAM-003`); the per-operation unique indexes of the §10.5 table (each owning feature). Deliverable: deferral register.
+1. [*] Publish the `X-Correlation-Id` request and response header contract as a platform-wide interface. Deliverable: header contract record consumed by the frontend volumes and `FEAT-OBS-001`.
+2. [*] Confirm the kernel adds no configuration surface that differs per runtime role, so `FEAT-PLAT-006`'s three profiles share one kernel. Deliverable: configuration review.
+3. [*] State the rollback path: the kernel is code-only with no schema change, so a rollback is a code revert; the error-code catalogue is additive, and removing a published `code` is a breaking client change requiring the §10.6 version treatment. Deliverable: rollback statement.
+4. [*] Confirm the Redis adapter's absence is tolerated at startup — the application starts and serves the candidate path with Redis unreachable. Deliverable: startup-degradation evidence.
+5. [*] Hand the `OutboxWriter` port to `FEAT-PLAT-004`, the `ActorContext` to `FEAT-AUD-001`, the decimal conventions to `FEAT-GRD-001`, the correlation identifier and `SecretFieldPattern` to `FEAT-OBS-001`, and the error contract to `FEAT-SEC-001`. Deliverable: five interface handover records.
+6. [*] Confirm the adoption seams are closed before Phase 1 begins: `tasks.md` and `tasks.md` both build against the real types with their suites green. Deliverable: seam closure record referenced by the Phase 0 exit criteria.
+7. [*] Record the deferrals with their owning features: production Redis provisioning (**unowned** — `TASK-PLAT3-DEFECT-005`, escalated in `P0.5`); the outbox implementation and relay (`FEAT-PLAT-004`); the audit port and hash chain (`FEAT-AUD-001`); the scoring evaluation sequence and fixtures A–E (`FEAT-GRD-001`); logging, metric registration and dashboards (`FEAT-OBS-001`); authorization evaluation (`FEAT-IAM-003`); the per-operation unique indexes of the §10.5 table (each owning feature). Deliverable: deferral register.
 
 ---
 
 # Phase 9 – Monitoring and Operations
 
-1. [ ] Register `problem_detail_emitted_total` by `code` and confirm it increments per mapped response. Deliverable: metric plus evidence.
-2. [ ] Register `problem_detail_unmapped_total` and confirm it increments when an exception has no catalogue entry. Deliverable: metric plus evidence. Acceptance: a non-zero value means an unanticipated failure mode is reaching clients as a generic error — documented as a defect signal, not a nuisance counter.
-3. [ ] Register `idempotency_replay_total` by outcome and `idempotency_store_unavailable_total`. Deliverable: two metrics plus evidence.
-4. [ ] Confirm the correlation identifier is the join key across logs, metrics exemplars and traces end to end, including across a scheduler hop. Deliverable: `NFR-OBS-002` diagnosability evidence.
-5. [ ] Raise `TASK-PLAT3-OBS-001` to `FEAT-OBS-001` and `FEAT-OPS-004`: propose a **P2** alert on a sustained `problem_detail_unmapped_total` rate with "identify the unmapped exception and add a catalogue entry" as its first action, and a panel showing the top emitted error codes. Deliverable: gap record with the proposed alert and panel definitions.
-6. [ ] Write the operations runbook for a rising unmapped-exception rate: how to find the exception from the correlation identifier, why the client saw a generic error, and how to add a catalogue entry safely. Deliverable: runbook.
-7. [ ] Write the operations runbook for Redis unavailability: the expected symptom set, the confirmation that no side effect was duplicated, and the confirmation that the candidate path is unaffected. Deliverable: runbook.
-8. [ ] Confirm the §16.1 fields this feature supplies are present on every log line and that `actorId` is a safe identifier only. Deliverable: log-field conformance record.
+1. [*] Register `problem_detail_emitted_total` by `code` and confirm it increments per mapped response. Deliverable: metric plus evidence.
+2. [*] Register `problem_detail_unmapped_total` and confirm it increments when an exception has no catalogue entry. Deliverable: metric plus evidence. Acceptance: a non-zero value means an unanticipated failure mode is reaching clients as a generic error — documented as a defect signal, not a nuisance counter.
+3. [*] Register `idempotency_replay_total` by outcome and `idempotency_store_unavailable_total`. Deliverable: two metrics plus evidence.
+4. [*] Confirm the correlation identifier is the join key across logs, metrics exemplars and traces end to end, including across a scheduler hop. Deliverable: `NFR-OBS-002` diagnosability evidence.
+5. [*] Raise `TASK-PLAT3-OBS-001` to `FEAT-OBS-001` and `FEAT-OPS-004`: propose a **P2** alert on a sustained `problem_detail_unmapped_total` rate with "identify the unmapped exception and add a catalogue entry" as its first action, and a panel showing the top emitted error codes. Deliverable: gap record with the proposed alert and panel definitions.
+6. [*] Write the operations runbook for a rising unmapped-exception rate: how to find the exception from the correlation identifier, why the client saw a generic error, and how to add a catalogue entry safely. Deliverable: runbook.
+7. [*] Write the operations runbook for Redis unavailability: the expected symptom set, the confirmation that no side effect was duplicated, and the confirmation that the candidate path is unaffected. Deliverable: runbook.
+8. [*] Confirm the §16.1 fields this feature supplies are present on every log line and that `actorId` is a safe identifier only. Deliverable: log-field conformance record.
 
 ---
 
