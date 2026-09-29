@@ -1,21 +1,40 @@
-# TASK-PLAT3-DEFECT-005 - Production Redis Ownership Gap
+# TASK-PLAT3-DEFECT-005 Production Redis Ownership Gap
 
-Status: DEFERRED TO PHASE 6  
-Resolution owner: Engineering Lead  
-Implementation feature: Unassigned  
-Assignment deadline: `FEAT-PLAT-003` `P8.7`
+Status: **OPEN - RAISED FOR NEXT BASELINE; PRODUCTION RELEASE BLOCKED**
 
-## Gap
+Architecture documentation owner: Architecture Owner
 
-Architecture v1.4 requires Redis for non-authoritative caches, generic `POST` idempotency responses and other degradable runtime functions. CI stage 8 also requires a Redis Testcontainer. The delivery plan does not assign production Redis provisioning, topology, sizing, high availability, failover, network policy or operational ownership to a feature.
+Resolution owner: Engineering Lead
 
-## Decision
+Implementation feature: Unassigned
 
-Production provisioning is explicitly deferred to Phase 6. The Engineering Lead owns resolution of the gap and must name the implementation feature before `P8.7`. Production deployment remains blocked while that feature is unassigned; a local or unmanaged Redis instance is not an acceptable production substitute.
+Raised by: `FEAT-PLAT-003`
 
-`FEAT-PLAT-003` continues to own only the kernel port, Redis adapter, integration-test substrate and pinned local-development service. Every behavior must remain correct with Redis empty or unavailable, and no candidate-path request may be denied because Redis is unavailable.
+## Baseline Defect
+
+`ARC-PLAT-010` requires Redis for generic non-durable `POST` idempotency, and
+CI stage 8 requires a Redis Testcontainer, but the delivery plan assigns no
+feature to production Redis provisioning, topology, sizing, high availability,
+failover, network policy, secret mounting, or operations.
+
+## Resolution Adopted by This Feature
+
+The Engineering Lead approved an explicit Phase 6 deferral.
+`FEAT-PLAT-003` owns only the framework-free port, Redis adapter, integration-
+test substrate, pinned local service, and fail-closed degradation contract.
+Every behavior remains correct with Redis empty or unavailable, and no
+candidate-path request depends on it. Production deployment remains blocked
+while the implementation owner is unassigned.
+
+## Next-Baseline Action
+
+Add a named feature that owns the production service, capacity, workload
+identity, secret delivery, network policy, high availability, failover drill,
+monitoring, and runbook. Record that Redis is non-authoritative and that an
+unmanaged local instance is not a production substitute.
 
 ## Evidence
 
 - `ci/dor/FEAT-PLAT-003/P0.5-production-redis-gap.json`
 - `ci/dor/FEAT-PLAT-003/P0.5-production-redis-gap.engineering-lead.sig`
+- `docs/evidence/FEAT-PLAT-003/P8.7-deferral-register.md`
