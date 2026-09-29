@@ -254,17 +254,17 @@ against injected faults at every layer rather than against a handful of expected
 
 # Phase 10 – Documentation and Knowledge Transfer
 
-1. [ ] Publish the error-code catalogue as the normative client contract, including the `type` URI scheme, the `code` namespace and the stability guarantee. Deliverable: `docs/error-catalogue.md` plus the generated OpenAPI component.
-2. [ ] Publish the §8.4 kernel ownership table from `P1.1` as the normative component→feature map. Deliverable: `docs/shared-kernel.md`.
-3. [ ] Write the kernel usage guide for slice authors: which types are required parameters, why there is no no-arg write path, and how to obtain time. Deliverable: `docs/kernel-usage.md`.
-4. [ ] Write the error-authoring guide: how to add a code, why an exception message may never reach a body, and what the allowlist test will reject. Deliverable: `docs/error-authoring.md` — the guide every later API feature follows.
-5. [ ] Write the idempotency authoring guide: the decision rule between a PostgreSQL unique index and the `Idempotency-Key` header, with the §10.5 table as worked examples. Deliverable: `docs/idempotency.md`. Acceptance: states plainly that a durable-record operation may not rely on Redis.
-6. [ ] Write the decimal authoring guide: the conventions, the canonical rounding, the stored precisions and the prohibition on binary floating point in scoring. Deliverable: `docs/decimal-arithmetic.md`.
-7. [ ] Write the correlation-identifier guide for support and operations: what the identifier is, where it appears, how to trace with it, and why it contains no personal data. Deliverable: `docs/correlation-id.md`.
-8. [ ] Publish the adoption-seam record from `P8.6` so a reader of the three Phase 0 task lists can see where the placeholder types ended. Deliverable: documented seam closure.
-9. [ ] Raise `TASK-PLAT3-DEFECT-001` through `-006` and `TASK-PLAT3-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted, and raise `-001` to the `FEAT-PLAT-001` owner as a correction to `tasks.md` `P4.23`. Deliverable: seven defect records.
-10. [ ] Update the plan §19 traceability matrix with this feature's evidence: task ranges, verification identifiers and retained artifacts. Deliverable: updated matrix rows.
-11. [ ] Run a walkthrough with the engineering team covering the required-parameter rule, the allowlist mapper, the clock and decimal prohibitions, and the idempotency decision rule. Deliverable: session record plus attendance.
+1. [*] Publish the error-code catalogue as the normative client contract, including the `type` URI scheme, the `code` namespace and the stability guarantee. Deliverable: `docs/error-catalogue.md` plus the generated OpenAPI component.
+2. [*] Publish the §8.4 kernel ownership table from `P1.1` as the normative component→feature map. Deliverable: `docs/shared-kernel.md`.
+3. [*] Write the kernel usage guide for slice authors: which types are required parameters, why there is no no-arg write path, and how to obtain time. Deliverable: `docs/kernel-usage.md`.
+4. [*] Write the error-authoring guide: how to add a code, why an exception message may never reach a body, and what the allowlist test will reject. Deliverable: `docs/error-authoring.md` — the guide every later API feature follows.
+5. [*] Write the idempotency authoring guide: the decision rule between a PostgreSQL unique index and the `Idempotency-Key` header, with the §10.5 table as worked examples. Deliverable: `docs/idempotency.md`. Acceptance: states plainly that a durable-record operation may not rely on Redis.
+6. [*] Write the decimal authoring guide: the conventions, the canonical rounding, the stored precisions and the prohibition on binary floating point in scoring. Deliverable: `docs/decimal-arithmetic.md`.
+7. [*] Write the correlation-identifier guide for support and operations: what the identifier is, where it appears, how to trace with it, and why it contains no personal data. Deliverable: `docs/correlation-id.md`.
+8. [*] Publish the adoption-seam record from `P8.6` so a reader of the three Phase 0 task lists can see where the placeholder types ended. Deliverable: documented seam closure.
+9. [*] Raise `TASK-PLAT3-DEFECT-001` through `-006` and `TASK-PLAT3-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted, and raise `-001` to the `FEAT-PLAT-001` owner as a correction to `tasks.md` `P4.23`. Deliverable: seven defect records.
+10. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, verification identifiers and retained artifacts. Deliverable: updated matrix rows.
+11. [*] Run a walkthrough with the engineering team covering the required-parameter rule, the allowlist mapper, the clock and decimal prohibitions, and the idempotency decision rule. Deliverable: session record plus attendance.
 
 ---
 

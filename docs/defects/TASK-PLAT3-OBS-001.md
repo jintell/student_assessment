@@ -17,6 +17,15 @@ observability baseline does not register an alert or dashboard panel for it.
 Without those downstream controls, clients receive the safe generic response
 while an unanticipated failure class may remain operationally invisible.
 
+## Resolution Adopted by This Feature
+
+`FEAT-PLAT-003` emits `problem_detail_emitted_total{code}` and
+`problem_detail_unmapped_total{reason}` from the final mapper outcome, plus
+`idempotency_replay_total{outcome}` and the untagged
+`idempotency_store_unavailable_total`. Labels are closed and bounded, and
+problem counters retain trace exemplars without using correlation identifiers
+as metric labels. The feature also publishes both operations runbooks.
+
 ## Proposed P2 alert
 
 Name: `SustainedUnmappedProblemDetails`
@@ -58,3 +67,10 @@ catalogue, and the P9.4 diagnosability evidence.
   protected log.
 - The alert clears after the exception receives an intentional mapping or the
   defective path is removed; it is never closed by muting the signal.
+
+## Next-Baseline Action
+
+Add the four metric contracts to architecture section 16.2. Add the P2 alert
+and both platform-health views to the observability baseline, naming
+`FEAT-OBS-001` as catalogue owner and `FEAT-OPS-004` as alert, routing,
+dashboard, and exercise owner.
