@@ -73,4 +73,11 @@ class ActorContextTest {
                 IllegalArgumentException.class,
                 () -> CorrelationId.parse("01j9z9q9j6y7tq4pxkj4d0m3nv"));
     }
+
+    @Test
+    void actorIdsRejectPersonalDisplayValues() {
+        assertThrows(IllegalArgumentException.class, () -> new ActorId("ada@example.com"));
+        assertThrows(IllegalArgumentException.class, () -> new ActorId("Ada Lovelace"));
+        assertThrows(IllegalArgumentException.class, () -> new ActorId("a".repeat(129)));
+    }
 }

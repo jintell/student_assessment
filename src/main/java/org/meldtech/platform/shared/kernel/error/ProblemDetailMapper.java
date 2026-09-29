@@ -66,9 +66,10 @@ public final class ProblemDetailMapper {
             Throwable failure, ProblemContext context, Map<String, Object> extensions) {
         Objects.requireNonNull(failure, "failure");
         Objects.requireNonNull(context, "context");
-        String code = mappedCode(failure);
+        Optional<String> mappedCode = mappedCode(failure);
+        String code = mappedCode.orElse(INTERNAL_CODE);
         ProblemCodeDefinition definition = catalogue.get(code);
-        if (definition == null) {
+        if (mappedCode.isEmpty() || definition == null) {
             emitFallback(ProblemDetailMetrics.FallbackReason.CATALOGUE_MISS);
             code = INTERNAL_CODE;
             definition = catalogue.getOrDefault(INTERNAL_CODE, BUILT_IN_INTERNAL);
@@ -120,12 +121,11 @@ public final class ProblemDetailMapper {
         return json.getBytes(StandardCharsets.UTF_8);
     }
 
-    private String mappedCode(Throwable failure) {
+    private Optional<String> mappedCode(Throwable failure) {
         return exceptionMappings.entrySet().stream()
                 .filter(entry -> entry.getKey().isInstance(failure))
                 .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(INTERNAL_CODE);
+                .findFirst();
     }
 
     private CorrelationId resolveCorrelation(Optional<String> value) {

@@ -21,7 +21,7 @@ cbt:
       idle-in-transaction-timeout: 30s
 logging:
   pattern:
-    level: "%5p [correlationId:%X{correlationId:-none}]"
+    level: "%5p [correlationId:%X{correlationId:-none}] [actorType:%X{actorType:-none}] [actorId:%X{actorId:-none}] [tenantId:%X{tenantId:-none}] [errorCode:%X{errorCode:-none}]"
 ---
 spring:
   config:

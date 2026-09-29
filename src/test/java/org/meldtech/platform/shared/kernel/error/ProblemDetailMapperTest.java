@@ -34,9 +34,11 @@ class ProblemDetailMapperTest {
 
     @Test
     void unmappedFailureUsesTheGenericNonDisclosingEntry() {
+        RecordingMetrics metrics = new RecordingMetrics();
         String undisclosedMessage = "new provider failed with credential provider-secret";
+        ProblemDetailMapper mapper = mapper(metrics);
         ProblemDetailDocument problem =
-                mapper().map(new NewlyIntroducedException(undisclosedMessage), CONTEXT);
+                mapper.map(new NewlyIntroducedException(undisclosedMessage), CONTEXT);
 
         assertEquals(ProblemDetailMapper.INTERNAL_CODE, problem.code());
         assertEquals(URI.create("https://errors.meld-tech.com/problems/internal"), problem.type());
@@ -46,6 +48,9 @@ class ProblemDetailMapperTest {
         assertEquals(CONTEXT.instance(), problem.instance());
         assertEquals(CONTEXT.correlationId(), problem.correlationId());
         assertTrue(problem.extensions().isEmpty());
+        assertEquals(
+                Optional.of(ProblemDetailMetrics.FallbackReason.CATALOGUE_MISS),
+                metrics.lastFallback);
     }
 
     @Test
@@ -84,7 +89,7 @@ class ProblemDetailMapperTest {
                                         "Unexpected error",
                                         500,
                                         "The request could not be completed.")),
-                        Map.of(),
+                        Map.of(RuntimeException.class, ProblemDetailMapper.INTERNAL_CODE),
                         metrics,
                         () -> generated);
 
@@ -147,6 +152,10 @@ class ProblemDetailMapperTest {
     }
 
     private static ProblemDetailMapper mapper() {
+        return mapper(ProblemDetailMetrics.NOOP);
+    }
+
+    private static ProblemDetailMapper mapper(ProblemDetailMetrics metrics) {
         Map<String, ProblemCodeDefinition> catalogue = new LinkedHashMap<>();
         catalogue.put(
                 ProblemDetailMapper.INTERNAL_CODE,
@@ -163,9 +172,7 @@ class ProblemDetailMapperTest {
                         400,
                         "One or more request values are invalid."));
         return new ProblemDetailMapper(
-                catalogue,
-                Map.of(IllegalArgumentException.class, "CBT-PLAT-VALIDATION"),
-                ProblemDetailMetrics.NOOP);
+                catalogue, Map.of(IllegalArgumentException.class, "CBT-PLAT-VALIDATION"), metrics);
     }
 
     private static ProblemCodeDefinition definition(

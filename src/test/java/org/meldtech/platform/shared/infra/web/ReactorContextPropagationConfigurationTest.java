@@ -3,6 +3,7 @@ package org.meldtech.platform.shared.infra.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
@@ -59,39 +60,55 @@ class ReactorContextPropagationConfigurationTest {
                         CorrelationId.parse("01J9Z9Q9J6Y7TQ4PXKJ4D0M3NV"),
                         SourceIp.parse("127.0.0.1"));
         RequestContextPropagation propagation = new RequestContextPropagation();
-        AtomicReference<String> subscribeOnCorrelationId = new AtomicReference<>();
-        AtomicReference<String> publishOnCorrelationId = new AtomicReference<>();
+        AtomicReference<Map<String, String>> subscribeOnFields = new AtomicReference<>();
+        AtomicReference<Map<String, String>> publishOnFields = new AtomicReference<>();
 
         configuration.enableAutomaticPropagation();
         try {
             Mono<ActorContext> publisher =
                     Mono.deferContextual(
                                     context -> {
-                                        subscribeOnCorrelationId.set(
-                                                MDC.get(
-                                                        RequestContextPropagation
-                                                                .CORRELATION_ID_KEY));
+                                        subscribeOnFields.set(loggingFields());
                                         return Mono.just(propagation.require(context));
                                     })
                             .subscribeOn(Schedulers.boundedElastic())
                             .publishOn(Schedulers.parallel())
                             .map(
                                     observedCarrier -> {
-                                        publishOnCorrelationId.set(
-                                                MDC.get(
-                                                        RequestContextPropagation
-                                                                .CORRELATION_ID_KEY));
+                                        publishOnFields.set(loggingFields());
                                         return observedCarrier;
                                     })
                             .contextWrite(context -> propagation.write(context, actor));
 
             StepVerifier.create(publisher).expectNext(actor).verifyComplete();
 
-            assertEquals(actor.correlationId().toString(), subscribeOnCorrelationId.get());
-            assertEquals(actor.correlationId().toString(), publishOnCorrelationId.get());
-            assertNull(MDC.get(RequestContextPropagation.CORRELATION_ID_KEY));
+            Map<String, String> expected =
+                    Map.of(
+                            RequestContextPropagation.CORRELATION_ID_KEY,
+                            actor.correlationId().toString(),
+                            RequestContextPropagation.ACTOR_TYPE_KEY,
+                            actor.actorType().name(),
+                            RequestContextPropagation.ACTOR_ID_KEY,
+                            actor.actorId().toString(),
+                            RequestContextPropagation.TENANT_ID_KEY,
+                            actor.tenantId().orElseThrow().toString());
+            assertEquals(expected, subscribeOnFields.get());
+            assertEquals(expected, publishOnFields.get());
+            expected.keySet().forEach(field -> assertNull(MDC.get(field)));
         } finally {
             configuration.disableAutomaticPropagation();
         }
+    }
+
+    private static Map<String, String> loggingFields() {
+        return Map.of(
+                RequestContextPropagation.CORRELATION_ID_KEY,
+                MDC.get(RequestContextPropagation.CORRELATION_ID_KEY),
+                RequestContextPropagation.ACTOR_TYPE_KEY,
+                MDC.get(RequestContextPropagation.ACTOR_TYPE_KEY),
+                RequestContextPropagation.ACTOR_ID_KEY,
+                MDC.get(RequestContextPropagation.ACTOR_ID_KEY),
+                RequestContextPropagation.TENANT_ID_KEY,
+                MDC.get(RequestContextPropagation.TENANT_ID_KEY));
     }
 }
