@@ -264,7 +264,7 @@ against injected faults at every layer rather than against a handful of expected
 8. [*] Publish the adoption-seam record from `P8.6` so a reader of the three Phase 0 task lists can see where the placeholder types ended. Deliverable: documented seam closure.
 9. [*] Raise `TASK-PLAT3-DEFECT-001` through `-006` and `TASK-PLAT3-OBS-001` to the Architecture Owner as documentation defects for the next baseline, each with the resolution this feature adopted, and raise `-001` to the `FEAT-PLAT-001` owner as a correction to `tasks.md` `P4.23`. Deliverable: seven defect records.
 10. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, verification identifiers and retained artifacts. Deliverable: updated matrix rows.
-11. [ ] Run a walkthrough with the engineering team covering the required-parameter rule, the allowlist mapper, the clock and decimal prohibitions, and the idempotency decision rule. Deliverable: session record plus attendance.
+11. [*] Run a walkthrough with the engineering team covering the required-parameter rule, the allowlist mapper, the clock and decimal prohibitions, and the idempotency decision rule. Deliverable: session record plus attendance.
 
 ---
 
