@@ -1,0 +1,101 @@
+schemaVersion: 1
+source:
+  architectureBaseline: arch-v1.4
+  section: "14.6"
+operations:
+  - id: answer-submission
+    operation: Answer submission
+    key: "(attempt_id, operation_id)"
+    store: PostgreSQL unique index
+    owningFeature: FEAT-DLV-002
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: attempt-submission
+    operation: Attempt submission
+    key: "attempt_id + terminal state"
+    store: PostgreSQL
+    owningFeature: FEAT-DLV-001
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: pin-issuance
+    operation: PIN issuance
+    key: "(exam_session_id, candidate_id) partial unique"
+    store: PostgreSQL
+    owningFeature: FEAT-EXAM-001
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: grading-execution
+    operation: Grading execution
+    key: attempt_id
+    store: PostgreSQL unique constraint
+    owningFeature: FEAT-GRD-002
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: result-publication
+    operation: Result publication
+    key: "(result_id, version_number)"
+    store: PostgreSQL unique constraint
+    owningFeature: FEAT-RSLT-002
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: correction-application
+    operation: Correction application
+    key: "correction_request_id + APPROVED guard"
+    store: PostgreSQL state guard
+    owningFeature: FEAT-CORR-003
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: notification-dispatch-credential
+    operation: Notification dispatch - credential
+    key: "(event_id, channel, recipient_hash)"
+    store: PostgreSQL unique constraint
+    owningFeature: FEAT-NOTF-001
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: notification-dispatch-provider-submission
+    operation: Notification dispatch - provider submission
+    key: "dispatch_id carried as provider metadata"
+    store: PostgreSQL SUBMITTING row plus provider-side search
+    owningFeature: FEAT-NOTF-002
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: provider-webhook
+    operation: Provider webhook
+    key: "(message_id, record_type)"
+    store: PostgreSQL deduplication record with a 7-day window
+    owningFeature: FEAT-NOTF-003
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: outbox-publication
+    operation: Outbox publication
+    key: "outbox_event_id + consumer-side business key"
+    store: PostgreSQL outbox and per-consumer processed_event guard
+    owningFeature: FEAT-PLAT-004
+    collaboratingOwners: consuming-feature-owner
+    provingTest: P7.3
+    proofStatus: planned
+  - id: auto-submit-sweep
+    operation: Auto-submit sweep
+    key: attempt state guard
+    store: PostgreSQL
+    owningFeature: FEAT-DLV-004
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: bulk-student-upload
+    operation: Bulk student upload
+    key: "(file_content_hash, row_key)"
+    store: PostgreSQL unique constraint
+    owningFeature: FEAT-STUD-002
+    provingTest: null
+    proofStatus: pending-owner-delivery
+  - id: generic-post-transition
+    operation: Generic POST transition
+    key: Idempotency-Key header
+    store: Redis with a 24-hour TTL
+    owningFeature: FEAT-PLAT-003
+    provingTest: >-
+      org.meldtech.platform.platform.infra.idempotency.IdempotencyRequestFilterTest.reservedResponseIsPersistedForReplay
+    additionalProofs:
+      - org.meldtech.platform.platform.infra.idempotency.IdempotencyRequestFilterTest.unavailableStorePreventsTheTransition
+      - org.meldtech.platform.platform.infra.idempotency.RedisIdempotencyStoreTest.reservesForExactlyTwentyFourHours
+    proofStatus: implemented
