@@ -1,0 +1,63 @@
+{
+  "recordId": "DOR-FEAT-PLAT-004-P0.4",
+  "feature": "FEAT-PLAT-004",
+  "dependency": "P0.4",
+  "status": "APPROVED",
+  "architecture": {
+    "version": "1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da",
+    "eventEvolutionSection": "11.3",
+    "idempotencyInventorySection": "14.6"
+  },
+  "eventEvolution": {
+    "typeFormat": "<context>.<Event>.v<n>",
+    "optionalFieldAddition": "ALLOWED_WITHIN_VERSION",
+    "newEventType": "ALLOWED",
+    "enumValueAddition": "ALLOWED_ONLY_WITH_DOCUMENTED_CONSUMER_DEFAULT",
+    "fieldRemovalOrRename": "NEW_VERSION_REQUIRED",
+    "typeNarrowing": "NEW_VERSION_REQUIRED",
+    "semanticChange": "NEW_VERSION_REQUIRED",
+    "versionRetirement": "ZERO_CONSUMPTION_FOR_30_DAYS_REQUIRED",
+    "transitionPublication": "PUBLISH_BOTH_VERSIONS",
+    "unhandledVersion": "DEAD_LETTER_WITH_DISTINCT_ALERT"
+  },
+  "idempotencyInventory": {
+    "semantics": "APPROVED_AS_CLOSED_BASELINE",
+    "operations": [
+      "answer submission",
+      "attempt submission",
+      "PIN issuance",
+      "grading execution",
+      "result publication",
+      "correction application",
+      "notification credential dispatch",
+      "notification provider submission",
+      "provider webhook",
+      "outbox publication",
+      "auto-submit sweep",
+      "bulk student upload",
+      "generic POST transition"
+    ],
+    "consumerRule": "outbox_event_id plus consumer-side business key in durable storage"
+  },
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-29T21:15:53+01:00",
+      "signature": "P0.4-outbox-contract-dor.architecture-owner.sig"
+    },
+    {
+      "role": "Engineering Lead",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-29T21:15:53+01:00",
+      "signature": "P0.4-outbox-contract-dor.engineering-lead.sig"
+    }
+  ],
+  "changePolicy": {
+    "eventEvolutionChangeRequiresArchitectureApproval": true,
+    "inventoryChangeRequiresArchitectureApproval": true,
+    "consumerBusinessKeyMayNotBeOmitted": true
+  }
+}

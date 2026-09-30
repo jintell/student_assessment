@@ -1,0 +1,42 @@
+{
+  "recordId": "DOR-FEAT-PLAT-004-P0.5",
+  "feature": "FEAT-PLAT-004",
+  "dependency": "P0.5",
+  "status": "APPROVED",
+  "defects": [
+    {
+      "id": "TASK-PLAT4-DEFECT-001",
+      "resolution": "Create app_outbox_relay with USAGE on outbox and SELECT, UPDATE on outbox.outbox_event; grant membership to app_worker only",
+      "classification": "ADDITIVE_AND_NARROWER_THAN_EXISTING_MODULE_ROLES"
+    },
+    {
+      "id": "TASK-PLAT4-DEFECT-002",
+      "resolution": "Create app_outbox_maintenance with EXECUTE only on guarded owner-controlled attach/detach routines; grant membership to app_worker only",
+      "classification": "ADDITIVE_AND_NARROWER_THAN_DDL_OWNERSHIP"
+    }
+  ],
+  "denials": {
+    "relayInsert": false,
+    "relayDelete": false,
+    "relayBusinessSchemaAccess": false,
+    "maintenanceRowRead": false,
+    "maintenanceArbitraryDdl": false,
+    "appApiMembership": false,
+    "appPindistMembership": false
+  },
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "decision": "APPROVED",
+      "approvedAt": "2026-09-29T21:15:53+01:00",
+      "signature": "P0.5-role-amendment-acknowledgement.architecture-owner.sig"
+    },
+    {
+      "role": "FEAT-PLAT-002 Owner (Engineering Lead)",
+      "decision": "ACKNOWLEDGED",
+      "approvedAt": "2026-09-29T21:15:53+01:00",
+      "signature": "P0.5-role-amendment-acknowledgement.persistence-owner.sig"
+    }
+  ],
+  "changePolicy": "Any wider grant, additional membership, or direct DDL ownership requires renewed Architecture Owner and persistence-owner approval."
+}
