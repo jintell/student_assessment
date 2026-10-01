@@ -123,6 +123,18 @@ final class GrantDiffGate {
                                     grant.schema(),
                                     grant.objectType().name(),
                                     privilege.name()));
+                    if (grant.objectType() == GrantMatrix.ObjectType.TABLE) {
+                        existingRelations.stream()
+                                .filter(name -> name.startsWith("TABLE:" + grant.schema() + "."))
+                                .forEach(
+                                        relation ->
+                                                facts.add(
+                                                        fact(
+                                                                "RELATION_PRIVILEGE",
+                                                                grantee,
+                                                                relation,
+                                                                privilege.name())));
+                    }
                 }
             }
         }
@@ -370,6 +382,7 @@ final class GrantDiffGate {
                 JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
                 WHERE namespace.nspname IN (%s)
                   AND relation.relkind IN ('r', 'p', 'v', 'm', 'S')
+                  AND NOT relation.relispartition
                 """
                         .formatted(quotedSchemas(matrix)),
                 rows ->
