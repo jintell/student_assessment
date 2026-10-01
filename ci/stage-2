@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-exec "$(dirname "${BASH_SOURCE[0]}")/run-gradle-stage" ciStage2
+exec "$(dirname "${BASH_SOURCE[0]}")/run-gradle-stage" ciStage2 --refresh-dependencies
