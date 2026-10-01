@@ -38,6 +38,7 @@ final class PostgreSqlCatalogGate {
             LEFT JOIN pg_catalog.pg_policy AS policy ON policy.polrelid = relation.oid
             WHERE namespace.nspname = ANY (CAST(? AS text[]))
               AND relation.relkind IN ('r', 'p')
+              AND NOT relation.relispartition
               AND attribute.attname = 'tenant_id'
               AND attribute.attnum > 0
               AND NOT attribute.attisdropped
