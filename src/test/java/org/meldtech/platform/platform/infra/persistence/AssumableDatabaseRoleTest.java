@@ -9,10 +9,15 @@ class AssumableDatabaseRoleTest {
 
     @Test
     void moduleRolesUseOnlyPgCatalogAndTheirOwnSchema() {
-        assertThat(AssumableDatabaseRole.values()).hasSize(13);
+        assertThat(AssumableDatabaseRole.values()).hasSize(14);
         assertThat(
                         Arrays.stream(AssumableDatabaseRole.values())
-                                .filter(role -> role != AssumableDatabaseRole.EXAM_ENTRY)
+                                .filter(
+                                        role ->
+                                                role != AssumableDatabaseRole.EXAM_ENTRY
+                                                        && role
+                                                                != AssumableDatabaseRole
+                                                                        .OUTBOX_RELAY)
                                 .map(AssumableDatabaseRole::searchPathStatement))
                 .allMatch(
                         statement ->
@@ -30,5 +35,12 @@ class AssumableDatabaseRoleTest {
         assertThat(AssumableDatabaseRole.EXAM_ENTRY.roleName()).isEqualTo("app_txn_examentry");
         assertThat(AssumableDatabaseRole.EXAM_ENTRY.searchPathStatement())
                 .isEqualTo("SET LOCAL search_path = pg_catalog");
+    }
+
+    @Test
+    void relayRoleIsRestrictedToItsInfrastructureSchema() {
+        assertThat(AssumableDatabaseRole.OUTBOX_RELAY.roleName()).isEqualTo("app_outbox_relay");
+        assertThat(AssumableDatabaseRole.OUTBOX_RELAY.searchPathStatement())
+                .isEqualTo("SET LOCAL search_path = pg_catalog, outbox");
     }
 }

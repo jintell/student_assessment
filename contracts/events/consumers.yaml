@@ -1,0 +1,6 @@
+versions:
+  - eventType: platform.ReferenceEvent.v1
+    consumers:
+      platform:
+        enumDefault: reject-unknown
+        provingTest: org.meldtech.platform.platform.infra.outbox.VersionAwareEventDispatcherTest

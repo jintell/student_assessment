@@ -13,6 +13,7 @@ enum AssumableDatabaseRole {
     RESULT("app_result", "result"),
     CORRECTION("app_correction", "correction"),
     NOTIFICATION("app_notification", "notification"),
+    OUTBOX_RELAY("app_outbox_relay", "outbox"),
     EXAM_ENTRY("app_txn_examentry");
 
     private final String roleName;
