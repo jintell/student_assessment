@@ -64,9 +64,14 @@ final class DefaultOutboxRedriveCommand implements OutboxRedriveCommand {
                                                         eligible ->
                                                                 eligible
                                                                         ? deadLetters
-                                                                                .republishAndAcknowledge(request)
-                                                                                .thenReturn(RedriveResult.REPUBLISHED)
-                                                                        : Mono.just(RedriveResult.NOT_ELIGIBLE)))
+                                                                                .republishAndAcknowledge(
+                                                                                        request)
+                                                                                .thenReturn(
+                                                                                        RedriveResult
+                                                                                                .REPUBLISHED)
+                                                                        : Mono.just(
+                                                                                RedriveResult
+                                                                                        .NOT_ELIGIBLE)))
                 .flatMap(
                         outcome ->
                                 audit(
