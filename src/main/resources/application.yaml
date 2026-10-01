@@ -49,6 +49,12 @@ spring:
   config:
     activate:
       on-profile: worker
+  rabbitmq:
+    listener:
+      direct:
+        prefetch: 32
+      simple:
+        prefetch: 32
 cbt:
   database:
     pools:
