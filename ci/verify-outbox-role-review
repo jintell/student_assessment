@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+review="${repo_root}/ci/dor/FEAT-PLAT-004/P0.5-role-amendment-acknowledgement.json"
+signature="${repo_root}/ci/dor/FEAT-PLAT-004/P0.5-role-amendment-acknowledgement.persistence-owner.sig"
+approvers="${repo_root}/ci/dor/FEAT-PLAT-003/trusted-approvers.json"
+grant_matrix="${repo_root}/src/main/resources/db/grants/grant-matrix.json"
+
+fail() {
+    echo "Outbox least-privilege review failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${review}" ]] || fail "signed review is missing."
+[[ -f "${signature}" ]] || fail "Security signature is missing."
+
+expected_fingerprint="$(jq -r '.Security.fingerprint // empty' "${approvers}")"
+public_key_name="$(jq -r '.Security.publicKey // empty' "${approvers}")"
+public_key="${repo_root}/ci/${public_key_name}"
+[[ "${expected_fingerprint}" =~ ^[0-9A-F]{40}$ ]] \
+    || fail "registered Security fingerprint is invalid."
+[[ -f "${public_key}" ]] || fail "registered Security public key is missing."
+
+jq -e '
+    .recordId == "DOR-FEAT-PLAT-004-P0.5"
+    and .status == "APPROVED"
+    and .denials.relayInsert == false
+    and .denials.relayDelete == false
+    and .denials.relayBusinessSchemaAccess == false
+    and .denials.maintenanceRowRead == false
+    and .denials.maintenanceArbitraryDdl == false
+    and .denials.appApiMembership == false
+    and .denials.appPindistMembership == false
+    and any(.approvals[];
+        .signature == "P0.5-role-amendment-acknowledgement.persistence-owner.sig"
+        and .decision == "ACKNOWLEDGED")
+' "${review}" >/dev/null || fail "signed denial matrix is incomplete."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 700 "${gnupg_home}"
+gpg --homedir "${gnupg_home}" --batch --quiet --import "${public_key}" >/dev/null 2>&1 \
+    || fail "registered Security public key cannot be imported."
+status="$({
+    gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+        --verify "${signature}" "${review}" 2>/dev/null
+} || true)"
+actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+[[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+    || fail "signature does not use the registered Security key."
+
+jq -e '
+    ([.objectGrants[] | select(.grantee == "app_outbox_relay")]) as $relay
+    | ([.objectGrants[] | select(.grantee == "app_outbox_maintenance")]) as $maintenance
+    | ([.memberships[] | select(
+        .role == "app_outbox_relay" or .role == "app_outbox_maintenance")]) as $memberships
+    | ($relay | length) == 2
+    and any($relay[];
+        .objectType == "SCHEMA" and .schema == "outbox"
+        and .privileges == ["USAGE"])
+    and any($relay[];
+        .objectType == "TABLE" and .schema == "outbox" and .object == "outbox_event"
+        and .privileges == ["SELECT", "UPDATE"])
+    and ($maintenance | length) == 3
+    and any($maintenance[];
+        .objectType == "SCHEMA" and .schema == "outbox"
+        and .privileges == ["USAGE"])
+    and ([
+        $maintenance[]
+        | select(.objectType == "FUNCTION" and .schema == "outbox")
+        | .object
+    ] | sort) == ["attach_week_partition(date)", "detach_expired_partition(name)"]
+    and all($maintenance[]; .privileges == ["USAGE"] or .privileges == ["EXECUTE"])
+    and ($memberships | length) == 2
+    and all($memberships[]; .member == "app_worker")
+' "${grant_matrix}" >/dev/null || fail "current grants exceed the signed review."
+
+echo "Outbox role grants match the Security-signed least-privilege review."

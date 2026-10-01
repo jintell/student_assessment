@@ -49,7 +49,18 @@ spring:
   config:
     activate:
       on-profile: worker
+    import:
+      - configtree:${CBT_BROKER_SECRETS_PATH:/run/secrets/broker/}
   rabbitmq:
+    host: ${CBT_BROKER_HOST}
+    port: ${CBT_BROKER_PORT:5671}
+    virtual-host: ${CBT_BROKER_VHOST}
+    username: ${cbt.broker.username}
+    password: ${cbt.broker.password}
+    ssl:
+      enabled: true
+      validate-server-certificate: true
+      verify-hostname: true
     listener:
       direct:
         prefetch: 32

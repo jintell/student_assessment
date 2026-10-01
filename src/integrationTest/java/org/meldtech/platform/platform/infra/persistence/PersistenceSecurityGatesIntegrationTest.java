@@ -409,6 +409,37 @@ class PersistenceSecurityGatesIntegrationTest {
                 .isEqualTo(6);
     }
 
+    @Test
+    void requestAndPinDistributionRolesCannotAssumeTheOutboxRelayRole() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM (VALUES ('app_api'), ('app_pindist')) AS login(role_name)
+                                WHERE pg_has_role(
+                                    login.role_name,
+                                    'app_outbox_relay',
+                                    'MEMBER'
+                                )
+                                """))
+                .as("request and isolated roles with direct or inherited relay membership")
+                .isZero();
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM pg_catalog.pg_auth_members AS membership
+                                JOIN pg_catalog.pg_roles AS member
+                                  ON member.oid = membership.member
+                                JOIN pg_catalog.pg_roles AS granted_role
+                                  ON granted_role.oid = membership.roleid
+                                WHERE granted_role.rolname = 'app_outbox_relay'
+                                  AND member.rolname = 'app_worker'
+                                """))
+                .as("the sole relay-role membership")
+                .isEqualTo(1);
+    }
+
     private void executeAsClusterOwner(String sql) throws SQLException {
         try (Connection connection = clusterOwnerConnection();
                 var statement = connection.createStatement()) {

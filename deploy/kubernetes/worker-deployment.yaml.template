@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cbt-platform-worker
+  labels:
+    app.kubernetes.io/name: cbt-platform
+    app.kubernetes.io/component: worker
+spec:
+  replicas: ${CBT_WORKER_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cbt-platform
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cbt-platform
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: cbt-platform-worker
+      containers:
+        - name: worker
+          image: ${CBT_PLATFORM_IMAGE_DIGEST}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: worker
+            - name: CBT_BROKER_SECRETS_PATH
+              value: /run/secrets/broker/
+            - name: CBT_BROKER_HOST
+              value: ${CBT_BROKER_HOST}
+            - name: CBT_BROKER_VHOST
+              value: ${CBT_BROKER_VHOST}
+          volumeMounts:
+            - name: broker-credentials
+              mountPath: /run/secrets/broker
+              readOnly: true
+      volumes:
+        - name: broker-credentials
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: ${CBT_BROKER_SECRET_PROVIDER_CLASS}
