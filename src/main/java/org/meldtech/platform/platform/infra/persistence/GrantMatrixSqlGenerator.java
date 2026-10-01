@@ -64,10 +64,24 @@ final class GrantMatrixSqlGenerator {
                     "GRANT %s ON ALL TABLES IN SCHEMA %s TO %s;"
                             .formatted(privileges, grant.schema(), grant.grantee());
             case TABLE, VIEW, SEQUENCE -> conditionalRelationGrant(grant, privileges);
-            case FUNCTION ->
-                    throw new IllegalArgumentException(
-                            "Function grants require a signature-aware matrix entry");
+            case FUNCTION -> conditionalFunctionGrant(grant, privileges);
         };
+    }
+
+    private static String conditionalFunctionGrant(
+            GrantMatrix.ObjectGrant grant, String privileges) {
+        String qualifiedSignature = grant.schema() + "." + grant.object();
+        return """
+                DO $$
+                BEGIN
+                    IF to_regprocedure('%s') IS NOT NULL THEN
+                        EXECUTE 'GRANT %s ON FUNCTION %s TO %s';
+                    END IF;
+                END
+                $$;
+                """
+                .formatted(qualifiedSignature, privileges, qualifiedSignature, grant.grantee())
+                .stripTrailing();
     }
 
     private static String conditionalRelationGrant(

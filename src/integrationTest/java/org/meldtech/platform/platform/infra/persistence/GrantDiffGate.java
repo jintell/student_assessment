@@ -303,6 +303,7 @@ final class GrantDiffGate {
                 SELECT coalesce(grantee.rolname, 'PUBLIC') AS grantee,
                        namespace.nspname AS schema_name,
                        routine.proname,
+                       pg_catalog.oidvectortypes(routine.proargtypes) AS arguments,
                        acl.privilege_type
                 FROM pg_catalog.pg_proc AS routine
                 JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
@@ -317,7 +318,12 @@ final class GrantDiffGate {
                         fact(
                                 "ROUTINE_PRIVILEGE",
                                 rows.getString("grantee"),
-                                rows.getString("schema_name") + "." + rows.getString("proname"),
+                                rows.getString("schema_name")
+                                        + "."
+                                        + rows.getString("proname")
+                                        + "("
+                                        + rows.getString("arguments")
+                                        + ")",
                                 rows.getString("privilege_type").toUpperCase(Locale.ROOT)),
                 facts);
     }
@@ -384,16 +390,9 @@ final class GrantDiffGate {
         try (var statement =
                 connection.prepareStatement(
                         """
-                        SELECT EXISTS (
-                            SELECT 1
-                            FROM pg_catalog.pg_proc AS routine
-                            JOIN pg_catalog.pg_namespace AS namespace
-                              ON namespace.oid = routine.pronamespace
-                            WHERE namespace.nspname = ? AND routine.proname = ?
-                        )
+                        SELECT pg_catalog.to_regprocedure(?) IS NOT NULL
                         """)) {
-            statement.setString(1, schema);
-            statement.setString(2, routine);
+            statement.setString(1, schema + "." + routine);
             try (ResultSet rows = statement.executeQuery()) {
                 rows.next();
                 return rows.getBoolean(1);

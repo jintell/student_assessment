@@ -208,6 +208,11 @@ final class GrantMatrixLoader {
         require(
                 requiresObject == (object != null && !object.isBlank()),
                 "Object name does not match object type");
+        if (type == GrantMatrix.ObjectType.FUNCTION) {
+            require(
+                    object.matches("[a-z][a-z0-9_]*\\([a-z0-9_., ]*\\)"),
+                    "Function grants require an explicit safe signature");
+        }
     }
 
     private static void validatePrivilege(

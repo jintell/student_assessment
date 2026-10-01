@@ -1,5 +1,5 @@
 -- GENERATED from db/grants/grant-matrix.json; do not edit.
--- source-sha256: 986c214eea47ba9e5f5928e33036a4c31ebbbef6a7b3e307ea25bbde913fb1b4
+-- source-sha256: 64f24090fac84d86b68bc1e9748f0ef3df3d17f7fbe7c232204c5af6d2bdebea
 -- Grant refresh: ${grantRefresh}
 
 ALTER ROLE app_academic WITH NOLOGIN NOCREATEROLE NOINHERIT;
@@ -19,6 +19,10 @@ ALTER ROLE app_grading WITH NOLOGIN NOCREATEROLE NOINHERIT;
 ALTER ROLE app_iam WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
 ALTER ROLE app_notification WITH NOLOGIN NOCREATEROLE NOINHERIT;
+
+ALTER ROLE app_outbox_maintenance WITH NOLOGIN NOCREATEROLE NOINHERIT;
+
+ALTER ROLE app_outbox_relay WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
 ALTER ROLE app_people WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
@@ -79,6 +83,10 @@ GRANT app_grading TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT app_iam TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 
 GRANT app_notification TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+
+GRANT app_outbox_maintenance TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+
+GRANT app_outbox_relay TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 
 GRANT app_people TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 
@@ -151,6 +159,34 @@ GRANT USAGE ON SCHEMA audit TO app_notification;
 GRANT USAGE ON SCHEMA notification TO app_notification;
 
 GRANT USAGE ON SCHEMA outbox TO app_notification;
+
+DO $$
+BEGIN
+    IF to_regprocedure('outbox.attach_week_partition(date)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION outbox.attach_week_partition(date) TO app_outbox_maintenance';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regprocedure('outbox.detach_expired_partition(name)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION outbox.detach_expired_partition(name) TO app_outbox_maintenance';
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA outbox TO app_outbox_maintenance;
+
+GRANT USAGE ON SCHEMA outbox TO app_outbox_relay;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE outbox.outbox_event TO app_outbox_relay';
+    END IF;
+END
+$$;
 
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA people TO app_people;
 
