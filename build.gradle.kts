@@ -366,8 +366,69 @@ val verifySliceTests =
         commandLine("ci/verify-slice-tests")
     }
 
+val verifyEventSchemas =
+    tasks.register<JavaExec>("verifyEventSchemas") {
+        description = "Fails when registered event records drift from committed JSON Schemas."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.outbox.EventSchemaGenerator")
+        args(
+            layout.projectDirectory
+                .dir("contracts/events")
+                .asFile.absolutePath,
+            "org.meldtech.platform.platform.infra.outbox.ReferenceEvent",
+        )
+    }
+
+val eventSchemaCompatibility =
+    tasks.register<JavaExec>("eventSchemaCompatibility") {
+        description = "Blocks incompatible changes to registered integration-event schemas."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(
+            "org.meldtech.platform.platform.infra.outbox.EventSchemaCompatibilityChecker",
+        )
+        args(
+            layout.projectDirectory
+                .dir("contracts/events/baseline")
+                .asFile.absolutePath,
+            layout.projectDirectory
+                .dir("contracts/events")
+                .asFile.absolutePath,
+            layout.projectDirectory
+                .file("contracts/events/consumers.yaml")
+                .asFile.absolutePath,
+            layout.projectDirectory
+                .dir("contracts/events/retirements")
+                .asFile.absolutePath,
+        )
+    }
+
+val verifyIdempotencyInventory =
+    tasks.register<JavaExec>("verifyIdempotencyInventory") {
+        description = "Verifies ownership and proof coverage for idempotent operations."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.outbox.IdempotencyInventoryChecker")
+        args(
+            layout.projectDirectory
+                .file("contracts/idempotency-inventory.yaml")
+                .asFile.absolutePath,
+            layout.projectDirectory
+                .file("contracts/feature-delivery-status.yaml")
+                .asFile.absolutePath,
+            layout.projectDirectory.asFile.absolutePath,
+        )
+    }
+
 tasks.named("check") {
     dependsOn("spotlessCheck")
+    dependsOn(verifyEventSchemas)
+    dependsOn(eventSchemaCompatibility)
+    dependsOn(verifyIdempotencyInventory)
 }
 
 val secretScan =
@@ -572,6 +633,12 @@ tasks.register("ciStage8") {
     description = "CI stage 8: runs PostgreSQL integration tests."
     group = "ci"
     dependsOn(integrationTest)
+}
+
+tasks.register("ciStage9") {
+    description = "CI stage 9: blocks incompatible event-contract changes."
+    group = "ci"
+    dependsOn(verifyEventSchemas, eventSchemaCompatibility)
 }
 
 tasks.register("ciStage10") {

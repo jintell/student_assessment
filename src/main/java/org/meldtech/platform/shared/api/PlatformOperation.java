@@ -9,6 +9,7 @@ import org.meldtech.platform.shared.kernel.context.SystemActor;
 public enum PlatformOperation {
     PLATFORM_ADMINISTRATION("platform-administrator"),
     RETENTION_SWEEP(SystemActor.RETENTION_ENGINE),
+    OUTBOX_RELAY(SystemActor.OUTBOX_RELAY),
     RECONCILIATION(SystemActor.IDP_RECONCILER);
 
     private final Optional<String> workforceActorId;

@@ -17,7 +17,7 @@ class OutboxMessageTest {
         OutboxMessage message =
                 new OutboxMessage(
                         OutboxEventId.parse("018f3f1e-7b2a-7cc5-98c4-2c11e17c4698"),
-                        "assessment.published.v1",
+                        "assessment.AssessmentPublished.v1",
                         new AggregateReference(
                                 "Assessment", "018f3f1e-7b2a-7cc5-98c4-2c11e17c4698"),
                         new PublishedEvent(),

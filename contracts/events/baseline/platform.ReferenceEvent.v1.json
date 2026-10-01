@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:meldtech:event:platform.ReferenceEvent.v1",
+  "title": "platform.ReferenceEvent.v1",
+  "description": "Test-only event contract used to prove schema tooling.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "FEAT-PLAT-004",
+  "x-test-fixture": true,
+  "x-consumers": ["platform"],
+  "required": ["eventType", "referenceId", "revision"],
+  "properties": {
+    "eventType": {
+      "type": "string",
+      "const": "platform.ReferenceEvent.v1",
+      "description": "Registered type and version of this test event.",
+      "x-semantic-id": "platform.reference-event.event-type",
+      "x-required-by": ["platform"],
+      "x-data-classification": "operational"
+    },
+    "referenceId": {
+      "type": "string",
+      "format": "uuid",
+      "maxLength": 36,
+      "description": "Synthetic identifier used by the reference consumer.",
+      "x-semantic-id": "platform.reference-event.reference-id",
+      "x-required-by": ["platform"],
+      "x-data-classification": "identifier"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647,
+      "description": "Monotonic synthetic revision used by compatibility tests.",
+      "x-semantic-id": "platform.reference-event.revision",
+      "x-required-by": ["platform"],
+      "x-data-classification": "operational"
+    }
+  }
+}

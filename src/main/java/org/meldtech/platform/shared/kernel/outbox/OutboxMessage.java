@@ -15,7 +15,7 @@ public record OutboxMessage(
         Instant occurredAt) {
 
     private static final Pattern VERSIONED_EVENT_TYPE =
-            Pattern.compile("[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*\\.v[1-9][0-9]*");
+            Pattern.compile("[a-z][a-z0-9]*\\.[A-Z][A-Za-z0-9]*\\.v[1-9][0-9]*");
 
     public OutboxMessage {
         Objects.requireNonNull(eventId, "eventId");
