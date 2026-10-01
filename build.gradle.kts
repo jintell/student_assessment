@@ -289,6 +289,13 @@ val integrationTest =
         classpath = integrationTestSourceSet.runtimeClasspath
         dependsOn(tasks.testClasses, ":migration-verify:generateStage12Dataset")
         shouldRunAfter(tasks.test, sliceTest)
+        val payloadCaptureDirectory =
+            layout.buildDirectory.dir("reports/integration-event-payloads")
+        systemProperty(
+            "cbt.event-payload-capture-dir",
+            payloadCaptureDirectory.get().asFile.absolutePath,
+        )
+        outputs.dir(payloadCaptureDirectory)
     }
 
 tasks.register<Test>("stagingAdversarialTest") {
@@ -406,6 +413,20 @@ val eventSchemaCompatibility =
         )
     }
 
+val verifyEventPayloadPolicy =
+    tasks.register<JavaExec>("verifyEventPayloadPolicy") {
+        description = "Rejects credential-bearing or unjustified event payload fields."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.outbox.EventPayloadPolicyChecker")
+        args(
+            layout.projectDirectory
+                .dir("contracts/events")
+                .asFile.absolutePath,
+        )
+    }
+
 val verifyIdempotencyInventory =
     tasks.register<JavaExec>("verifyIdempotencyInventory") {
         description = "Verifies ownership and proof coverage for idempotent operations."
@@ -428,6 +449,7 @@ tasks.named("check") {
     dependsOn("spotlessCheck")
     dependsOn(verifyEventSchemas)
     dependsOn(eventSchemaCompatibility)
+    dependsOn(verifyEventPayloadPolicy)
     dependsOn(verifyIdempotencyInventory)
 }
 
@@ -438,11 +460,33 @@ val secretScan =
         commandLine("ci/secret-scan")
     }
 
+val eventPayloadSecretScan =
+    tasks.register<JavaExec>("eventPayloadSecretScan") {
+        description = "Scans captured integration-event payloads for credential fields."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(integrationTest)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.outbox.EventPayloadLeakScanner")
+        args(
+            layout.buildDirectory
+                .dir("reports/integration-event-payloads")
+                .get()
+                .asFile.absolutePath,
+        )
+    }
+
 val workflowSecurityCheck =
     tasks.register<Exec>("workflowSecurityCheck") {
         description = "Verifies action pins, permissions, and pull-request secret isolation."
         group = LifecycleBasePlugin.VERIFICATION_GROUP
         commandLine("ci/verify-workflow-security")
+    }
+
+val verifyOutboxRoleReview =
+    tasks.register<Exec>("verifyOutboxRoleReview") {
+        description = "Verifies the Security-signed outbox least-privilege review."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("ci/verify-outbox-role-review")
     }
 
 tasks.register<Exec>("verifyP03DefinitionOfReady") {
@@ -580,7 +624,7 @@ tasks.register("ciStage3") {
         "checkstyleConformanceTest",
         "checkstyleIntegrationTest",
     )
-    dependsOn(secretScan, workflowSecurityCheck)
+    dependsOn(secretScan, workflowSecurityCheck, verifyOutboxRoleReview)
 }
 
 val stage4aUnitTest =
@@ -638,14 +682,14 @@ tasks.register("ciStage8") {
 tasks.register("ciStage9") {
     description = "CI stage 9: blocks incompatible event-contract changes."
     group = "ci"
-    dependsOn(verifyEventSchemas, eventSchemaCompatibility)
+    dependsOn(verifyEventSchemas, eventSchemaCompatibility, verifyEventPayloadPolicy)
 }
 
 tasks.register("ciStage10") {
     description =
         "CI stage 10: verifies tenant isolation, the ProblemDetail allowlist, and response secrecy."
     group = "ci"
-    dependsOn(problemDetailAllowlistTest, tenantIsolationMatrixTest)
+    dependsOn(problemDetailAllowlistTest, tenantIsolationMatrixTest, eventPayloadSecretScan)
 }
 
 val documentationConformanceSelfTest =

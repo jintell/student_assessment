@@ -3,11 +3,14 @@ package org.meldtech.platform.platform.infra.outbox;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 final class RelayPublishStep {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RelayPublishStep.class);
     private final OutboxBrokerPublisher broker;
     private final OutboxPublicationStore store;
     private final OutboxAlertSink alerts;
@@ -48,6 +51,12 @@ final class RelayPublishStep {
     private Mono<Void> recordFailure(ClaimedOutboxEvent event, PublicationFailureReason reason) {
         Instant nextAttemptAt = Instant.now(clock).plus(OutboxPublicationStore.retryDelay(event));
         telemetry.relayPublishFailed(reason);
+        LOGGER.warn(
+                "Outbox publication failed eventId={} attempt={} correlationId={} reason={}",
+                event.eventId(),
+                event.attemptCount() + 1,
+                event.correlationId(),
+                reason);
         return store.recordFailure(event, reason, nextAttemptAt)
                 .flatMap(
                         transition ->

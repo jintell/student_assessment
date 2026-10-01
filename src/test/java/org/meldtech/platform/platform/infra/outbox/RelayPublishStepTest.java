@@ -2,6 +2,9 @@ package org.meldtech.platform.platform.infra.outbox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -9,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -56,6 +60,46 @@ class RelayPublishStepTest {
 
         assertThat(calls).hasSize(2);
         assertThat(store.published).hasSize(2);
+    }
+
+    @Test
+    void brokerDiagnosticsCannotReachPersistenceOrLogs() {
+        String sensitive = "password=driver-secret payload={credential: exposed}";
+        RecordingStore store = new RecordingStore(true);
+        List<String> alerts = new ArrayList<>();
+        Logger logger = (Logger) LoggerFactory.getLogger(RelayPublishStep.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        RelayPublishStep step =
+                new RelayPublishStep(
+                        event -> Mono.error(new IllegalStateException(sensitive)),
+                        store,
+                        (eventId, reason) ->
+                                Mono.fromRunnable(() -> alerts.add(eventId + ":" + reason)),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        new RecordingTelemetry());
+
+        try {
+            StepVerifier.create(step.publishOne(event(7))).verifyComplete();
+
+            assertThat(store.failures).containsExactly(PublicationFailureReason.BROKER_UNAVAILABLE);
+            assertThat(alerts)
+                    .containsExactly("01950f47-6000-7000-8000-000000000001:BROKER_UNAVAILABLE");
+            assertThat(appender.list)
+                    .singleElement()
+                    .extracting(ILoggingEvent::getFormattedMessage)
+                    .asString()
+                    .contains(
+                            "eventId=01950f47-6000-7000-8000-000000000001",
+                            "attempt=8",
+                            "correlationId=01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                            "reason=BROKER_UNAVAILABLE")
+                    .doesNotContain(sensitive, "driver-secret", "credential: exposed");
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     private static ClaimedOutboxEvent event(int attempts) {

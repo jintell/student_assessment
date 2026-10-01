@@ -1,0 +1,11 @@
+{
+  "permissions": [
+    {
+      "user": "${CBT_BROKER_RELAY_USER}",
+      "vhost": "${CBT_BROKER_VHOST}",
+      "configure": "^integration(?:$|\\..+)$",
+      "write": "^integration(?:$|\\..+)$",
+      "read": "^integration(?:$|\\..+)$"
+    }
+  ]
+}
