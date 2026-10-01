@@ -80,8 +80,7 @@ final class GrantMatrixSqlGenerator {
                 END
                 $$;
                 """
-                .formatted(
-                        qualifiedSignature, privileges, qualifiedSignature, grant.grantee())
+                .formatted(qualifiedSignature, privileges, qualifiedSignature, grant.grantee())
                 .stripTrailing();
     }
 

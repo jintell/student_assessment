@@ -10,8 +10,7 @@ import tools.jackson.databind.ObjectMapper;
 
 class ReferenceEventSchemaTest {
 
-    private static final Path SCHEMA =
-            Path.of("contracts/events/platform.ReferenceEvent.v1.json");
+    private static final Path SCHEMA = Path.of("contracts/events/platform.ReferenceEvent.v1.json");
 
     @Test
     void referenceSchemaIsClosedVersionedAndExplicitlyTestOnly() throws Exception {
@@ -27,10 +26,10 @@ class ReferenceEventSchemaTest {
                         property -> {
                             assertThat(property.getValue().path("x-semantic-id").stringValue())
                                     .isNotBlank();
-                            assertThat(property.getValue().path("x-required-by").isArray()).isTrue();
+                            assertThat(property.getValue().path("x-required-by").isArray())
+                                    .isTrue();
                             assertThat(
-                                            property
-                                                    .getValue()
+                                            property.getValue()
                                                     .path("x-data-classification")
                                                     .stringValue())
                                     .isIn("identifier", "operational", "personal");

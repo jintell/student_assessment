@@ -31,8 +31,7 @@ class IntegrationTopologyConfigurationTest {
                             queue ->
                                     assertThat(queue.getArguments())
                                             .containsEntry(
-                                                    "x-dead-letter-exchange",
-                                                    "integration.dlx"));
+                                                    "x-dead-letter-exchange", "integration.dlx"));
             assertThat(topology.getDeclarablesByType(Binding.class))
                     .hasSize(IntegrationTopologyConfiguration.CONTEXTS.size() + 1);
         }

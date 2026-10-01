@@ -21,8 +21,7 @@ public final class RabbitMqTestContainer {
     }
 
     private static RabbitMQContainer createContainer() {
-        DockerImageName image =
-                DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("rabbitmq");
+        DockerImageName image = DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("rabbitmq");
         return new RabbitMQContainer(image);
     }
 }

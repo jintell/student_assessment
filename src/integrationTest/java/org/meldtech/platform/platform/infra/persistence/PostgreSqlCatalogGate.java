@@ -100,10 +100,7 @@ final class PostgreSqlCatalogGate {
                                     schema + "." + table,
                                     ignored ->
                                             new RlsTableBuilder(
-                                                    schema,
-                                                    table,
-                                                    rlsEnabled,
-                                                    rlsForced));
+                                                    schema, table, rlsEnabled, rlsForced));
                     String policyName = rows.getString("policy_name");
                     if (policyName != null) {
                         builder.addPolicy(
@@ -187,8 +184,8 @@ final class PostgreSqlCatalogGate {
 
         private boolean isStandardTenantTable() {
             return policies.size() == 1
-                    && policies.getFirst().matchesTenantPolicy(
-                            "tenant_isolation", Set.of("PUBLIC"));
+                    && policies.getFirst()
+                            .matchesTenantPolicy("tenant_isolation", Set.of("PUBLIC"));
         }
 
         private boolean isOutboxTable() {
@@ -203,8 +200,7 @@ final class PostgreSqlCatalogGate {
             RlsPolicy tenantPolicy = byName.get("tenant_outbox_write");
             RlsPolicy relayPolicy = byName.get("outbox_relay_drain");
             return tenantPolicy != null
-                    && tenantPolicy.matchesTenantPolicy(
-                            "tenant_outbox_write", OUTBOX_WRITER_ROLES)
+                    && tenantPolicy.matchesTenantPolicy("tenant_outbox_write", OUTBOX_WRITER_ROLES)
                     && relayPolicy != null
                     && relayPolicy.matchesRelayPolicy();
         }
