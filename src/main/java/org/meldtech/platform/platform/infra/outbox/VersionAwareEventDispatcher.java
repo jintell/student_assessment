@@ -10,9 +10,14 @@ final class VersionAwareEventDispatcher {
 
     private final Map<EventType, EventConsumer> consumers;
     private final DeadLetterPublisher deadLetters;
+    private final DeadLetterAlertSink alerts;
 
-    VersionAwareEventDispatcher(List<EventConsumer> consumers, DeadLetterPublisher deadLetters) {
+    VersionAwareEventDispatcher(
+            List<EventConsumer> consumers,
+            DeadLetterPublisher deadLetters,
+            DeadLetterAlertSink alerts) {
         this.deadLetters = Objects.requireNonNull(deadLetters, "deadLetters");
+        this.alerts = Objects.requireNonNull(alerts, "alerts");
         Map<EventType, EventConsumer> registrations = new HashMap<>();
         for (EventConsumer consumer : List.copyOf(consumers)) {
             for (EventType version : consumer.handledVersions()) {
@@ -33,6 +38,10 @@ final class VersionAwareEventDispatcher {
             return deadLetters
                     .deadLetter(
                             envelope, DeadLetterPublisher.DeadLetterReason.UNHANDLED_EVENT_VERSION)
+                    .then(
+                            alerts.deadLettered(
+                                    envelope.event().eventId(),
+                                    DeadLetterPublisher.DeadLetterReason.UNHANDLED_EVENT_VERSION))
                     .thenReturn(DispatchResult.DEAD_LETTERED_UNHANDLED_VERSION);
         }
         return consumer.handle(envelope).map(ignored -> DispatchResult.HANDLED);

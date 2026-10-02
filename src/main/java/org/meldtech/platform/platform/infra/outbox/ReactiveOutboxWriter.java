@@ -1,6 +1,7 @@
 package org.meldtech.platform.platform.infra.outbox;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import org.meldtech.platform.shared.kernel.outbox.OutboxMessage;
@@ -61,8 +62,8 @@ final class ReactiveOutboxWriter implements OutboxWriter {
         DatabaseClient.GenericExecuteSpec insert =
                 databaseClient
                         .sql(INSERT)
-                        .bind("eventId", message.eventId().toString())
-                        .bind("tenantId", tenantId.toString())
+                        .bind("eventId", UUID.fromString(message.eventId().toString()))
+                        .bind("tenantId", UUID.fromString(tenantId.toString()))
                         .bind("aggregateType", message.aggregate().aggregateType())
                         .bind("aggregateId", message.aggregate().aggregateId())
                         .bind("eventType", message.eventType())
