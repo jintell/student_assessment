@@ -57,6 +57,8 @@ class R6DomainPurityTests {
                         .resideInAnyPackage(
                                 "org.springframework..",
                                 "io.r2dbc..",
+                                "io.micrometer..",
+                                "io.opentelemetry..",
                                 "com.fasterxml.jackson..",
                                 "..infra..",
                                 "..slice..")

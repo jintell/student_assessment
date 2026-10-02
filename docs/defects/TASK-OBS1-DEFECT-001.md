@@ -1,6 +1,6 @@
 # TASK-OBS1-DEFECT-001 Unowned Telemetry Backend
 
-Status: **DEFERRED TO PLATFORM OPS PHASE 0 PROVISIONING - PRODUCTION BLOCKER**
+Status: **CLOSED BY SIGNED P3.5 COLLECTOR CONTRACT**
 
 Owners: Platform Ops (collector, metric store, and log store), Engineering
 Lead (`FEAT-OBS-001` application/export contract)
@@ -8,6 +8,22 @@ Lead (`FEAT-OBS-001` application/export contract)
 Architecture documentation owner: Architecture Owner
 
 Raised by: `FEAT-OBS-001`
+
+Closed by: `ci/dor/FEAT-OBS-001/P3.5-collector-contract.json`
+
+## Resolution
+
+Platform Ops owns the collector and the logical trace, metric, and log stores;
+the Engineering Lead owns the vendor-neutral application export contract. The
+signed record fixes environment-specific OTLP/gRPC endpoints, SPIFFE workload
+identities for `api`, `worker`, and `pindist`, TLS 1.3 mutual authentication,
+store retention and availability targets, and the non-blocking failure
+boundary.
+
+The collector-side tail processor is mandatory. It retains all error traces
+and all exam-entry and grading traces before applying the deterministic 10%
+sample to remaining completed traces. Production deployment must prove that
+policy and its capacity bound against the deployed collector.
 
 ## Gap
 
@@ -53,8 +69,8 @@ Lead must record a collector contract that names:
 - the failure boundary proving an unavailable or slow backend cannot block a
   request or Reactor scheduler.
 
-Until that contract exists, `P3.5`, production deployment, and the Phase 0
-exit criterion for a provisioned observability stack remain blocked.
+The signed `P3.5` contract satisfies this handoff. Production deployment still
+requires the contract's deployment gate to pass against the provisioned stack.
 
 ## Closure Criteria
 

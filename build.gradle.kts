@@ -77,6 +77,7 @@ dependencies {
     errorprone("com.uber.nullaway:nullaway:0.12.10")
     implementation("io.micrometer:context-propagation")
     implementation("io.micrometer:micrometer-registry-otlp")
+    implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.r2dbc:r2dbc-pool")
     implementation("io.projectreactor:reactor-core-micrometer")
     implementation("org.springframework.boot:spring-boot-starter-actuator")

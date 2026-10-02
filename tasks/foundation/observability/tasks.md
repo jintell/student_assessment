@@ -152,11 +152,11 @@ are agreed.
 
 # Phase 3 – Data and Infrastructure
 
-1. [ ] Record that this feature makes **no schema change**: telemetry is exported and nothing is persisted in the platform's own stores. Deliverable: one-line data-impact statement referenced by CI stage 12's exclusion.
-2. [ ] Add the OpenTelemetry SDK and Micrometer through BOMs, resolvable only from `platform.infra`. Deliverable: dependency block. Acceptance: no vendor telemetry type is on the compile classpath of any `domain` package.
-3. [ ] Define the twelve-factor configuration surface: collector endpoint, protocol, TLS, head-sampling ratios per route class, the redaction allowlist, the hash-salt secret reference and the export queue bounds. Deliverable: configuration schema consumed by `P4.26`.
-4. [ ] Wire the JSON encoder as the only production log appender and forbid a pattern-layout console appender in every non-local profile. Deliverable: logging configuration plus the profile assertion.
-5. [ ] Agree the collector contract with Platform Ops: endpoint, workload identity, TLS, and the **tail-sampling processor** the §16.3 error rule depends on. Deliverable: collector contract record (`TASK-OBS1-DEFECT-001`, `-007`). Acceptance: the tail-sampling requirement is stated as a requirement on the stack, not an assumption about it.
+1. [*] Record that this feature makes **no schema change**: telemetry is exported and nothing is persisted in the platform's own stores. Deliverable: one-line data-impact statement referenced by CI stage 12's exclusion.
+2. [*] Add the OpenTelemetry SDK and Micrometer through BOMs, resolvable only from `platform.infra`. Deliverable: dependency block. Acceptance: no vendor telemetry type is on the compile classpath of any `domain` package.
+3. [*] Define the twelve-factor configuration surface: collector endpoint, protocol, TLS, head-sampling ratios per route class, the redaction allowlist, the hash-salt secret reference and the export queue bounds. Deliverable: configuration schema consumed by `P4.26`.
+4. [*] Wire the JSON encoder as the only production log appender and forbid a pattern-layout console appender in every non-local profile. Deliverable: logging configuration plus the profile assertion.
+5. [*] Agree the collector contract with Platform Ops: endpoint, workload identity, TLS, and the **tail-sampling processor** the §16.3 error rule depends on. Deliverable: collector contract record (`TASK-OBS1-DEFECT-001`, `-007`). Acceptance: the tail-sampling requirement is stated as a requirement on the stack, not an assumption about it.
 6. [ ] Add the in-memory test substrate — OTel in-memory span and metric exporters plus a capturing log appender — for CI stages 5 and 7. Deliverable: test fixtures. Acceptance: a slice test can assert on an emitted span, meter and log line without a running collector.
 7. [ ] Add an OTLP sink to CI stage 8 as a Testcontainer or stub so export is proven end to end against real serialisation. Deliverable: integration substrate.
 8. [ ] Extend the CI stage 10 secret-leak scan with the **log** limb, alongside the existing audit and error-response limbs. Deliverable: scan configuration. Acceptance: BLOCKING, per §18.1 stage 10 and `NFR-SEC-002`.

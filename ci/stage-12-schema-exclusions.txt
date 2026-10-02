@@ -1,0 +1,2 @@
+# Feature | reason | evidence
+FEAT-OBS-001 | no platform-owned schema change | docs/evidence/FEAT-OBS-001/phase-3-data-infrastructure.md#p31---data-impact

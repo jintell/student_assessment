@@ -1,0 +1,124 @@
+{
+  "recordId": "CONTRACT-FEAT-OBS-001-P3.5",
+  "feature": "FEAT-OBS-001",
+  "task": "P3.5",
+  "status": "APPROVED",
+  "approvedAt": "2026-10-02T16:13:53+01:00",
+  "ownership": {
+    "collectorAndStores": "Platform Ops",
+    "applicationExportContract": "Engineering Lead"
+  },
+  "transport": {
+    "protocol": "OTLP_GRPC",
+    "applicationProperty": "cbt.observability.collector.endpoint",
+    "endpoints": {
+      "staging": "https://otel-collector-gateway.observability-staging.svc.cluster.local:4317",
+      "production": "https://otel-collector-gateway.observability-production.svc.cluster.local:4317"
+    },
+    "credentialsInUri": false
+  },
+  "workloadIdentity": {
+    "mechanism": "SPIFFE_X509_SVID_MTLS",
+    "trustDomain": "meld-tech.com",
+    "identities": {
+      "staging": {
+        "api": "spiffe://meld-tech.com/ns/cbt-staging/sa/cbt-api",
+        "worker": "spiffe://meld-tech.com/ns/cbt-staging/sa/cbt-worker",
+        "pindist": "spiffe://meld-tech.com/ns/cbt-staging/sa/cbt-pindist"
+      },
+      "production": {
+        "api": "spiffe://meld-tech.com/ns/cbt-production/sa/cbt-api",
+        "worker": "spiffe://meld-tech.com/ns/cbt-production/sa/cbt-worker",
+        "pindist": "spiffe://meld-tech.com/ns/cbt-production/sa/cbt-pindist"
+      }
+    },
+    "collectorAuthorization": "ALLOW_ONLY_ENUMERATED_IDENTITIES"
+  },
+  "tls": {
+    "mode": "MUTUAL_TLS",
+    "minimumVersion": "TLS_1_3",
+    "trustBundleProperty": "cbt.observability.collector.tls.trust-certificate-reference",
+    "clientCertificateProperty": "cbt.observability.collector.tls.client-certificate-reference",
+    "clientPrivateKeyProperty": "cbt.observability.collector.tls.client-private-key-reference",
+    "credentialSource": "PROJECTED_SHORT_LIVED_WORKLOAD_SVID",
+    "inlineCredentialsAllowed": false
+  },
+  "tailSampling": {
+    "processorLocation": "COLLECTOR_GATEWAY",
+    "mandatory": true,
+    "applicationStandardExportRatio": 1.0,
+    "traceContinuationMaxAge": "PT1M",
+    "decisionWait": "PT1M15S",
+    "policies": [
+      {
+        "priority": 1,
+        "name": "retain-errors",
+        "retention": 1.0,
+        "match": "ANY_SPAN_STATUS_ERROR_OR_OUTCOME_ERROR_TIMEOUT"
+      },
+      {
+        "priority": 2,
+        "name": "retain-critical-routes",
+        "retention": 1.0,
+        "match": "SAMPLING_PRIORITY_CRITICAL_AND_ROUTE_CLASS_EXAM_ENTRY_OR_GRADING"
+      },
+      {
+        "priority": 3,
+        "name": "sample-standard",
+        "retention": 0.1,
+        "match": "REMAINING_COMPLETE_TRACES_DETERMINISTIC"
+      }
+    ],
+    "capacityRule": "NO_PROCESSOR_EVICTION_AT_APPROVED_PEAK_FOR_DECISION_WAIT",
+    "deploymentGate": "PROVE_ERRORS_AND_CRITICAL_ROUTES_RETAINED_BEFORE_PRODUCTION"
+  },
+  "stores": {
+    "traces": {
+      "logicalName": "cbt-platform-traces",
+      "retention": "P14D",
+      "availabilityTarget": "99.9_PERCENT_MONTHLY",
+      "capacityOwner": "Platform Ops"
+    },
+    "metrics": {
+      "logicalName": "cbt-platform-metrics",
+      "retention": "P30D",
+      "availabilityTarget": "99.9_PERCENT_MONTHLY",
+      "capacityOwner": "Platform Ops"
+    },
+    "logs": {
+      "logicalName": "cbt-platform-logs",
+      "retention": "P30D",
+      "availabilityTarget": "99.9_PERCENT_MONTHLY",
+      "capacityOwner": "Platform Ops"
+    }
+  },
+  "failureBoundary": {
+    "requestOrReactorThreadPerformsNetworkIo": false,
+    "queuesBoundedPerSignal": true,
+    "exportTimeoutRequired": true,
+    "collectorFailureAffectsAvailability": false
+  },
+  "approvals": [
+    {
+      "role": "Platform Ops",
+      "identity": "Josiah Adetayo",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-02T16:13:53+01:00",
+      "signature": "P3.5-collector-contract.platform-ops.sig"
+    },
+    {
+      "role": "Engineering Lead",
+      "identity": "Francis Okechukwu",
+      "fingerprint": "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-02T16:13:53+01:00",
+      "signature": "P3.5-collector-contract.engineering-lead.sig"
+    }
+  ],
+  "changePolicy": {
+    "endpointOrIdentityChangeRequiresPlatformOpsApproval": true,
+    "samplingPolicyChangeRequiresBothApprovals": true,
+    "weakerTlsRequiresSecurityApproval": true
+  }
+}
