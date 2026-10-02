@@ -1,0 +1,167 @@
+{
+  "recordId": "DOR-FEAT-OBS-001-P0.8",
+  "feature": "FEAT-OBS-001",
+  "dependency": "P0.8",
+  "status": "APPROVED",
+  "architecture": {
+    "version": "1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da",
+    "sections": [
+      "16.1",
+      "16.2",
+      "16.3"
+    ]
+  },
+  "structuredLogContract": {
+    "always": [
+      "timestamp",
+      "level",
+      "logger",
+      "message",
+      "correlationId",
+      "traceId",
+      "spanId",
+      "module",
+      "slice"
+    ],
+    "conditional": {
+      "authenticatedRequest": [
+        "actorType",
+        "actorId"
+      ],
+      "tenantScopedOperation": [
+        "tenantId"
+      ],
+      "businessEvent": [
+        "eventCode"
+      ],
+      "failure": [
+        "errorCode",
+        "error.stack"
+      ],
+      "request": [
+        "durationMs",
+        "dbQueryCount"
+      ]
+    },
+    "format": "ONE_JSON_OBJECT_PER_LINE",
+    "timestamp": "RFC_3339_UTC",
+    "personalData": "EMAIL_AND_NAME_OMITTED_OR_KEYED_HASH_ONLY",
+    "secretFields": "REDACT_USING_SHARED_KERNEL_SECRET_FIELD_PATTERN"
+  },
+  "businessEventMetrics": [
+    {
+      "eventCode": "EXAM_STARTED",
+      "metric": "exam_started_total",
+      "lifecycle": "MVP"
+    },
+    {
+      "eventCode": "EXAM_FINISHED",
+      "metric": "exam_finished_total",
+      "lifecycle": "MVP"
+    },
+    {
+      "eventCode": "PIN_VALIDATION",
+      "metric": "pin_validation_total",
+      "lifecycle": "MVP"
+    },
+    {
+      "eventCode": "RESULT_PUBLISHED",
+      "metric": "result_published_total",
+      "lifecycle": "MVP"
+    },
+    {
+      "eventCode": "CORRECTION_APPLIED",
+      "metric": "correction_applied_total",
+      "lifecycle": "MVP"
+    },
+    {
+      "eventCode": "PROVISIONAL_FEEDBACK_RELEASED",
+      "metric": "provisional_feedback_released_total",
+      "lifecycle": "MVP"
+    }
+  ],
+  "declaredAbsentBusinessEvents": [
+    "SYNC_OUTCOME",
+    "PAYMENT_OUTCOME"
+  ],
+  "traceContract": {
+    "propagation": "W3C_TRACE_CONTEXT",
+    "sliceSpanName": "<module>.<verbNoun>",
+    "spanClasses": [
+      "HTTP_SERVER",
+      "SLICE_HANDLER",
+      "DATABASE_STATEMENT_NAME_ONLY",
+      "REDIS_COMMAND",
+      "BROKER_PUBLISH",
+      "BROKER_CONSUME",
+      "OUTBOX_RELAY_BATCH",
+      "EXTERNAL_PROVIDER_CALL"
+    ],
+    "mandatoryJoinAttribute": "correlationId",
+    "conditionalAttributes": [
+      "tenantId",
+      "actorType",
+      "actorId",
+      "module",
+      "slice",
+      "errorCode"
+    ],
+    "prohibitedAttributes": [
+      "PIN",
+      "OTP",
+      "TOKEN_OR_CREDENTIAL",
+      "ANSWER_CONTENT",
+      "PERSONAL_DATA"
+    ],
+    "sampling": {
+      "examEntryAndGradingHeadRatio": 1.0,
+      "otherHeadRatio": 0.1,
+      "errorRetention": "COLLECTOR_TAIL_SAMPLING_REQUIRED"
+    }
+  },
+  "cardinalityContract": {
+    "forbiddenMetricLabels": [
+      "tenantId",
+      "correlationId"
+    ],
+    "correlationJoinSurfaces": [
+      "logs",
+      "spanAttributes",
+      "metricExemplars"
+    ]
+  },
+  "approvals": [
+    {
+      "role": "Solution Architect",
+      "identity": "Josiah Adetayo",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-02T11:00:49+01:00",
+      "signature": "P0.8-observability-contract-dor.solution-architect.sig"
+    },
+    {
+      "role": "Security",
+      "identity": "Francis Okechukwu",
+      "fingerprint": "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-02T11:00:49+01:00",
+      "signature": "P0.8-observability-contract-dor.security.sig"
+    },
+    {
+      "role": "Platform Ops",
+      "identity": "Josiah Adetayo",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-02T11:00:49+01:00",
+      "signature": "P0.8-observability-contract-dor.platform-ops.sig"
+    }
+  ],
+  "changePolicy": {
+    "publishedMetricRenameRequiresAllApprovals": true,
+    "logFieldChangeRequiresSecurityReview": true,
+    "traceAttributeChangeRequiresSecurityAndPlatformOpsReview": true,
+    "newMetricLabelRequiresCardinalityReview": true
+  }
+}
