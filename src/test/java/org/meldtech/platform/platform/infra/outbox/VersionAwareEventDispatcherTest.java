@@ -15,10 +15,12 @@ class VersionAwareEventDispatcherTest {
     @Test
     void unhandledVersionIsDeadLetteredWithDistinctReason() {
         List<DeadLetterPublisher.DeadLetterReason> reasons = new ArrayList<>();
+        List<DeadLetterPublisher.DeadLetterReason> alerts = new ArrayList<>();
         VersionAwareEventDispatcher dispatcher =
                 new VersionAwareEventDispatcher(
                         List.of(),
-                        (envelope, reason) -> Mono.fromRunnable(() -> reasons.add(reason)));
+                        (envelope, reason) -> Mono.fromRunnable(() -> reasons.add(reason)),
+                        (eventId, reason) -> Mono.fromRunnable(() -> alerts.add(reason)));
 
         StepVerifier.create(dispatcher.dispatch(envelope(2, 2)))
                 .expectNext(
@@ -26,6 +28,8 @@ class VersionAwareEventDispatcherTest {
                 .verifyComplete();
 
         assertThat(reasons)
+                .containsExactly(DeadLetterPublisher.DeadLetterReason.UNHANDLED_EVENT_VERSION);
+        assertThat(alerts)
                 .containsExactly(DeadLetterPublisher.DeadLetterReason.UNHANDLED_EVENT_VERSION);
     }
 
@@ -50,7 +54,9 @@ class VersionAwareEventDispatcherTest {
                 };
         VersionAwareEventDispatcher dispatcher =
                 new VersionAwareEventDispatcher(
-                        List.of(consumer), (envelope, reason) -> Mono.empty());
+                        List.of(consumer),
+                        (envelope, reason) -> Mono.empty(),
+                        (eventId, reason) -> Mono.empty());
 
         StepVerifier.create(
                         dispatcher
