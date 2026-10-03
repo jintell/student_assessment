@@ -166,10 +166,10 @@ are agreed.
 
 # Phase 4 – Backend Implementation
 
-1. [ ] Implement `BusinessEvent` in `shared.kernel` as a closed type over the six MVP event codes, carrying only the `eventCode` and its bounded dimensions. Deliverable: kernel type. Acceptance: no vendor import; the type compiles with the kernel-purity rule green.
-2. [ ] Implement the `BusinessEventRecorder` port in `shared.kernel`. Deliverable: port interface.
-3. [ ] Implement the `RequestTelemetry` port in `shared.kernel` for the per-request query count and duration. Deliverable: port interface.
-4. [ ] Implement the typed log-event record from `P2.2`. Deliverable: log-event type plus its construction site.
+1. [*] Implement `BusinessEvent` in `shared.kernel` as a closed type over the six MVP event codes, carrying only the `eventCode` and its bounded dimensions. Deliverable: kernel type. Acceptance: no vendor import; the type compiles with the kernel-purity rule green.
+2. [*] Implement the `BusinessEventRecorder` port in `shared.kernel`. Deliverable: port interface.
+3. [*] Implement the `RequestTelemetry` port in `shared.kernel` for the per-request query count and duration. Deliverable: port interface.
+4. [*] Implement the typed log-event record from `P2.2`. Deliverable: log-event type plus its construction site.
 5. [ ] Implement the redacting serialiser from `P2.4` on top of the kernel's `SecretFieldPattern`, with word-boundary matching and the permitted-`key` allowlist. Deliverable: redactor. Acceptance: `policy_key` survives; `pin`, `otp`, `token`, `secret`, `password`, `authorization` and any other `*_key` do not.
 6. [ ] Implement the build-time redaction check over domain types exposed to logging. Deliverable: check plus its failure message (`ARC-OBS-002`).
 7. [ ] Extend the check to span attributes and metric labels. Deliverable: two additional check limbs (`TASK-OBS1-DEFECT-004`).
