@@ -107,6 +107,13 @@ dependencies {
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("io.micrometer:micrometer-registry-prometheus")
     testImplementation("io.micrometer:micrometer-tracing-test")
+    testImplementation("io.grpc:grpc-netty-shaded")
+    testImplementation("io.grpc:grpc-protobuf")
+    testImplementation("io.grpc:grpc-stub")
+    // The OpenTelemetry BOM does not manage its alpha wire-protocol artifact.
+    testImplementation("io.opentelemetry.proto:opentelemetry-proto:1.10.0-alpha")
+    testImplementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
@@ -476,6 +483,57 @@ val eventPayloadSecretScan =
         )
     }
 
+val operationalLogCaptureDirectory =
+    layout.buildDirectory.dir("reports/operational-logs")
+
+val operationalLogCaptureTest =
+    tasks.register<Test>("operationalLogCaptureTest") {
+        description = "Captures structured operational logs for the blocking leak scanner."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include("**/OperationalLogCaptureTest.class")
+        dependsOn(tasks.testClasses)
+        systemProperty(
+            "cbt.operational-log-capture-dir",
+            operationalLogCaptureDirectory.get().asFile.absolutePath,
+        )
+        outputs.dir(operationalLogCaptureDirectory)
+    }
+
+val operationalLogLeakScannerSelfTest =
+    tasks.register<Test>("operationalLogLeakScannerSelfTest") {
+        description = "Proves the operational-log scanner rejects secret fields and values."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include("**/OperationalLogLeakScannerTest.class")
+        dependsOn(tasks.testClasses)
+    }
+
+val operationalLogSecretScan =
+    tasks.register<JavaExec>("operationalLogSecretScan") {
+        description = "Scans captured operational logs for forbidden fields and values."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(operationalLogCaptureTest, operationalLogLeakScannerSelfTest)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(
+            "org.meldtech.platform.platform.infra.observability.OperationalLogLeakScanner",
+        )
+        args(
+            operationalLogCaptureDirectory.get().asFile.absolutePath,
+            layout.projectDirectory
+                .file("config/observability/log-leak-markers.txt")
+                .asFile.absolutePath,
+        )
+    }
+
 val workflowSecurityCheck =
     tasks.register<Exec>("workflowSecurityCheck") {
         description = "Verifies action pins, permissions, and pull-request secret isolation."
@@ -656,16 +714,62 @@ tasks.register<Exec>("ciStage4a") {
     commandLine("ci/stage-4a")
 }
 
+val approvedObservabilityContract =
+    layout.projectDirectory.file("ci/dor/FEAT-OBS-001/P0.8-observability-contract-dor.json")
+
+val businessEventCompletenessGate =
+    tasks.register<JavaExec>("businessEventCompletenessGate") {
+        description = "Asserts the approved six-event MVP telemetry contract is complete."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(
+            "org.meldtech.platform.platform.infra.observability.BusinessEventCompletenessGate",
+        )
+        args(approvedObservabilityContract.asFile.absolutePath)
+    }
+
+val metricCardinalityGate =
+    tasks.register<JavaExec>("metricCardinalityGate") {
+        description = "Rejects metric definitions without bounded, approved labels."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(
+            "org.meldtech.platform.platform.infra.observability.MetricCardinalityGate",
+        )
+        args(
+            layout.projectDirectory
+                .file("config/observability/metric-cardinality.json")
+                .asFile.absolutePath,
+            approvedObservabilityContract.asFile.absolutePath,
+        )
+    }
+
+val queryBudgetGate =
+    tasks.register<JavaExec>("queryBudgetGate") {
+        description = "Verifies registered Phase 0 routes have coherent query budgets."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.observability.QueryBudgetGate")
+        args(
+            layout.projectDirectory
+                .file("config/observability/query-budgets.json")
+                .asFile.absolutePath,
+        )
+    }
+
 tasks.register("ciStage4") {
     description = "CI stage 4: runs architecture conformance."
     group = "ci"
-    dependsOn(conformanceTest)
+    dependsOn(conformanceTest, businessEventCompletenessGate)
 }
 
 tasks.register("ciStage5") {
     description = "CI stage 5: runs unit tests and their coverage gate."
     group = "ci"
-    dependsOn("jacocoTestReport", "jacocoTestCoverageVerification")
+    dependsOn("jacocoTestReport", "jacocoTestCoverageVerification", metricCardinalityGate)
 }
 
 tasks.register("ciStage7") {
@@ -677,7 +781,7 @@ tasks.register("ciStage7") {
 tasks.register("ciStage8") {
     description = "CI stage 8: runs PostgreSQL integration tests."
     group = "ci"
-    dependsOn(integrationTest)
+    dependsOn(integrationTest, queryBudgetGate)
 }
 
 tasks.register("ciStage9") {
@@ -688,9 +792,14 @@ tasks.register("ciStage9") {
 
 tasks.register("ciStage10") {
     description =
-        "CI stage 10: verifies tenant isolation, the ProblemDetail allowlist, and response secrecy."
+        "CI stage 10: verifies tenant isolation and secret-free payloads, responses, and logs."
     group = "ci"
-    dependsOn(problemDetailAllowlistTest, tenantIsolationMatrixTest, eventPayloadSecretScan)
+    dependsOn(
+        problemDetailAllowlistTest,
+        tenantIsolationMatrixTest,
+        eventPayloadSecretScan,
+        operationalLogSecretScan,
+    )
 }
 
 val documentationConformanceSelfTest =

@@ -157,10 +157,10 @@ are agreed.
 3. [*] Define the twelve-factor configuration surface: collector endpoint, protocol, TLS, head-sampling ratios per route class, the redaction allowlist, the hash-salt secret reference and the export queue bounds. Deliverable: configuration schema consumed by `P4.26`.
 4. [*] Wire the JSON encoder as the only production log appender and forbid a pattern-layout console appender in every non-local profile. Deliverable: logging configuration plus the profile assertion.
 5. [*] Agree the collector contract with Platform Ops: endpoint, workload identity, TLS, and the **tail-sampling processor** the §16.3 error rule depends on. Deliverable: collector contract record (`TASK-OBS1-DEFECT-001`, `-007`). Acceptance: the tail-sampling requirement is stated as a requirement on the stack, not an assumption about it.
-6. [ ] Add the in-memory test substrate — OTel in-memory span and metric exporters plus a capturing log appender — for CI stages 5 and 7. Deliverable: test fixtures. Acceptance: a slice test can assert on an emitted span, meter and log line without a running collector.
-7. [ ] Add an OTLP sink to CI stage 8 as a Testcontainer or stub so export is proven end to end against real serialisation. Deliverable: integration substrate.
-8. [ ] Extend the CI stage 10 secret-leak scan with the **log** limb, alongside the existing audit and error-response limbs. Deliverable: scan configuration. Acceptance: BLOCKING, per §18.1 stage 10 and `NFR-SEC-002`.
-9. [ ] Add the business-event completeness assertion, the label-cardinality assertion and the proposed per-route query-budget assertion to the pipeline at stages 4, 5 and 8 respectively. Deliverable: three gate configurations (`TASK-OBS1-OBS-001`).
+6. [*] Add the in-memory test substrate — OTel in-memory span and metric exporters plus a capturing log appender — for CI stages 5 and 7. Deliverable: test fixtures. Acceptance: a slice test can assert on an emitted span, meter and log line without a running collector.
+7. [*] Add an OTLP sink to CI stage 8 as a Testcontainer or stub so export is proven end to end against real serialisation. Deliverable: integration substrate.
+8. [*] Extend the CI stage 10 secret-leak scan with the **log** limb, alongside the existing audit and error-response limbs. Deliverable: scan configuration. Acceptance: BLOCKING, per §18.1 stage 10 and `NFR-SEC-002`.
+9. [*] Add the business-event completeness assertion, the label-cardinality assertion and the proposed per-route query-budget assertion to the pipeline at stages 4, 5 and 8 respectively. Deliverable: three gate configurations (`TASK-OBS1-OBS-001`).
 
 ---
 

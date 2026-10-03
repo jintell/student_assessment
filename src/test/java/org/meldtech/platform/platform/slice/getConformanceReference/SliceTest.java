@@ -9,6 +9,8 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.handler.DefaultTracingObservationHandler;
 import io.micrometer.tracing.test.simple.SimpleTracer;
 import io.micrometer.tracing.test.simple.TracerAssert;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Scope;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.shared.api.PolicyDecision;
@@ -21,6 +23,7 @@ import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
+import org.meldtech.platform.testing.observability.ObservabilityTestFixture;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -248,6 +251,40 @@ class SliceTest {
         } finally {
             logger.detachAppender(appender);
             appender.stop();
+        }
+    }
+
+    @Test
+    void inMemorySubstrateCapturesSliceSpanMetricAndLogWithoutCollector() {
+        Endpoint endpoint =
+                new Endpoint(
+                        policyResolver(PolicyDecision.ALLOW),
+                        new Handler(tenantId -> Mono.just(METADATA)),
+                        ObservationRegistry.NOOP);
+
+        try (ObservabilityTestFixture telemetry = ObservabilityTestFixture.create(Endpoint.class)) {
+            Span span = telemetry.tracer().spanBuilder(Endpoint.SPAN_NAME).startSpan();
+            Scope scope = span.makeCurrent();
+            try {
+                telemetry.meter().counterBuilder("reference_slice_invocation_total").build().add(1);
+                clientWithRequestContext(endpoint)
+                        .get()
+                        .uri(Endpoint.PATH)
+                        .exchange()
+                        .expectStatus()
+                        .isOk();
+            } finally {
+                scope.close();
+                span.end();
+            }
+
+            assertEquals(Endpoint.SPAN_NAME, telemetry.finishedSpans().getFirst().getName());
+            assertEquals(
+                    "reference_slice_invocation_total",
+                    telemetry.finishedMetrics().getFirst().getName());
+            assertEquals(
+                    "Conformance reference slice completed",
+                    telemetry.logEvents().getFirst().getFormattedMessage());
         }
     }
 

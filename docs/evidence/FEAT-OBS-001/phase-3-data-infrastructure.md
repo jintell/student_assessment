@@ -52,3 +52,59 @@ deterministic 10% standard sample. The one-minute continuation limit and
 gated on proving those policies against the deployed collector; tail sampling
 is a required stack capability, not an application assumption. This closes
 `TASK-OBS1-DEFECT-001` and `TASK-OBS1-DEFECT-007` for `P3.5`.
+
+## P3.6 - In-Memory Test Substrate
+
+`ObservabilityTestFixture` owns an isolated OpenTelemetry SDK with in-memory
+span and metric exporters and a scoped Logback appender. It exposes immutable
+snapshots and flushes providers before assertions; closing it detaches the
+appender and shuts down both providers so state cannot leak between tests.
+
+The conformance-reference `SliceTest` proves a slice test can assert a span,
+metric, and log event through the fixture without a collector or network
+service. The focused test is part of both the stage 5 unit suite and the stage
+7 slice-test selection.
+
+## P3.7 - OTLP Integration Sink
+
+`OtlpGrpcTestSink` is a bounded in-process gRPC stub implementing the OTLP
+trace, metric, and log services. `OtlpExportIntegrationTest` drives the real
+OpenTelemetry OTLP exporters over HTTP/2 and asserts the deserialized protobuf
+requests contain the emitted span, counter, and log body. It uses no vendor
+backend and no production endpoint.
+
+The test lives in `integrationTest`, so the existing CI stage 8 entry point
+executes it alongside the real-infrastructure integration suite. Its focused
+run passed for all three signals and proves wire serialization rather than
+only SDK callback behavior.
+
+## P3.8 - Blocking Operational-Log Leak Scan
+
+CI stage 10 now depends on `operationalLogSecretScan` alongside the existing
+payload and error-response limbs. A dedicated test captures a non-empty JSONL
+operational event, and `OperationalLogLeakScanner` fails closed when captures
+or the adversarial marker catalogue are missing or empty. It rejects every
+field matched by the kernel `SecretFieldPattern` and every exact synthetic
+PIN, OTP, token, password, or answer marker without echoing a leaked value in
+its own error.
+
+`operationalLogLeakScannerSelfTest` plants both a forbidden field and a
+forbidden value and proves they fail. The complete capture/self-test/scan task
+passes locally and is a blocking dependency of `ciStage10`; Phase 7 extends
+the capture cases across the implemented redactor and export surfaces.
+
+## P3.9 - Pipeline Assertions
+
+Three named, independently runnable gates are wired into their owning stages:
+
+| CI stage | Gate | Assertion |
+|---|---|---|
+| 4 | `businessEventCompletenessGate` | The approved DoR remains exactly the six MVP event-code/metric pairs, with sync and payment outcomes explicitly absent. |
+| 5 | `metricCardinalityGate` | Every registered foundation metric has a positive maximum-series budget and no `tenantId` or `correlationId` label; the forbidden set matches the signed contract. |
+| 8 | `queryBudgetGate` | Every Phase 0 route in the query-budget contract resolves to its compiled `ROUTE_ID`, has one unique entry, and has `maxQueries = fixedOverhead + sliceBudget`. |
+
+The cardinality and query-budget inputs are versioned under
+`config/observability`. All three gates pass locally. The stage 8 assertion is
+the pipeline proposal for `TASK-OBS1-OBS-001`; Phase 4 supplies live query
+counting and `P7.12` turns the declared reference-route budget into the
+measured regression proof.
