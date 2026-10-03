@@ -126,9 +126,9 @@ labels, errors, and event-payload checks. Tests cover every spelling and
 separator, the `policy_key` positive cases, near misses, nested paths, and a
 value whose accessor throws to prove a rejected value is never evaluated.
 
-`TASK-OBS1-DEFECT-003` remains an implementation blocker for `P4.5`: this
-design authorizes no observability-local workaround before the kernel owner
-adds the enumerated allowance and its proof.
+`TASK-OBS1-DEFECT-003` is closed by the kernel-owned enumerated allowance and
+its positive and negative proof. The observability serializer consumes that
+single decision API and carries no local workaround.
 
 ## P2.5 Build-Time Telemetry Safety Check
 

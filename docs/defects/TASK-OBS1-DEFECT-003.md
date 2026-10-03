@@ -1,10 +1,24 @@
 # TASK-OBS1-DEFECT-003 Secret Pattern Conflicts With policy_key
 
-Status: **OPEN - RAISED TO FEAT-PLAT-003 OWNER; BLOCKS OBSERVABILITY P4.5**
+Status: **CLOSED - KERNEL ALLOWLIST IMPLEMENTED AND VERIFIED**
 
 Owner: `FEAT-PLAT-003`
 
 Raised by: `FEAT-OBS-001`
+
+## Resolution
+
+`SecretFieldPattern` now owns the immutable permitted-key catalogue, initially
+and exclusively `policy_key`. It canonicalizes the leaf spelling before
+matching, so `policy_key`, `policyKey`, `policy-key`, and nested
+`retention.policy_key` paths survive. Only the final `key` segment of that
+exact leaf is exempt: another secret segment in the parent path still causes
+redaction, and every other `*_key` remains secret.
+
+`RedactingJsonSerializer` delegates to this kernel decision and emits the
+literal `[REDACTED]` node without evaluating a rejected value. Kernel and
+adapter tests cover the approved spellings, secret parent paths, near misses,
+all canonical secret terms, and representative unknown key fields.
 
 ## Baseline Defect
 
@@ -43,10 +57,11 @@ definition check must remain green.
 
 ## Closure Criteria
 
-- The kernel owner implements and tests the enumerated allowance.
-- Every consumer continues to call `SecretFieldPattern` rather than carrying
-  a local exception.
-- Observability task `P4.5` verifies the corrected contract before building
+- [x] The kernel owner implements and tests the enumerated allowance.
+- [x] Every consumer continues to call `SecretFieldPattern` rather than
+  carrying a local exception.
+- [x] Observability task `P4.5` verifies the corrected contract before building
   its redactor.
-- The next architecture baseline documents the permitted-key exception next
-  to `ARC-OBS-002`.
+- [ ] The next architecture baseline documents the permitted-key exception
+  next to `ARC-OBS-002`; this documentation follow-up does not block the
+  implemented contract.

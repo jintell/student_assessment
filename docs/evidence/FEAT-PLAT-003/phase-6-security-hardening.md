@@ -148,6 +148,11 @@ consume this exported kernel type, as assigned in the P2.15 design, rather than 
 `SecretFieldPatternTest` verifies the canonical pattern across camel case, separators, acronyms, and
 non-secret substring lookalikes.
 
+The `FEAT-OBS-001` `P4.5` correction adds the architecture-approved
+`policy_key` leaf to an immutable allowlist at this same definition site. The
+matcher still rejects every other `*_key` and any approved leaf beneath a
+secret parent path; no consumer owns a local exception.
+
 Evidence commands:
 
 ```bash
