@@ -8,6 +8,59 @@ spring:
   flyway:
     enabled: false
 cbt:
+  observability:
+    resource:
+      service-name: ${CBT_OBSERVABILITY_SERVICE_NAME}
+      environment: ${CBT_OBSERVABILITY_ENVIRONMENT}
+      role: ${CBT_OBSERVABILITY_ROLE}
+    collector:
+      endpoint: ${CBT_OBSERVABILITY_COLLECTOR_ENDPOINT}
+      protocol: ${CBT_OBSERVABILITY_PROTOCOL}
+      tls:
+        enabled: ${CBT_OBSERVABILITY_TLS_ENABLED}
+        trust-certificate-reference: ${CBT_OBSERVABILITY_TLS_TRUST_CERTIFICATE_REFERENCE}
+        client-certificate-reference: ${CBT_OBSERVABILITY_TLS_CLIENT_CERTIFICATE_REFERENCE}
+        client-private-key-reference: ${CBT_OBSERVABILITY_TLS_CLIENT_PRIVATE_KEY_REFERENCE}
+      endpoints:
+        traces: ${CBT_OBSERVABILITY_TRACES_ENDPOINT}
+        metrics: ${CBT_OBSERVABILITY_METRICS_ENDPOINT}
+        logs: ${CBT_OBSERVABILITY_LOGS_ENDPOINT}
+    sampling:
+      exam-entry-head-ratio: ${CBT_OBSERVABILITY_EXAM_ENTRY_HEAD_RATIO}
+      grading-head-ratio: ${CBT_OBSERVABILITY_GRADING_HEAD_RATIO}
+      standard-export-ratio: ${CBT_OBSERVABILITY_STANDARD_EXPORT_RATIO}
+      standard-tail-ratio: ${CBT_OBSERVABILITY_STANDARD_TAIL_RATIO}
+    redaction:
+      permitted-key-fields: ${CBT_OBSERVABILITY_REDACTION_PERMITTED_KEY_FIELDS}
+    candidate-hash:
+      secret-reference: ${CBT_OBSERVABILITY_CANDIDATE_HASH_SECRET_REFERENCE}
+    export:
+      timeout: ${CBT_OBSERVABILITY_EXPORT_TIMEOUT}
+      queues:
+        traces:
+          capacity: ${CBT_OBSERVABILITY_TRACE_QUEUE_CAPACITY}
+          batch-size: ${CBT_OBSERVABILITY_TRACE_BATCH_SIZE}
+          item-max-age: ${CBT_OBSERVABILITY_TRACE_ITEM_MAX_AGE}
+        metrics:
+          capacity: ${CBT_OBSERVABILITY_METRIC_QUEUE_CAPACITY}
+          batch-size: ${CBT_OBSERVABILITY_METRIC_BATCH_SIZE}
+          item-max-age: ${CBT_OBSERVABILITY_METRIC_ITEM_MAX_AGE}
+        logs:
+          capacity: ${CBT_OBSERVABILITY_LOG_QUEUE_CAPACITY}
+          batch-size: ${CBT_OBSERVABILITY_LOG_BATCH_SIZE}
+          item-max-age: ${CBT_OBSERVABILITY_LOG_ITEM_MAX_AGE}
+    trace:
+      max-continuation-age: ${CBT_OBSERVABILITY_TRACE_MAX_CONTINUATION_AGE}
+    metric-catalogues:
+      ceilings:
+        active-sessions: ${CBT_OBSERVABILITY_ACTIVE_SESSION_CEILING}
+        replicas: ${CBT_OBSERVABILITY_REPLICA_CEILING}
+        queues: ${CBT_OBSERVABILITY_QUEUE_CEILING}
+        roles: ${CBT_OBSERVABILITY_ROLE_CEILING}
+        policies: ${CBT_OBSERVABILITY_POLICY_CEILING}
+        shards: ${CBT_OBSERVABILITY_SHARD_CEILING}
+        routes: ${CBT_OBSERVABILITY_ROUTE_CEILING}
+        slices: ${CBT_OBSERVABILITY_SLICE_CEILING}
   migration:
     classification: ${CBT_MIGRATION_CLASSIFICATION}
     connection-allowance: ${CBT_MIGRATION_CONNECTION_ALLOWANCE:10}
@@ -19,6 +72,23 @@ cbt:
       concurrent-index-lock-timeout: 2s
       statement-timeout: 15m
       idle-in-transaction-timeout: 30s
+---
+spring:
+  config:
+    activate:
+      on-profile: "!local"
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      context:
+        include: true
+---
+spring:
+  config:
+    activate:
+      on-profile: local
 logging:
   pattern:
     level: "%5p [correlationId:%X{correlationId:-none}] [actorType:%X{actorType:-none}] [actorId:%X{actorId:-none}] [tenantId:%X{tenantId:-none}] [errorCode:%X{errorCode:-none}]"

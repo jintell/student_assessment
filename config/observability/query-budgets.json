@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "routes": [
+    {
+      "routeId": "platform.getConformanceReference",
+      "routeType": "org.meldtech.platform.platform.slice.getConformanceReference.Endpoint",
+      "routeClass": "authorized-workforce",
+      "fixedOverhead": 2,
+      "sliceBudget": 1,
+      "maxQueries": 3
+    }
+  ]
+}

@@ -102,10 +102,10 @@ track; development and CI use only the ephemeral OTLP-compatible sink owned by
 
 Evidence: `docs/defects/TASK-OBS1-DEFECT-001.md`.
 
-Status: ESCALATED WITH OWNERSHIP AND INTERIM ENDPOINT RECORDED. Observability
-task `P3.5`, production deployment, and the Phase 0 exit criterion remain
-blocked until Platform Ops and the Engineering Lead approve the concrete
-collector contract, including TLS, workload identity, and tail sampling.
+Status: CLOSED BY THE SIGNED `P3.5` COLLECTOR CONTRACT. Platform Ops and the
+Engineering Lead approved the concrete endpoints, TLS and workload identities,
+store ownership, failure boundary, and mandatory collector-side tail-sampling
+policy in `ci/dor/FEAT-OBS-001/P3.5-collector-contract.json`.
 
 ## P0.6 - Missing Verification Ownership
 
