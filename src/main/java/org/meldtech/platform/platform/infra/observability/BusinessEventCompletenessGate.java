@@ -4,11 +4,11 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import org.meldtech.platform.shared.kernel.observability.BusinessEventCode;
 import tools.jackson.databind.JsonNode;
 
 public final class BusinessEventCompletenessGate {
 
-    private static final Map<String, String> MVP_EVENTS = approvedEvents();
     private static final Set<String> DECLARED_ABSENT = Set.of("SYNC_OUTCOME", "PAYMENT_OUTCOME");
 
     private BusinessEventCompletenessGate() {}
@@ -48,9 +48,10 @@ public final class BusinessEventCompletenessGate {
                         approvedContract, "duplicate or non-MVP business event " + code);
             }
         }
-        if (!MVP_EVENTS.equals(actual)) {
+        if (!registeredEvents().equals(actual)) {
             throw ObservabilityContractFiles.invalid(
-                    approvedContract, "MVP business-event set is incomplete");
+                    approvedContract,
+                    "MVP business-event enumeration and metric registry are incomplete");
         }
 
         JsonNode absent =
@@ -66,8 +67,12 @@ public final class BusinessEventCompletenessGate {
                 throw ObservabilityContractFiles.invalid(
                         approvedContract, "declared absent event must be text");
             }
-            actualAbsent.add(
-                    java.util.Objects.requireNonNull(node.stringValue(), "declared absent event"));
+            String code =
+                    java.util.Objects.requireNonNull(node.stringValue(), "declared absent event");
+            if (!actualAbsent.add(code)) {
+                throw ObservabilityContractFiles.invalid(
+                        approvedContract, "declared absent event is duplicated");
+            }
         }
         if (!DECLARED_ABSENT.equals(actualAbsent)) {
             throw ObservabilityContractFiles.invalid(
@@ -75,14 +80,12 @@ public final class BusinessEventCompletenessGate {
         }
     }
 
-    private static Map<String, String> approvedEvents() {
+    private static Map<String, String> registeredEvents() {
         Map<String, String> events = new LinkedHashMap<>();
-        events.put("EXAM_STARTED", "exam_started_total");
-        events.put("EXAM_FINISHED", "exam_finished_total");
-        events.put("PIN_VALIDATION", "pin_validation_total");
-        events.put("RESULT_PUBLISHED", "result_published_total");
-        events.put("CORRECTION_APPLIED", "correction_applied_total");
-        events.put("PROVISIONAL_FEEDBACK_RELEASED", "provisional_feedback_released_total");
+        for (Map.Entry<BusinessEventCode, String> registration :
+                MicrometerBusinessEventRecorder.registeredMetricNames().entrySet()) {
+            events.put(registration.getKey().name(), registration.getValue());
+        }
         return Map.copyOf(events);
     }
 }

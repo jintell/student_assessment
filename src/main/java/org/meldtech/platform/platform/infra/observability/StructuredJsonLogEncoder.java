@@ -17,6 +17,10 @@ final class StructuredJsonLogEncoder {
         this(new ObjectMapper(), new RedactingJsonSerializer());
     }
 
+    StructuredJsonLogEncoder(TelemetryHealth health) {
+        this(new ObjectMapper(), new RedactingJsonSerializer(health));
+    }
+
     StructuredJsonLogEncoder(ObjectMapper objectMapper, RedactingJsonSerializer redactor) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.redactor = Objects.requireNonNull(redactor, "redactor");

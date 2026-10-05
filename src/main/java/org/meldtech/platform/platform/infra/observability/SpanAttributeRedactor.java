@@ -7,6 +7,16 @@ import java.util.function.Supplier;
 
 final class SpanAttributeRedactor {
 
+    private final TelemetryHealth health;
+
+    SpanAttributeRedactor() {
+        this(TelemetryHealth.NOOP);
+    }
+
+    SpanAttributeRedactor(TelemetryHealth health) {
+        this.health = Objects.requireNonNull(health, "health");
+    }
+
     void set(SpanBuilder span, SpanAttributeName attribute, Supplier<String> value) {
         Objects.requireNonNull(attribute, "attribute");
         set(span, attribute.key(), value);
@@ -16,8 +26,14 @@ final class SpanAttributeRedactor {
         Objects.requireNonNull(span, "span");
         Objects.requireNonNull(attributeName, "attributeName");
         Objects.requireNonNull(value, "value");
+        boolean forbidden = TelemetryFieldPolicy.isForbidden(attributeName);
+        if (forbidden) {
+            health.redactionRejected(
+                    ObservabilityHealthMetrics.Surface.SPAN,
+                    ObservabilityHealthMetrics.RedactionReason.PROHIBITED_FIELD);
+        }
         String safeValue =
-                TelemetryFieldPolicy.isForbidden(attributeName)
+                forbidden
                         ? RedactingJsonSerializer.REDACTED
                         : Objects.requireNonNull(value.get(), "spanAttributeValue");
         span.setAttribute(AttributeKey.stringKey(attributeName), safeValue);

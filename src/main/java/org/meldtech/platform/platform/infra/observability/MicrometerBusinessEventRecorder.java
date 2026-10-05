@@ -22,14 +22,11 @@ final class MicrometerBusinessEventRecorder implements BusinessEventRecorder {
     MicrometerBusinessEventRecorder(MeterRegistry registry) {
         Objects.requireNonNull(registry, "registry");
         EnumMap<BusinessEventCode, Counter> events = new EnumMap<>(BusinessEventCode.class);
-        events.put(BusinessEventCode.EXAM_STARTED, registry.counter("exam_started_total"));
-        events.put(BusinessEventCode.EXAM_FINISHED, registry.counter("exam_finished_total"));
-        events.put(BusinessEventCode.RESULT_PUBLISHED, registry.counter("result_published_total"));
-        events.put(
-                BusinessEventCode.CORRECTION_APPLIED, registry.counter("correction_applied_total"));
-        events.put(
-                BusinessEventCode.PROVISIONAL_FEEDBACK_RELEASED,
-                registry.counter("provisional_feedback_released_total"));
+        for (BusinessEventCode code : BusinessEventCode.values()) {
+            if (code != BusinessEventCode.PIN_VALIDATION) {
+                events.put(code, registry.counter(metricName(code)));
+            }
+        }
         counters = Map.copyOf(events);
 
         EnumMap<PinValidationOutcome, Counter> pinCounters =
@@ -65,5 +62,24 @@ final class MicrometerBusinessEventRecorder implements BusinessEventRecorder {
                     "No metric is registered for business event " + event.eventCode());
         }
         counter.increment();
+    }
+
+    static Map<BusinessEventCode, String> registeredMetricNames() {
+        EnumMap<BusinessEventCode, String> registrations = new EnumMap<>(BusinessEventCode.class);
+        for (BusinessEventCode code : BusinessEventCode.values()) {
+            registrations.put(code, metricName(code));
+        }
+        return Map.copyOf(registrations);
+    }
+
+    private static String metricName(BusinessEventCode code) {
+        return switch (Objects.requireNonNull(code, "code")) {
+            case EXAM_STARTED -> "exam_started_total";
+            case EXAM_FINISHED -> "exam_finished_total";
+            case PIN_VALIDATION -> "pin_validation_total";
+            case RESULT_PUBLISHED -> "result_published_total";
+            case CORRECTION_APPLIED -> "correction_applied_total";
+            case PROVISIONAL_FEEDBACK_RELEASED -> "provisional_feedback_released_total";
+        };
     }
 }

@@ -77,6 +77,7 @@ dependencies {
     errorprone("com.uber.nullaway:nullaway:0.12.10")
     implementation("io.micrometer:context-propagation")
     implementation("io.micrometer:micrometer-registry-otlp")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.r2dbc:r2dbc-pool")
     implementation("io.projectreactor:reactor-core-micrometer")
@@ -113,7 +114,6 @@ dependencies {
     testImplementation("io.grpc:grpc-stub")
     // The OpenTelemetry BOM does not manage its alpha wire-protocol artifact.
     testImplementation("io.opentelemetry.proto:opentelemetry-proto:1.10.0-alpha")
-    testImplementation("io.opentelemetry:opentelemetry-exporter-otlp")
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")

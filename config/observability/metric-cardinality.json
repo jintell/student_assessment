@@ -116,6 +116,51 @@
       "maxSeries": 18
     },
     {
+      "name": "telemetry_export_attempt_total",
+      "labels": ["signal"],
+      "maxSeries": 3
+    },
+    {
+      "name": "telemetry_export_success_total",
+      "labels": ["signal"],
+      "maxSeries": 3
+    },
+    {
+      "name": "telemetry_export_timeout_total",
+      "labels": ["signal"],
+      "maxSeries": 3
+    },
+    {
+      "name": "telemetry_span_dropped_total",
+      "labels": ["reason"],
+      "maxSeries": 4
+    },
+    {
+      "name": "telemetry_log_event_dropped_total",
+      "labels": ["reason"],
+      "maxSeries": 4
+    },
+    {
+      "name": "telemetry_metric_point_dropped_total",
+      "labels": ["reason"],
+      "maxSeries": 4
+    },
+    {
+      "name": "telemetry_redaction_rejection_total",
+      "labels": ["surface", "reason"],
+      "maxSeries": 8
+    },
+    {
+      "name": "telemetry_export_queue_depth",
+      "labels": ["signal"],
+      "maxSeries": 3
+    },
+    {
+      "name": "telemetry_export_queue_capacity",
+      "labels": ["signal"],
+      "maxSeries": 3
+    },
+    {
       "name": "rabbitmq_queue_depth",
       "labels": ["queue"],
       "maxSeries": 32
