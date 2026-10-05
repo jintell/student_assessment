@@ -46,14 +46,14 @@ class TracingConnectionFactoryTest {
                             throw new AssertionError("bind value must never be rendered");
                         }
                     };
+            String sql = "SELECT answer FROM delivery.answer WHERE pin = $1";
 
             StepVerifier.create(
                             Flux.from(tracing.create())
                                     .flatMap(
                                             created ->
                                                     Flux.from(
-                                                            created.createStatement(
-                                                                            "SELECT answer FROM delivery.answer WHERE pin = $1")
+                                                            created.createStatement(sql)
                                                                     .bind(0, bindValue)
                                                                     .execute())))
                     .verifyComplete();
