@@ -1,0 +1,25 @@
+{
+  "evidenceId": "FEAT-OBS-001-P7.1-PROPAGATION",
+  "feature": "FEAT-OBS-001",
+  "task": "P7.1-P7.2",
+  "recordedAt": "2026-10-05",
+  "result": "PASS",
+  "verification": "NFR-OBS-002 end-to-end correlation and trace propagation",
+  "testClass": "org.meldtech.platform.platform.infra.outbox.ObservabilityPropagationIntegrationTest",
+  "cases": 3,
+  "boundaries": [
+    "HTTP",
+    "reactor-scheduler",
+    "postgresql-transaction",
+    "outbox-row",
+    "relay-batch",
+    "rabbitmq-message",
+    "consumer-span"
+  ],
+  "realInfrastructure": [
+    "PostgreSQL Testcontainer",
+    "RabbitMQ Testcontainer"
+  ],
+  "command": "./gradlew integrationTest --tests 'org.meldtech.platform.platform.infra.outbox.ObservabilityPropagationIntegrationTest'",
+  "identifierGap": "TASK-OBS1-DEFECT-002: the approved architecture assigns no ARC-VERIFY identifier to FEAT-OBS-001; this evidence is retained against blocking CI stage 8 without inventing one."
+}

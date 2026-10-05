@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.meldtech.platform.shared.kernel.context.ActorId;
@@ -23,6 +24,39 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 class StructuredJsonLogEncoderTest {
+
+    private static final Set<String> ALWAYS_PRESENT_FIELDS =
+            Set.of(
+                    "timestamp",
+                    "level",
+                    "logger",
+                    "message",
+                    "correlationId",
+                    "traceId",
+                    "spanId",
+                    "role",
+                    "module",
+                    "slice");
+    private static final Set<String> DECLARED_FIELDS =
+            Set.of(
+                    "timestamp",
+                    "level",
+                    "logger",
+                    "message",
+                    "correlationId",
+                    "traceId",
+                    "spanId",
+                    "role",
+                    "module",
+                    "slice",
+                    "actorType",
+                    "actorId",
+                    "tenantId",
+                    "eventCode",
+                    "errorCode",
+                    "durationMs",
+                    "dbQueryCount",
+                    "error");
 
     @Test
     void encodesAnExceptionAsOneJsonLineWithAStructuredStack() {
@@ -44,6 +78,22 @@ class StructuredJsonLogEncoderTest {
         assertThat(document.path("error").path("stack").get(0).path("method").stringValue())
                 .isEqualTo("handle");
         assertThat(document.toString()).doesNotContain("exceptionMessage");
+    }
+
+    @Test
+    void emitsEveryAlwaysPresentFieldAndNoUndeclaredField() {
+        StructuredJsonLogEncoder encoder = new StructuredJsonLogEncoder();
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode minimal =
+                mapper.readTree(new String(encoder.encode(minimalEvent()), StandardCharsets.UTF_8));
+        JsonNode complete =
+                mapper.readTree(
+                        new String(encoder.encode(structuredEvent()), StandardCharsets.UTF_8));
+
+        assertThat(minimal.propertyNames())
+                .containsExactlyInAnyOrderElementsOf(ALWAYS_PRESENT_FIELDS);
+        assertThat(complete.propertyNames()).containsExactlyInAnyOrderElementsOf(DECLARED_FIELDS);
     }
 
     @Test
@@ -107,6 +157,28 @@ class StructuredJsonLogEncoderTest {
 
     private static StructuredLogEvent structuredEvent() {
         return structuredEvent("Request \"failed\" safely");
+    }
+
+    private static StructuredLogEvent minimalEvent() {
+        return new StructuredLogEvent(
+                Instant.parse("2026-10-03T12:00:00Z"),
+                StructuredLogEvent.Level.INFO,
+                "example.Logger",
+                "Request received",
+                CorrelationId.parse("01J9Z9Q9J6Y7TQ4PXKJ4D0M3NV"),
+                "0123456789abcdef0123456789abcdef",
+                "0123456789abcdef",
+                StructuredLogEvent.RuntimeRole.API,
+                "platform",
+                "getConformanceReference",
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static StructuredLogEvent structuredEvent(String message) {
