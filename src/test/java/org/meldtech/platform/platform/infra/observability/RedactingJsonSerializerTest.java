@@ -3,10 +3,13 @@ package org.meldtech.platform.platform.infra.observability;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.JsonNodeFactory;
 
 class RedactingJsonSerializerTest {
@@ -60,6 +63,31 @@ class RedactingJsonSerializerTest {
 
         assertFalse(evaluated.get());
         assertEquals(RedactingJsonSerializer.REDACTED, redacted.stringValue());
+    }
+
+    @Test
+    void failsClosedForUnknownCyclicAndFailingValues() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> cyclicValue = new HashMap<>();
+        cyclicValue.put("self", cyclicValue);
+
+        List<JsonNode> results =
+                List.of(
+                        serializer.serialize("customField", () -> null),
+                        serializer.serialize(
+                                "cyclicField", () -> objectMapper.valueToTree(cyclicValue)),
+                        serializer.serialize(
+                                "failingField",
+                                () -> {
+                                    throw new IllegalStateException("unsafe serializer diagnostic");
+                                }));
+
+        assertEquals(
+                List.of(
+                        RedactingJsonSerializer.REDACTED,
+                        RedactingJsonSerializer.REDACTED,
+                        RedactingJsonSerializer.REDACTED),
+                results.stream().map(JsonNode::stringValue).toList());
     }
 
     private static JsonNode unsafeValue() {

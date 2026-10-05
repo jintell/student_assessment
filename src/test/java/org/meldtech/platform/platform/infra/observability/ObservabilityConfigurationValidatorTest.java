@@ -67,6 +67,51 @@ class ObservabilityConfigurationValidatorTest {
                 .hasMessageContaining("candidate-hash.secret-reference");
     }
 
+    @Test
+    void rejectsInlineCandidateHashMaterialOutsideLocal() {
+        assertThatThrownBy(
+                        () ->
+                                validator(
+                                                properties(
+                                                        URI.create("https://collector:4317"),
+                                                        1.0d,
+                                                        Set.of("policy_key"),
+                                                        "inline-candidate-hash-material"))
+                                        .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("candidate-hash.secret-reference")
+                .hasMessageContaining("runtime secret mount")
+                .hasMessageNotContaining("inline-candidate-hash-material");
+    }
+
+    @Test
+    void rejectsInsecureOrCredentialBearingCollectorEndpointsOutsideLocal() {
+        assertThatThrownBy(
+                        () ->
+                                validator(
+                                                properties(
+                                                        URI.create("http://collector:4317"),
+                                                        1.0d,
+                                                        Set.of("policy_key"),
+                                                        "/run/secrets/observability/hash"))
+                                        .validate())
+                .hasMessageContaining("collector.endpoint")
+                .hasMessageContaining("https");
+        assertThatThrownBy(
+                        () ->
+                                validator(
+                                                properties(
+                                                        URI.create(
+                                                                "https://identity:credential@collector:4317"),
+                                                        1.0d,
+                                                        Set.of("policy_key"),
+                                                        "/run/secrets/observability/hash"))
+                                        .validate())
+                .hasMessageContaining("collector.endpoint")
+                .hasMessageNotContaining("identity")
+                .hasMessageNotContaining("credential");
+    }
+
     private static ObservabilityConfigurationValidator validator(
             ObservabilityProperties properties) {
         return new ObservabilityConfigurationValidator(properties, false);
