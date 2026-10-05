@@ -1,6 +1,8 @@
 package org.meldtech.platform.platform.infra.observability;
 
 import java.net.URI;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
@@ -152,7 +154,23 @@ final class ObservabilityConfigurationValidator {
 
     private void validateCandidateHash(ObservabilityProperties.CandidateHash candidateHash) {
         require(candidateHash, "candidate-hash");
-        requireText(candidateHash.secretReference(), "candidate-hash.secret-reference");
+        String secretReference =
+                requireText(candidateHash.secretReference(), "candidate-hash.secret-reference");
+        if (local) {
+            return;
+        }
+        try {
+            Path secretPath = Path.of(secretReference).normalize();
+            if (!secretPath.isAbsolute() || !secretPath.startsWith(Path.of("/run/secrets"))) {
+                throw invalid(
+                        "candidate-hash.secret-reference",
+                        "must resolve from the runtime secret mount outside local");
+            }
+        } catch (InvalidPathException exception) {
+            throw invalid(
+                    "candidate-hash.secret-reference",
+                    "must resolve from the runtime secret mount outside local");
+        }
     }
 
     private void validateMetricCeilings(ObservabilityProperties.MetricCatalogues metricCatalogues) {

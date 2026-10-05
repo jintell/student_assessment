@@ -44,22 +44,39 @@ final class OtlpExportPipeline {
         Objects.requireNonNull(properties, "properties");
         Duration timeout = properties.export().timeout();
         var endpoints = properties.collector().endpoints();
-        SpanExporter spans =
+        var spanBuilder =
                 OtlpGrpcSpanExporter.builder()
                         .setEndpoint(endpoints.traces().toString())
-                        .setTimeout(timeout)
-                        .build();
-        MetricExporter metrics =
+                        .setTimeout(timeout);
+        var metricBuilder =
                 OtlpGrpcMetricExporter.builder()
                         .setEndpoint(endpoints.metrics().toString())
-                        .setTimeout(timeout)
-                        .build();
-        LogRecordExporter logs =
+                        .setTimeout(timeout);
+        var logBuilder =
                 OtlpGrpcLogRecordExporter.builder()
                         .setEndpoint(endpoints.logs().toString())
-                        .setTimeout(timeout)
-                        .build();
-        return create(properties.export(), clock, spans, metrics, logs, health);
+                        .setTimeout(timeout);
+        if (!Boolean.TRUE.equals(properties.collector().tls().enabled())) {
+            return create(
+                    properties.export(),
+                    clock,
+                    spanBuilder.build(),
+                    metricBuilder.build(),
+                    logBuilder.build(),
+                    health);
+        }
+        try (OtlpTlsMaterial tls = OtlpTlsMaterial.load(properties.collector().tls())) {
+            tls.configure(spanBuilder);
+            tls.configure(metricBuilder);
+            tls.configure(logBuilder);
+            return create(
+                    properties.export(),
+                    clock,
+                    spanBuilder.build(),
+                    metricBuilder.build(),
+                    logBuilder.build(),
+                    health);
+        }
     }
 
     static OtlpExportPipeline create(

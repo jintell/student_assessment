@@ -212,16 +212,16 @@ feature and for the plan's Phase 0.
 Telemetry hygiene is a security control, not a tidiness concern: `NFR-SEC-002` makes the CI stage 10 suite
 a release gate, and its log limb is this feature's.
 
-1. [ ] Attempt to log a plaintext PIN through every path — a domain field, a map value, a nested object, an exception message and a `toString()` — and confirm each is redacted or refused. Deliverable: five adversarial attempts, each recorded (`REQ-SEC-004`).
-2. [ ] Repeat the same five attempts for an OTP, an authentication token and a password. Deliverable: adversarial-attempt matrix (`REQ-RSLT-021`).
-3. [ ] Verify no candidate email or name reaches a log line, a span attribute or a metric label from any path, and that the candidate reference appears only as a keyed hash. Deliverable: personal-data hygiene evidence (`REQ-PRIV-004`, §16.1).
-4. [ ] Verify answer content never reaches a span attribute or a log line, including through an R2DBC statement parameter and a serialisation failure message. Deliverable: answer-content evidence (§16.3).
-5. [ ] Verify the redactor fails closed: an unknown field type, a cyclic object and a serialiser exception each produce a redacted placeholder rather than an unredacted value or a dropped line. Deliverable: three fail-closed cases.
-6. [ ] Verify a hostile log value — newline, control character, ANSI escape, JSON fragment, over-long string — cannot forge a second log event or break the JSON envelope. Deliverable: log-injection hardening evidence. Acceptance: asserted against the sink output, not the encoder's return value.
-7. [ ] Confirm the correlation identifier carries no personal data and is not derived from an actor, tenant or email, and that a malformed inbound header was already replaced by the kernel rather than echoed into a log line. Deliverable: correlation-privacy review referencing `FEAT-PLAT-003 tasks.md` `P6.4`.
-8. [ ] Confirm the hash salt resolves from the secret manager, is distinct per environment, and appears in no image, config map or committed file. Deliverable: secret-handling review (`REQ-SEC-008`, `ARC-SEC-013`).
-9. [ ] Confirm telemetry export credentials use workload identity, that the collector endpoint is TLS-protected, and that telemetry leaves no personal data at the boundary. Deliverable: export-boundary review.
-10. [ ] Review the log and audit sinks for separation of store, retention and access, and confirm no operational log path writes to the audit store or vice versa. Deliverable: separation review (`REQ-AUD-002`).
+1. [*] Attempt to log a plaintext PIN through every path — a domain field, a map value, a nested object, an exception message and a `toString()` — and confirm each is redacted or refused. Deliverable: five adversarial attempts, each recorded (`REQ-SEC-004`).
+2. [*] Repeat the same five attempts for an OTP, an authentication token and a password. Deliverable: adversarial-attempt matrix (`REQ-RSLT-021`).
+3. [*] Verify no candidate email or name reaches a log line, a span attribute or a metric label from any path, and that the candidate reference appears only as a keyed hash. Deliverable: personal-data hygiene evidence (`REQ-PRIV-004`, §16.1).
+4. [*] Verify answer content never reaches a span attribute or a log line, including through an R2DBC statement parameter and a serialisation failure message. Deliverable: answer-content evidence (§16.3).
+5. [*] Verify the redactor fails closed: an unknown field type, a cyclic object and a serialiser exception each produce a redacted placeholder rather than an unredacted value or a dropped line. Deliverable: three fail-closed cases.
+6. [*] Verify a hostile log value — newline, control character, ANSI escape, JSON fragment, over-long string — cannot forge a second log event or break the JSON envelope. Deliverable: log-injection hardening evidence. Acceptance: asserted against the sink output, not the encoder's return value.
+7. [*] Confirm the correlation identifier carries no personal data and is not derived from an actor, tenant or email, and that a malformed inbound header was already replaced by the kernel rather than echoed into a log line. Deliverable: correlation-privacy review referencing `FEAT-PLAT-003 tasks.md` `P6.4`.
+8. [*] Confirm the hash salt resolves from the secret manager, is distinct per environment, and appears in no image, config map or committed file. Deliverable: secret-handling review (`REQ-SEC-008`, `ARC-SEC-013`).
+9. [*] Confirm telemetry export credentials use workload identity, that the collector endpoint is TLS-protected, and that telemetry leaves no personal data at the boundary. Deliverable: export-boundary review.
+10. [*] Review the log and audit sinks for separation of store, retention and access, and confirm no operational log path writes to the audit store or vice versa. Deliverable: separation review (`REQ-AUD-002`).
 
 ---
 

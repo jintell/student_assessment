@@ -30,6 +30,13 @@ final class RedactingJsonSerializer {
                     ObservabilityHealthMetrics.RedactionReason.PROHIBITED_FIELD);
             return REDACTED_NODE;
         }
-        return Objects.requireNonNull(valueSerializer.get(), "serializedValue");
+        try {
+            return Objects.requireNonNull(valueSerializer.get(), "serializedValue");
+        } catch (RuntimeException | StackOverflowError exception) {
+            health.redactionRejected(
+                    ObservabilityHealthMetrics.Surface.LOG,
+                    ObservabilityHealthMetrics.RedactionReason.SERIALIZATION_FAILURE);
+            return REDACTED_NODE;
+        }
     }
 }
