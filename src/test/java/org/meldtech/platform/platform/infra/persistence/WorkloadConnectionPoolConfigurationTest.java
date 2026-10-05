@@ -4,9 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.OpenTelemetry;
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.spi.ConnectionFactory;
 import org.junit.jupiter.api.Test;
+import org.meldtech.platform.platform.infra.observability.DatabaseQueryTelemetry;
+import org.meldtech.platform.platform.infra.observability.TracingConnectionFactory;
+import org.meldtech.platform.shared.kernel.time.Clock;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class WorkloadConnectionPoolConfigurationTest {
@@ -78,6 +82,9 @@ class WorkloadConnectionPoolConfigurationTest {
         return new ApplicationContextRunner()
                 .withUserConfiguration(WorkloadConnectionPoolConfiguration.class)
                 .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
+                .withBean(OpenTelemetry.class, OpenTelemetry::noop)
+                .withBean(DatabaseQueryTelemetry.class, () -> DatabaseQueryTelemetry.NOOP)
+                .withBean(Clock.class, () -> java.time.Instant::now)
                 .withPropertyValues(
                         "spring.profiles.active=" + poolName,
                         poolProperty(poolName, "username", username),
@@ -93,9 +100,10 @@ class WorkloadConnectionPoolConfigurationTest {
     }
 
     private int maxSize(ConnectionFactory connectionFactory) {
-        assertThat(connectionFactory).isInstanceOf(SecurityContextInitializer.class);
-        ConnectionPool pool =
-                (ConnectionPool) ((SecurityContextInitializer) connectionFactory).delegate();
+        assertThat(connectionFactory).isInstanceOf(TracingConnectionFactory.class);
+        ConnectionFactory secured = ((TracingConnectionFactory) connectionFactory).delegate();
+        assertThat(secured).isInstanceOf(SecurityContextInitializer.class);
+        ConnectionPool pool = (ConnectionPool) ((SecurityContextInitializer) secured).delegate();
         return pool.getMetrics().orElseThrow().getMaxAllocatedSize();
     }
 }

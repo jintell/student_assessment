@@ -66,6 +66,56 @@
       "maxSeries": 128
     },
     {
+      "name": "problem_detail_emitted_total",
+      "labels": ["code"],
+      "maxSeries": 128
+    },
+    {
+      "name": "problem_detail_unmapped_total",
+      "labels": [],
+      "maxSeries": 1
+    },
+    {
+      "name": "idempotency_replay_total",
+      "labels": ["outcome"],
+      "maxSeries": 3
+    },
+    {
+      "name": "idempotency_store_unavailable_total",
+      "labels": [],
+      "maxSeries": 1
+    },
+    {
+      "name": "db_context_missing_total",
+      "labels": [],
+      "maxSeries": 1
+    },
+    {
+      "name": "db_context_install_failure_total",
+      "labels": ["role"],
+      "maxSeries": 14
+    },
+    {
+      "name": "db_role_assumption_total",
+      "labels": ["role"],
+      "maxSeries": 14
+    },
+    {
+      "name": "db_connection_reset_failure_total",
+      "labels": [],
+      "maxSeries": 1
+    },
+    {
+      "name": "migration_lock_held_seconds",
+      "labels": ["module", "relation", "lock_mode"],
+      "maxSeries": 720
+    },
+    {
+      "name": "migration_outcome_total",
+      "labels": ["classification", "outcome"],
+      "maxSeries": 18
+    },
+    {
       "name": "rabbitmq_queue_depth",
       "labels": ["queue"],
       "maxSeries": 32

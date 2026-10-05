@@ -5,25 +5,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import io.micrometer.observation.ObservationRegistry;
-import io.micrometer.tracing.handler.DefaultTracingObservationHandler;
-import io.micrometer.tracing.test.simple.SimpleTracer;
-import io.micrometer.tracing.test.simple.TracerAssert;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.context.Scope;
+import io.opentelemetry.api.common.AttributeKey;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.meldtech.platform.platform.infra.observability.OpenTelemetryRequestTelemetry;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyResolver;
 import org.meldtech.platform.shared.infra.web.RequestContextPropagation;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
-import org.meldtech.platform.shared.kernel.context.ActorType;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
+import org.meldtech.platform.shared.kernel.observability.RequestTelemetry;
 import org.meldtech.platform.testing.observability.ObservabilityTestFixture;
+import org.reactivestreams.Publisher;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -101,7 +98,7 @@ class SliceTest {
                 new Endpoint(
                         policyResolver(PolicyDecision.ALLOW),
                         new Handler(unusedQueries()),
-                        ObservationRegistry.NOOP);
+                        passthroughTelemetry());
 
         WebTestClient.bindToRouterFunction(endpoint)
                 .build()
@@ -122,7 +119,7 @@ class SliceTest {
                 new Endpoint(
                         policyResolver(PolicyDecision.DENY),
                         new Handler(unusedQueries()),
-                        ObservationRegistry.NOOP);
+                        passthroughTelemetry());
 
         clientWithRequestContext(endpoint)
                 .get()
@@ -142,7 +139,7 @@ class SliceTest {
                 new Endpoint(
                         policyResolver(PolicyDecision.ALLOW),
                         new Handler(tenantId -> Mono.just(METADATA)),
-                        ObservationRegistry.NOOP);
+                        passthroughTelemetry());
 
         clientWithRequestContext(endpoint)
                 .get()
@@ -167,53 +164,59 @@ class SliceTest {
 
     @Test
     void emitsOneSpanAtTheSliceBoundary() {
-        SimpleTracer tracer = new SimpleTracer();
-        ObservationRegistry registry = ObservationRegistry.create();
-        registry.observationConfig()
-                .observationHandler(new DefaultTracingObservationHandler(tracer));
-        Endpoint endpoint =
-                new Endpoint(
-                        policyResolver(PolicyDecision.ALLOW),
-                        new Handler(tenantId -> Mono.just(METADATA)),
-                        registry);
+        try (ObservabilityTestFixture telemetry = ObservabilityTestFixture.create(Endpoint.class)) {
+            Endpoint endpoint =
+                    new Endpoint(
+                            policyResolver(PolicyDecision.ALLOW),
+                            new Handler(tenantId -> Mono.just(METADATA)),
+                            new OpenTelemetryRequestTelemetry(
+                                    telemetry.openTelemetry(), () -> java.time.Instant.EPOCH));
 
-        clientWithRequestContext(endpoint)
-                .get()
-                .uri(Endpoint.PATH)
-                .exchange()
-                .expectStatus()
-                .isOk();
+            clientWithRequestContext(endpoint)
+                    .get()
+                    .uri(Endpoint.PATH)
+                    .exchange()
+                    .expectStatus()
+                    .isOk();
 
-        TracerAssert.assertThat(tracer)
-                .onlySpan()
-                .hasNameEqualTo(Endpoint.SPAN_NAME)
-                .hasTag("module", "platform")
-                .hasTag("slice", "getConformanceReference")
-                .hasTag("audience", "operator")
-                .hasTag("actorType", ActorType.WORKFORCE_USER.name())
-                .hasTag("operation", "READ")
-                .hasTag("correlationId", TENANT_REQUEST.correlationId().toString())
-                .hasTag("tenantId", TENANT_ID.toString());
+            var span = telemetry.finishedSpans().getFirst();
+            assertEquals(Endpoint.SPAN_NAME, span.getName());
+            assertEquals("platform", span.getAttributes().get(AttributeKey.stringKey("module")));
+            assertEquals(
+                    "getConformanceReference",
+                    span.getAttributes().get(AttributeKey.stringKey("slice")));
+            assertEquals("operator", span.getAttributes().get(AttributeKey.stringKey("audience")));
+            assertEquals(
+                    "workforce_user",
+                    span.getAttributes().get(AttributeKey.stringKey("actorType")));
+            assertEquals("read", span.getAttributes().get(AttributeKey.stringKey("operation")));
+            assertEquals(
+                    TENANT_REQUEST.correlationId().toString(),
+                    span.getAttributes().get(AttributeKey.stringKey("correlationId")));
+            assertEquals(
+                    TENANT_ID.toString(),
+                    span.getAttributes().get(AttributeKey.stringKey("tenantId")));
+        }
     }
 
     @Test
     void propagatesCorrelationIdFromFilterToLogAndSpan() {
-        SimpleTracer tracer = new SimpleTracer();
-        ObservationRegistry registry = ObservationRegistry.create();
-        registry.observationConfig()
-                .observationHandler(new DefaultTracingObservationHandler(tracer));
-        Endpoint endpoint =
-                new Endpoint(
-                        policyResolver(PolicyDecision.ALLOW),
-                        new Handler(tenantId -> Mono.just(METADATA)),
-                        registry);
         Logger logger = (Logger) LoggerFactory.getLogger(Endpoint.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         logger.addAppender(appender);
 
         try (AnnotationConfigApplicationContext context =
-                new AnnotationConfigApplicationContext(ContextPropagationTestConfiguration.class)) {
+                        new AnnotationConfigApplicationContext(
+                                ContextPropagationTestConfiguration.class);
+                ObservabilityTestFixture telemetry =
+                        ObservabilityTestFixture.create(Endpoint.class)) {
+            Endpoint endpoint =
+                    new Endpoint(
+                            policyResolver(PolicyDecision.ALLOW),
+                            new Handler(tenantId -> Mono.just(METADATA)),
+                            new OpenTelemetryRequestTelemetry(
+                                    telemetry.openTelemetry(), () -> java.time.Instant.EPOCH));
             WebFilter requestContextFilter = context.getBean(WebFilter.class);
             RequestContextPropagation propagation =
                     context.getBean(RequestContextPropagation.class);
@@ -244,10 +247,13 @@ class SliceTest {
                             .findFirst()
                             .orElseThrow();
             assertEquals(CORRELATION_ID, logEvent.getMDCPropertyMap().get("correlationId"));
-            TracerAssert.assertThat(tracer)
-                    .onlySpan()
-                    .hasNameEqualTo(Endpoint.SPAN_NAME)
-                    .hasTag("correlationId", CORRELATION_ID);
+            assertEquals(
+                    CORRELATION_ID,
+                    telemetry
+                            .finishedSpans()
+                            .getFirst()
+                            .getAttributes()
+                            .get(AttributeKey.stringKey("correlationId")));
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -256,27 +262,20 @@ class SliceTest {
 
     @Test
     void inMemorySubstrateCapturesSliceSpanMetricAndLogWithoutCollector() {
-        Endpoint endpoint =
-                new Endpoint(
-                        policyResolver(PolicyDecision.ALLOW),
-                        new Handler(tenantId -> Mono.just(METADATA)),
-                        ObservationRegistry.NOOP);
-
         try (ObservabilityTestFixture telemetry = ObservabilityTestFixture.create(Endpoint.class)) {
-            Span span = telemetry.tracer().spanBuilder(Endpoint.SPAN_NAME).startSpan();
-            Scope scope = span.makeCurrent();
-            try {
-                telemetry.meter().counterBuilder("reference_slice_invocation_total").build().add(1);
-                clientWithRequestContext(endpoint)
-                        .get()
-                        .uri(Endpoint.PATH)
-                        .exchange()
-                        .expectStatus()
-                        .isOk();
-            } finally {
-                scope.close();
-                span.end();
-            }
+            Endpoint endpoint =
+                    new Endpoint(
+                            policyResolver(PolicyDecision.ALLOW),
+                            new Handler(tenantId -> Mono.just(METADATA)),
+                            new OpenTelemetryRequestTelemetry(
+                                    telemetry.openTelemetry(), () -> java.time.Instant.EPOCH));
+            telemetry.meter().counterBuilder("reference_slice_invocation_total").build().add(1);
+            clientWithRequestContext(endpoint)
+                    .get()
+                    .uri(Endpoint.PATH)
+                    .exchange()
+                    .expectStatus()
+                    .isOk();
 
             assertEquals(Endpoint.SPAN_NAME, telemetry.finishedSpans().getFirst().getName());
             assertEquals(
@@ -346,6 +345,15 @@ class SliceTest {
             public <R> Mono<PolicyDecision> evaluate(
                     String routeId, ActorContext actor, R request) {
                 return Mono.just(decision);
+            }
+        };
+    }
+
+    private static RequestTelemetry passthroughTelemetry() {
+        return new RequestTelemetry() {
+            @Override
+            public <T> Publisher<T> observe(RequestMetadata metadata, Publisher<T> request) {
+                return request;
             }
         };
     }

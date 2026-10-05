@@ -39,12 +39,7 @@ class MicrometerProblemDetailMetricsTest {
 
         mapper.map(new UnsupportedOperationException("provider detail"), context());
 
-        assertThat(
-                        registry.get("problem_detail_unmapped_total")
-                                .tag("reason", "catalogue_miss")
-                                .counter()
-                                .count())
-                .isEqualTo(1.0);
+        assertThat(registry.get("problem_detail_unmapped_total").counter().count()).isEqualTo(1.0);
         assertThat(
                         registry.get("problem_detail_emitted_total")
                                 .tag("code", ProblemDetailMapper.INTERNAL_CODE)
