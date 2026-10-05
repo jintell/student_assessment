@@ -132,9 +132,9 @@ exception is prohibited.
 
 Evidence: `docs/defects/TASK-OBS1-DEFECT-003.md`.
 
-Status: RAISED WITH THE REQUIRED KERNEL CORRECTION AND PROOF RECORDED.
-Observability task `P4.5` remains blocked until the kernel owner implements
-the enumerated `policy_key` allowance and its positive and negative tests.
+Status: CLOSED. The kernel-owned enumerated `policy_key` allowance and its
+positive and negative tests were implemented with observability task `P4.5`;
+all consumers continue to call the single `SecretFieldPattern` definition.
 
 ## P0.8 - Feature-Specific Definition of Ready
 

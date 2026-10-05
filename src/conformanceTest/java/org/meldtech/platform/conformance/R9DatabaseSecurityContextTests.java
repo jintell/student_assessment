@@ -16,6 +16,8 @@ class R9DatabaseSecurityContextTests {
     private static final String CONNECTION = "io.r2dbc.spi.Connection";
     private static final String INITIALIZER =
             "org.meldtech.platform.platform.infra.persistence.SecurityContextInitializer";
+    private static final String TRACING_CONNECTION =
+            "org.meldtech.platform.platform.infra.observability.TracingConnectionFactory$TracingConnection";
 
     @Test
     void transactionsCanOpenOnlyThroughTheSecurityContextInitializer() {
@@ -57,7 +59,7 @@ class R9DatabaseSecurityContextTests {
             javaClass.getMethodCallsFromSelf().stream()
                     .filter(call -> call.getTargetOwner().getName().equals(CONNECTION))
                     .filter(call -> call.getName().equals("beginTransaction"))
-                    .filter(call -> !isInitializerImplementation(javaClass))
+                    .filter(call -> !isApprovedConnectionBoundary(javaClass))
                     .forEach(
                             call ->
                                     violations.add(
@@ -74,8 +76,9 @@ class R9DatabaseSecurityContextTests {
                         || javaClass.getSimpleName().equals("Queries"));
     }
 
-    private static boolean isInitializerImplementation(JavaClass javaClass) {
+    private static boolean isApprovedConnectionBoundary(JavaClass javaClass) {
         return javaClass.getName().equals(INITIALIZER)
-                || javaClass.getName().startsWith(INITIALIZER + "$");
+                || javaClass.getName().startsWith(INITIALIZER + "$")
+                || javaClass.getName().equals(TRACING_CONNECTION);
     }
 }

@@ -2,7 +2,6 @@ package org.meldtech.platform.platform.infra.kernel.error;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -15,10 +14,11 @@ final class MicrometerProblemDetailMetrics implements ProblemDetailMetrics {
 
     private final MeterRegistry registry;
     private final ConcurrentMap<String, Counter> emitted = new ConcurrentHashMap<>();
-    private final ConcurrentMap<FallbackReason, Counter> unmapped = new ConcurrentHashMap<>();
+    private final Counter unmapped;
 
     MicrometerProblemDetailMetrics(MeterRegistry registry) {
         this.registry = Objects.requireNonNull(registry, "registry");
+        unmapped = registry.counter(UNMAPPED_METRIC);
     }
 
     @Override
@@ -36,12 +36,6 @@ final class MicrometerProblemDetailMetrics implements ProblemDetailMetrics {
     @Override
     public void fallback(FallbackReason reason) {
         Objects.requireNonNull(reason, "reason");
-        unmapped.computeIfAbsent(
-                        reason,
-                        value ->
-                                Counter.builder(UNMAPPED_METRIC)
-                                        .tag("reason", value.name().toLowerCase(Locale.ROOT))
-                                        .register(registry))
-                .increment();
+        unmapped.increment();
     }
 }

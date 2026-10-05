@@ -64,6 +64,41 @@ class ObservabilityContractGatesTest {
     }
 
     @Test
+    void businessEventGateRejectsRemovedOrUnregisteredMvpEvents(@TempDir Path directory)
+            throws IOException {
+        Path removed =
+                changedCopy(
+                        APPROVED_CONTRACT,
+                        directory.resolve("removed-event.json"),
+                        """
+                            {
+                              "eventCode": "EXAM_STARTED",
+                              "metric": "exam_started_total",
+                              "lifecycle": "MVP"
+                            },
+                        """,
+                        "");
+        Path added =
+                changedCopy(
+                        APPROVED_CONTRACT,
+                        directory.resolve("unregistered-event.json"),
+                        "\"businessEventMetrics\": [",
+                        """
+                        "businessEventMetrics": [
+                            {
+                              "eventCode": "SYNC_OUTCOME",
+                              "metric": "sync_outcome_total",
+                              "lifecycle": "MVP"
+                            },
+                        """);
+
+        assertThatThrownBy(() -> BusinessEventCompletenessGate.verify(removed))
+                .hasMessageContaining("enumeration and metric registry are incomplete");
+        assertThatThrownBy(() -> BusinessEventCompletenessGate.verify(added))
+                .hasMessageContaining("enumeration and metric registry are incomplete");
+    }
+
+    @Test
     void businessEventGateRejectsMalformedEventSections(@TempDir Path directory)
             throws IOException {
         Path nonArrayEvents =

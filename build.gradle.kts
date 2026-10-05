@@ -77,9 +77,11 @@ dependencies {
     errorprone("com.uber.nullaway:nullaway:0.12.10")
     implementation("io.micrometer:context-propagation")
     implementation("io.micrometer:micrometer-registry-otlp")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.r2dbc:r2dbc-pool")
     implementation("io.projectreactor:reactor-core-micrometer")
+    implementation("com.github.jsqlparser:jsqlparser:5.3")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
@@ -112,7 +114,6 @@ dependencies {
     testImplementation("io.grpc:grpc-stub")
     // The OpenTelemetry BOM does not manage its alpha wire-protocol artifact.
     testImplementation("io.opentelemetry.proto:opentelemetry-proto:1.10.0-alpha")
-    testImplementation("io.opentelemetry:opentelemetry-exporter-otlp")
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
@@ -128,10 +129,6 @@ dependencies {
     add(
         conformanceTestSourceSet.implementationConfigurationName,
         "org.springframework.modulith:spring-modulith-starter-test",
-    )
-    add(
-        conformanceTestSourceSet.implementationConfigurationName,
-        "com.github.jsqlparser:jsqlparser:5.3",
     )
     add(conformanceTestSourceSet.implementationConfigurationName, "org.ow2.asm:asm:9.10.1")
     add(kernelCompileClasspath.name, "org.reactivestreams:reactive-streams")
@@ -760,10 +757,25 @@ val queryBudgetGate =
         )
     }
 
+val telemetrySchemaGate =
+    tasks.register<JavaExec>("telemetrySchemaGate") {
+        description = "Rejects unsafe fields and domain objects at structured logging boundaries."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(tasks.classes)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.observability.TelemetrySchemaGate")
+        args(
+            "org.meldtech.platform.platform.infra.observability.StructuredLogEvent",
+            layout.projectDirectory
+                .file("config/observability/metric-cardinality.json")
+                .asFile.absolutePath,
+        )
+    }
+
 tasks.register("ciStage4") {
     description = "CI stage 4: runs architecture conformance."
     group = "ci"
-    dependsOn(conformanceTest, businessEventCompletenessGate)
+    dependsOn(conformanceTest, businessEventCompletenessGate, telemetrySchemaGate)
 }
 
 tasks.register("ciStage5") {

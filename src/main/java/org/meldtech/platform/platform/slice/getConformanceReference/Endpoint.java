@@ -1,12 +1,11 @@
 package org.meldtech.platform.platform.slice.getConformanceReference;
 
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.PolicyResolver;
 import org.meldtech.platform.shared.api.RouteDescriptor;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
+import org.meldtech.platform.shared.kernel.observability.RequestTelemetry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
@@ -21,7 +20,6 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -31,19 +29,23 @@ final class Endpoint implements PolicyProtectedRoute {
     static final String ROUTE_ID = "platform.getConformanceReference";
     static final String PATH = "/api/v1/platform/conformance-reference";
     static final String SPAN_NAME = "platform.getConformanceReference";
+    private static final RequestTelemetry.RequestMetadata TELEMETRY =
+            new RequestTelemetry.RequestMetadata(
+                    "platform",
+                    "getConformanceReference",
+                    RequestTelemetry.Audience.OPERATOR,
+                    RequestTelemetry.Operation.READ,
+                    RequestTelemetry.RouteClass.STANDARD);
 
     private final PolicyResolver policyResolver;
     private final Handler handler;
-    private final ObservationRegistry observationRegistry;
+    private final RequestTelemetry requestTelemetry;
     private final RouterFunction<ServerResponse> route;
 
-    Endpoint(
-            PolicyResolver policyResolver,
-            Handler handler,
-            ObservationRegistry observationRegistry) {
+    Endpoint(PolicyResolver policyResolver, Handler handler, RequestTelemetry requestTelemetry) {
         this.policyResolver = policyResolver;
         this.handler = handler;
-        this.observationRegistry = observationRegistry;
+        this.requestTelemetry = requestTelemetry;
         route = RouterFunctions.route(RequestPredicates.GET(PATH), this::handle);
     }
 
@@ -75,38 +77,18 @@ final class Endpoint implements PolicyProtectedRoute {
     }
 
     private Mono<ServerResponse> authorizeAndHandle(ActorContext actor) {
-        return Mono.defer(() -> policyResolver.evaluate(ROUTE_ID, actor, Request.INSTANCE))
-                .flatMap(
-                        decision ->
-                                decision == PolicyDecision.ALLOW
-                                        ? success(actor)
-                                        : Mono.error(
-                                                new AccessDeniedException(
-                                                        "Policy denied the operation")))
-                .doOnSuccess(ignored -> LOGGER.info("Conformance reference slice completed"))
-                .name(SPAN_NAME)
-                .tap(
-                        Micrometer.observation(
-                                observationRegistry,
-                                registry -> sliceObservation(registry, actor)));
-    }
-
-    private static Observation sliceObservation(ObservationRegistry registry, ActorContext actor) {
-        Observation observation =
-                Observation.createNotStarted(SPAN_NAME, registry)
-                        .contextualName(SPAN_NAME)
-                        .lowCardinalityKeyValue("module", "platform")
-                        .lowCardinalityKeyValue("slice", "getConformanceReference")
-                        .lowCardinalityKeyValue("audience", "operator")
-                        .lowCardinalityKeyValue("operation", "READ")
-                        .highCardinalityKeyValue("correlationId", actor.correlationId().toString())
-                        .lowCardinalityKeyValue("actorType", actor.actorType().name());
-        actor.tenantId()
-                .ifPresent(
-                        tenantId ->
-                                observation.highCardinalityKeyValue(
-                                        "tenantId", tenantId.toString()));
-        return observation;
+        Mono<ServerResponse> handling =
+                Mono.defer(() -> policyResolver.evaluate(ROUTE_ID, actor, Request.INSTANCE))
+                        .flatMap(
+                                decision ->
+                                        decision == PolicyDecision.ALLOW
+                                                ? success(actor)
+                                                : Mono.error(
+                                                        new AccessDeniedException(
+                                                                "Policy denied the operation")))
+                        .doOnSuccess(
+                                ignored -> LOGGER.info("Conformance reference slice completed"));
+        return Mono.from(requestTelemetry.observe(TELEMETRY, handling));
     }
 
     private Mono<ServerResponse> success(ActorContext actor) {
