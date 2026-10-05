@@ -59,6 +59,13 @@ class OpenTelemetryTracerConfiguration {
         return new HttpServerTracingWebFilter(tracer);
     }
 
+    @Bean
+    TraceContextContinuation traceContextContinuation(
+            OpenTelemetry openTelemetry, Clock clock, ObservabilityProperties properties) {
+        return new TraceContextContinuation(
+                openTelemetry, clock, properties.trace().maxContinuationAge());
+    }
+
     static SdkTracerProvider tracerProvider(
             ObservabilityProperties.Resource configuration, Sampler sampler) {
         return SdkTracerProvider.builder()
