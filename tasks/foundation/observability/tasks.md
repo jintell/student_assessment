@@ -259,28 +259,28 @@ against existing stages.
 
 # Phase 8 – Deployment and Release
 
-1. [ ] Publish the observability configuration surface per environment — collector endpoint, sampling ratios, allowlist, salt reference — with no environment-specific code branch. Deliverable: configuration record per environment (`ARC-OPS-004`).
-2. [ ] Confirm the telemetry configuration is identical across the three runtime roles from `FEAT-PLAT-006`, differing only in the resource attribute that names the role. Deliverable: role-parity review. Acceptance: `api`, `worker` and `pindist` are distinguishable in telemetry without three configurations to maintain.
-3. [ ] State the rollback path: the feature is code and configuration only with no schema change, so a rollback is a code revert; a metric or log field is additive, and **removing** a published metric name is a breaking change for `FEAT-OPS-004`'s dashboards and alerts. Deliverable: rollback statement.
-4. [ ] Close the reciprocal obligation with `FEAT-PLAT-004`: confirm the carrier it shipped satisfies the end-to-end join, and record that `FEAT-PLAT-004 tasks.md` `P9.5`'s deferred join test is discharged by `P7.1`. Deliverable: reciprocal closure record.
-5. [ ] Hand the registered metric inventory, the log field contract, the span contract and the four inbound gap records' panel-and-alert limbs to `FEAT-OPS-004`. Deliverable: four handover records referenced by launch condition `L5`.
-6. [ ] Hand the `dbQueryCount` and `db_query_duration` telemetry plus the query-budget assertion to `FEAT-OPS-005` as the input for the `ARC-PERF-004` and §15.2 evidence. Deliverable: handover record.
-7. [ ] Confirm the Phase 0 exit criterion "correlation identifiers propagating end to end" is met by `P7.1` and `P9.3`, and record it against plan §10. Deliverable: exit-criterion evidence record.
-8. [ ] Record the deferrals with their owning features: the seven dashboards, the alert set and every threshold (`FEAT-OPS-004`, `L5`); performance measurement runs (`FEAT-OPS-005`); per-capability metrics (each owning feature); frontend telemetry (out of programme scope); the observability backend product itself (**unowned** — `TASK-OBS1-DEFECT-001`, escalated in `P0.5`). Deliverable: deferral register.
+1. [*] Publish the observability configuration surface per environment — collector endpoint, sampling ratios, allowlist, salt reference — with no environment-specific code branch. Deliverable: configuration record per environment (`ARC-OPS-004`).
+2. [*] Confirm the telemetry configuration is identical across the three runtime roles from `FEAT-PLAT-006`, differing only in the resource attribute that names the role. Deliverable: role-parity review. Acceptance: `api`, `worker` and `pindist` are distinguishable in telemetry without three configurations to maintain.
+3. [*] State the rollback path: the feature is code and configuration only with no schema change, so a rollback is a code revert; a metric or log field is additive, and **removing** a published metric name is a breaking change for `FEAT-OPS-004`'s dashboards and alerts. Deliverable: rollback statement.
+4. [*] Close the reciprocal obligation with `FEAT-PLAT-004`: confirm the carrier it shipped satisfies the end-to-end join, and record that `FEAT-PLAT-004 tasks.md` `P9.5`'s deferred join test is discharged by `P7.1`. Deliverable: reciprocal closure record.
+5. [*] Hand the registered metric inventory, the log field contract, the span contract and the four inbound gap records' panel-and-alert limbs to `FEAT-OPS-004`. Deliverable: four handover records referenced by launch condition `L5`.
+6. [*] Hand the `dbQueryCount` and `db_query_duration` telemetry plus the query-budget assertion to `FEAT-OPS-005` as the input for the `ARC-PERF-004` and §15.2 evidence. Deliverable: handover record.
+7. [*] Confirm the Phase 0 exit criterion "correlation identifiers propagating end to end" is met by `P7.1` and `P9.3`, and record it against plan §10. Deliverable: exit-criterion evidence record.
+8. [*] Record the deferrals with their owning features: the seven dashboards, the alert set and every threshold (`FEAT-OPS-004`, `L5`); performance measurement runs (`FEAT-OPS-005`); per-capability metrics (each owning feature); frontend telemetry (out of programme scope); the observability backend product itself (**unowned** — `TASK-OBS1-DEFECT-001`, escalated in `P0.5`). Deliverable: deferral register.
 
 ---
 
 # Phase 9 – Monitoring and Operations
 
-1. [ ] Confirm the six MVP business-event metrics are live and increment on their domain events, with `eventCode` aligned to the audit event type per §16.1. Deliverable: six metrics plus evidence (`NFR-OBS-001`).
-2. [ ] Confirm the §16.1 field set is present on every log line in a running deployment, and that `actorId` is a safe identifier only — never an email, never a name. Deliverable: log-field conformance record from live output.
-3. [ ] Confirm the correlation identifier is the join key across logs, metric exemplars and traces end to end, including across the relay and a scheduler hop. Deliverable: `NFR-OBS-002` diagnosability evidence — the Phase 0 exit criterion.
-4. [ ] Confirm the self-observability set is live and that a collector outage is visible in it within one export interval. Deliverable: self-observability evidence. Acceptance: the feature's own failure is observable without depending on the path that failed.
-5. [ ] Hand the four inbound gap records' alert and panel proposals to `FEAT-OPS-004` with their severities and first actions intact, and confirm receipt. Deliverable: completed inbound-gap discharge record.
-6. [ ] Propose the two alerts this feature's own health warrants, for `FEAT-OPS-004` to define: a **P2** on a sustained telemetry-export failure rate with "check the collector and confirm no request-path impact" as its first action, and a **P2** on a sustained redaction-rejection rate, since a rising rejection rate means a new code path is attempting to log a secret. Deliverable: two alert proposals.
-7. [ ] Write the operations runbook for tracing a reported failure from a correlation identifier: where the identifier appears, how to move from log line to trace to metric exemplar, and what the client saw. Deliverable: runbook — the artifact `FEAT-OPS-002`'s operator surfaces link to.
-8. [ ] Write the operations runbook for a collector or sink outage: the expected symptom set, the confirmation that no request failed, the drop counters to read, and the recovery order. Deliverable: runbook.
-9. [ ] Confirm log retention and sampling policy is configured on the log sink and is distinct from audit retention. Deliverable: retention configuration record (`REQ-AUD-002`).
+1. [*] Confirm the six MVP business-event metrics are live and increment on their domain events, with `eventCode` aligned to the audit event type per §16.1. Deliverable: six metrics plus evidence (`NFR-OBS-001`).
+2. [*] Confirm the §16.1 field set is present on every log line in a running deployment, and that `actorId` is a safe identifier only — never an email, never a name. Deliverable: log-field conformance record from live output.
+3. [*] Confirm the correlation identifier is the join key across logs, metric exemplars and traces end to end, including across the relay and a scheduler hop. Deliverable: `NFR-OBS-002` diagnosability evidence — the Phase 0 exit criterion.
+4. [*] Confirm the self-observability set is live and that a collector outage is visible in it within one export interval. Deliverable: self-observability evidence. Acceptance: the feature's own failure is observable without depending on the path that failed.
+5. [*] Hand the four inbound gap records' alert and panel proposals to `FEAT-OPS-004` with their severities and first actions intact, and confirm receipt. Deliverable: completed inbound-gap discharge record.
+6. [*] Propose the two alerts this feature's own health warrants, for `FEAT-OPS-004` to define: a **P2** on a sustained telemetry-export failure rate with "check the collector and confirm no request-path impact" as its first action, and a **P2** on a sustained redaction-rejection rate, since a rising rejection rate means a new code path is attempting to log a secret. Deliverable: two alert proposals.
+7. [*] Write the operations runbook for tracing a reported failure from a correlation identifier: where the identifier appears, how to move from log line to trace to metric exemplar, and what the client saw. Deliverable: runbook — the artifact `FEAT-OPS-002`'s operator surfaces link to.
+8. [*] Write the operations runbook for a collector or sink outage: the expected symptom set, the confirmation that no request failed, the drop counters to read, and the recovery order. Deliverable: runbook.
+9. [*] Confirm log retention and sampling policy is configured on the log sink and is distinct from audit retention. Deliverable: retention configuration record (`REQ-AUD-002`).
 
 ---
 

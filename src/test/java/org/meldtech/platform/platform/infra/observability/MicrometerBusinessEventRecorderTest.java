@@ -28,16 +28,12 @@ class MicrometerBusinessEventRecorderTest {
         }
 
         assertThat(registry.get("exam_started_total").counter().count()).isEqualTo(1.0d);
+        assertThat(registry.get("exam_finished_total").counter().count()).isEqualTo(1.0d);
         assertThat(registry.get("pin_validation_total").tag("outcome", "success").counter().count())
                 .isEqualTo(1.0d);
-        assertThat(registry.getMeters())
-                .extracting(meter -> meter.getId().getName())
-                .contains(
-                        "exam_started_total",
-                        "exam_finished_total",
-                        "pin_validation_total",
-                        "result_published_total",
-                        "correction_applied_total",
-                        "provisional_feedback_released_total");
+        assertThat(registry.get("result_published_total").counter().count()).isEqualTo(1.0d);
+        assertThat(registry.get("correction_applied_total").counter().count()).isEqualTo(1.0d);
+        assertThat(registry.get("provisional_feedback_released_total").counter().count())
+                .isEqualTo(1.0d);
     }
 }

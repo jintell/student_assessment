@@ -41,6 +41,12 @@ class OpenTelemetryTracerConfiguration {
     }
 
     @Bean
+    ObservabilityHealthIndicator observabilityHealthIndicator(
+            ObservabilityHealthMetrics healthMetrics) {
+        return new ObservabilityHealthIndicator(healthMetrics);
+    }
+
+    @Bean
     ObservabilityConfigurationValidator observabilityConfigurationValidator(
             ObservabilityProperties properties, Environment environment) {
         ObservabilityConfigurationValidator validator =

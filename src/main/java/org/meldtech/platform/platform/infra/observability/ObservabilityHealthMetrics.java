@@ -4,10 +4,13 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class ObservabilityHealthMetrics implements TelemetryHealth {
 
@@ -17,6 +20,9 @@ final class ObservabilityHealthMetrics implements TelemetryHealth {
     private final Map<Signal, Map<DropReason, Counter>> drops;
     private final Map<Signal, AtomicInteger> queueDepths;
     private final Map<Surface, Map<RedactionReason, Counter>> redactionRejections;
+    private final Map<Signal, AtomicLong> lastSuccesses = signalSequences();
+    private final Map<Signal, AtomicLong> lastFailures = signalSequences();
+    private final AtomicLong eventSequence = new AtomicLong();
 
     ObservabilityHealthMetrics(MeterRegistry registry, ObservabilityProperties properties) {
         Objects.requireNonNull(registry, "registry");
@@ -37,11 +43,13 @@ final class ObservabilityHealthMetrics implements TelemetryHealth {
     @Override
     public void exportSuccess(Signal signal) {
         required(successes, signal).increment();
+        required(lastSuccesses, signal).set(eventSequence.incrementAndGet());
     }
 
     @Override
     public void exportTimeout(Signal signal) {
         required(timeouts, signal).increment();
+        markFailure(signal);
     }
 
     @Override
@@ -50,6 +58,9 @@ final class ObservabilityHealthMetrics implements TelemetryHealth {
             return;
         }
         required(required(drops, signal), reason).increment(count);
+        if (reason == DropReason.EXPORT_FAILURE) {
+            markFailure(signal);
+        }
     }
 
     @Override
@@ -60,6 +71,28 @@ final class ObservabilityHealthMetrics implements TelemetryHealth {
     @Override
     public void redactionRejected(Surface surface, RedactionReason reason) {
         required(required(redactionRejections, surface), reason).increment();
+    }
+
+    Set<Signal> degradedSignals() {
+        EnumSet<Signal> degraded = EnumSet.noneOf(Signal.class);
+        for (Signal signal : Signal.values()) {
+            if (required(lastFailures, signal).get() > required(lastSuccesses, signal).get()) {
+                degraded.add(signal);
+            }
+        }
+        return Set.copyOf(degraded);
+    }
+
+    private void markFailure(Signal signal) {
+        required(lastFailures, signal).set(eventSequence.incrementAndGet());
+    }
+
+    private static Map<Signal, AtomicLong> signalSequences() {
+        EnumMap<Signal, AtomicLong> sequences = new EnumMap<>(Signal.class);
+        for (Signal signal : Signal.values()) {
+            sequences.put(signal, new AtomicLong());
+        }
+        return Map.copyOf(sequences);
     }
 
     private static Map<Signal, Counter> signalCounters(MeterRegistry registry, String name) {
