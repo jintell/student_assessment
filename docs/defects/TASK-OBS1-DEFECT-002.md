@@ -20,7 +20,7 @@ The three omitted expectations are:
 - the CI stage 10 log-limb secret-leak scan; and
 - completeness of the six MVP business-event metrics.
 
-## Proposed Correction
+## Resolution Adopted by This Feature
 
 Record the expectations against the existing pipeline stages and retain their
 results in the section 19.9 evidence register. Do not create a new

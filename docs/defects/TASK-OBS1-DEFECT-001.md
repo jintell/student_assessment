@@ -72,6 +72,14 @@ Lead must record a collector contract that names:
 The signed `P3.5` contract satisfies this handoff. Production deployment still
 requires the contract's deployment gate to pass against the provisioned stack.
 
+## Next-Baseline Action
+
+Assign the collector and telemetry stores to a named plan feature or explicit
+Platform Ops workstream, including provisioning, capacity, retention, access,
+availability, and tail-sampling evidence. Preserve `FEAT-OBS-001` ownership of
+the vendor-neutral application export contract and `FEAT-OPS-004` ownership of
+dashboards, alerts, routing, and exercises.
+
 ## Closure Criteria
 
 - Platform Ops provides the production-shaped collector contract.

@@ -4,6 +4,8 @@ Status: **CLOSED - KERNEL ALLOWLIST IMPLEMENTED AND VERIFIED**
 
 Owner: `FEAT-PLAT-003`
 
+Architecture documentation owner: Architecture Owner
+
 Raised by: `FEAT-OBS-001`
 
 ## Resolution
