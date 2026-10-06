@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "store": {
+    "logicalName": "cbt-platform-logs",
+    "owner": "Platform Ops",
+    "retention": "P30D"
+  },
+  "sampling": {
+    "mode": "RETAIN_ALL_ACCEPTED_EVENTS",
+    "retentionRatio": 1.0,
+    "contentBasedRules": []
+  },
+  "delivery": {
+    "guarantee": "BEST_EFFORT",
+    "boundedApplicationQueue": true,
+    "dropsMeasured": true
+  },
+  "auditSeparation": {
+    "auditStore": "PostgreSQL audit schema",
+    "sameStoreAllowed": false,
+    "sameRetentionPolicyAllowed": false,
+    "auditSamplingAllowed": false,
+    "auditDropsAllowed": false
+  }
+}
