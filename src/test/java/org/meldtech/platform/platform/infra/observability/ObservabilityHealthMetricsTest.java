@@ -5,8 +5,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.sdk.common.CompletableResultCode;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 class ObservabilityHealthMetricsTest {
 
@@ -67,6 +72,50 @@ class ObservabilityHealthMetricsTest {
                 .isEqualTo(32.0d);
     }
 
+    @Test
+    void forcedExportFailureIncrementsTheDroppedSignalMetric() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        ObservabilityHealthMetrics health = new ObservabilityHealthMetrics(registry, properties());
+        CountDownLatch failureRecorded = new CountDownLatch(1);
+        TelemetryHealth recordingHealth = recordingHealth(health, failureRecorded);
+        BoundedExportQueue<String> queue =
+                new BoundedExportQueue<>(
+                        "forced-failure",
+                        ObservabilityHealthMetrics.Signal.TRACE,
+                        queue(16),
+                        Duration.ofMillis(100),
+                        Instant::now,
+                        ignored -> CompletableResultCode.ofFailure(),
+                        () -> {},
+                        recordingHealth);
+
+        queue.offer("span");
+
+        assertThat(failureRecorded.await(1, TimeUnit.SECONDS)).isTrue();
+        assertThat(counter(registry, "telemetry_span_dropped_total", "reason", "export-failure"))
+                .isEqualTo(1.0d);
+        queue.shutdown();
+    }
+
+    @Test
+    void forcedRedactionRejectionIncrementsTheRejectionMetric() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        ObservabilityHealthMetrics health = new ObservabilityHealthMetrics(registry, properties());
+        RedactingJsonSerializer serializer = new RedactingJsonSerializer(health);
+
+        serializer.serialize(
+                "authorizationToken",
+                () -> JsonNodeFactory.instance.stringNode("must-not-be-read"));
+
+        assertThat(
+                        registry.get("telemetry_redaction_rejection_total")
+                                .tag("surface", "log")
+                                .tag("reason", "prohibited-field")
+                                .counter()
+                                .count())
+                .isEqualTo(1.0d);
+    }
+
     private static double counter(
             SimpleMeterRegistry registry, String name, String tag, String value) {
         return registry.get(name).tag(tag, value).counter().count();
@@ -87,5 +136,29 @@ class ObservabilityHealthMetricsTest {
 
     private static ObservabilityProperties.Queue queue(int capacity) {
         return new ObservabilityProperties.Queue(capacity, 4, Duration.ofSeconds(30));
+    }
+
+    private static TelemetryHealth recordingHealth(
+            ObservabilityHealthMetrics delegate, CountDownLatch failureRecorded) {
+        return new TelemetryHealth() {
+            @Override
+            public void exportAttempt(ObservabilityHealthMetrics.Signal signal) {
+                delegate.exportAttempt(signal);
+            }
+
+            @Override
+            public void dropped(
+                    ObservabilityHealthMetrics.Signal signal,
+                    ObservabilityHealthMetrics.DropReason reason,
+                    int count) {
+                delegate.dropped(signal, reason, count);
+                failureRecorded.countDown();
+            }
+
+            @Override
+            public void queueDepth(ObservabilityHealthMetrics.Signal signal, int depth) {
+                delegate.queueDepth(signal, depth);
+            }
+        };
     }
 }

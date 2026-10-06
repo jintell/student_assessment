@@ -1,0 +1,16 @@
+{
+  "evidenceId": "FEAT-OBS-001-P7.3-BUSINESS-EVENT-COMPLETENESS",
+  "feature": "FEAT-OBS-001",
+  "task": "P7.3",
+  "recordedAt": "2026-10-05",
+  "result": "PASS",
+  "verification": "NFR-OBS-001 MVP business-event metric set completeness",
+  "testClass": "org.meldtech.platform.platform.infra.observability.ObservabilityContractGatesTest",
+  "assertions": [
+    "approved six-event MVP contract passes",
+    "removed MVP event fails",
+    "early Post-MVP event registration fails"
+  ],
+  "command": "./gradlew test --tests 'org.meldtech.platform.platform.infra.observability.ObservabilityContractGatesTest' businessEventCompletenessGate",
+  "identifierGap": "TASK-OBS1-DEFECT-002: the approved architecture assigns no ARC-VERIFY identifier to FEAT-OBS-001; this evidence is retained against blocking CI stages 4 and 5 without inventing one."
+}

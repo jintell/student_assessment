@@ -14,6 +14,9 @@
 | `FEAT-PLAT-005-P7.11-MIGRATION-LOCK` | §19.9 migration lock-duration report | PASS | `FEAT-PLAT-005/P7.11-migration-lock-duration-report.json` | `731087d86e8775839af45357c0801ab79cc64d60be858691a655f7ad1a480676` | Repository history plus release bundle |
 | `FEAT-PLAT-005-P7.17-ROLLBACK` | Code-only rollback rehearsal against the expanded schema | PASS | `FEAT-PLAT-005/P7.17-rollback-rehearsal.json` | `116d2b6cf24d674403fa1863d2ecd5b886cedbfb47e38b843b99044a1cffeda7` | Repository history plus release bundle |
 | `FEAT-PLAT-005-P7.18-BACKFILL` | Throttled interruption and resumption rehearsal | PASS | `FEAT-PLAT-005/P7.18-backfill-rehearsal.md` | `981f2d053263f26ec3c2cdd073a8c96dec7302ec9ec7d935efed438e99380443` | Repository history plus release bundle |
+| `FEAT-OBS-001-P7.1-PROPAGATION` | `NFR-OBS-002` HTTP-to-consumer correlation and trace propagation, CI stage 8 | PASS, 3 cases on real PostgreSQL and RabbitMQ | `FEAT-OBS-001/P7.1-propagation-test-result.json` | `8c8c1fa3019cd769a25ea5840043a933eb32671b31c928e0bdf74b251e26a846` | Repository history plus release bundle |
+| `FEAT-OBS-001-P7.3-BUSINESS-EVENT-COMPLETENESS` | `NFR-OBS-001` six-event MVP metric completeness, CI stages 4 and 5 | PASS, positive contract and 2 negative cases | `FEAT-OBS-001/P7.3-business-event-completeness-result.json` | `d517d982e6748f997e89de128bf55ab15790a5a291dbd60493baa9b367405ef4` | Repository history plus release bundle |
+| `FEAT-OBS-001-P7.4-LOG-LEAK-SCAN` | Operational-log secret-leak scan, CI stage 10 | PASS, BLOCKING | `FEAT-OBS-001/P7.4-log-leak-scan-result.json` | `f0cd78fc2e0204d66195b08a0a860cef721432ad183713bc906a155a2ee23864` | Repository history plus release bundle |
 
 Release assembly must include both Stage 4a artifacts from the same green CI run. A console observation without the uploaded artifacts does not satisfy launch condition `L11`.
 
@@ -29,3 +32,9 @@ propagation to `ARC-VERIFY-008`, but the architecture register defines that
 identifier as route-policy resolution owned by identity/security features. The
 FEAT-PLAT-003 entries retain owned `ARC-VERIFY-013` and stage-10 allowlist
 evidence without inventing a replacement identifier for the propagation gap.
+
+`TASK-OBS1-DEFECT-002`: the approved architecture assigns no `ARC-VERIFY-###`
+identifier to `FEAT-OBS-001` despite naming propagation, business-event
+completeness and log-leak verification. The three task-owned entries above
+retain those results against their blocking CI stages without inventing an
+architecture identifier.

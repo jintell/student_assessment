@@ -1,0 +1,17 @@
+{
+  "evidenceId": "FEAT-OBS-001-P7.4-LOG-LEAK-SCAN",
+  "feature": "FEAT-OBS-001",
+  "task": "P7.4",
+  "recordedAt": "2026-10-05",
+  "result": "PASS",
+  "verification": "Blocking CI stage 10 operational-log secret-leak scan",
+  "gradleTask": "operationalLogSecretScan",
+  "components": [
+    "operationalLogCaptureTest",
+    "operationalLogLeakScannerSelfTest",
+    "OperationalLogLeakScanner"
+  ],
+  "command": "./gradlew operationalLogSecretScan",
+  "blocking": true,
+  "identifierGap": "TASK-OBS1-DEFECT-002: the approved architecture assigns no ARC-VERIFY identifier to FEAT-OBS-001; this evidence is retained against blocking CI stage 10 without inventing one."
+}

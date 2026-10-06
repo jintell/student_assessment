@@ -157,6 +157,19 @@ class ObservabilityContractGatesTest {
     }
 
     @Test
+    void queryBudgetGateRejectsAnAddedReferenceSliceQuery() {
+        String routeId = "platform.getConformanceReference";
+
+        assertThatNoException()
+                .isThrownBy(
+                        () -> QueryBudgetGate.verifyQueryCount(QUERY_BUDGET_CONTRACT, routeId, 3));
+        assertThatThrownBy(
+                        () -> QueryBudgetGate.verifyQueryCount(QUERY_BUDGET_CONTRACT, routeId, 4))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("used 4 queries; approved maximum is 3");
+    }
+
+    @Test
     void contractReaderRejectsMalformedAndNonObjectDocuments(@TempDir Path directory)
             throws IOException {
         Path malformed = directory.resolve("malformed.json");

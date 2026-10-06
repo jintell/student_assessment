@@ -38,7 +38,8 @@ class MetricCardinalityGuardTest {
                                                 320)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Metric cardinality registration rejected")
-                .hasMessageContaining("forbidden unbounded label");
+                .hasMessageContaining("forbidden unbounded labels")
+                .hasMessageContaining("tenantId");
         assertThatThrownBy(
                         () ->
                                 guard.verifyRegistration(
@@ -53,5 +54,22 @@ class MetricCardinalityGuardTest {
                                                 Set.of("slice", "operation"),
                                                 0)))
                 .hasMessageContaining("no positive series ceiling");
+    }
+
+    @Test
+    void rejectsCorrelationIdentifierAsAMetricLabel() {
+        MetricCardinalityGuard guard = MetricCardinalityGuard.from(CONTRACT);
+
+        assertThatThrownBy(
+                        () ->
+                                guard.verifyRegistration(
+                                        new MetricCardinalityGuard.Registration(
+                                                "db_query_duration",
+                                                Set.of("slice", "operation", "correlationId"),
+                                                320)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Metric cardinality registration rejected")
+                .hasMessageContaining("forbidden unbounded labels")
+                .hasMessageContaining("correlationId");
     }
 }

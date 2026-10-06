@@ -69,7 +69,8 @@ final class MetricCardinalityGuard {
         Set<String> rejectedLabels = new LinkedHashSet<>(registration.labels());
         rejectedLabels.retainAll(forbiddenLabels);
         if (!rejectedLabels.isEmpty()) {
-            throw rejected(registration.name() + " declares a forbidden unbounded label");
+            throw rejected(
+                    registration.name() + " declares forbidden unbounded labels " + rejectedLabels);
         }
         TelemetrySchemaGate.verifyFieldNames("metric label", registration.labels());
     }

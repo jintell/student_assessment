@@ -30,13 +30,29 @@ class TelemetryBoundaryConformanceTests {
     void rejectsDirectVendorMetricsFromASlice() {
         Iterable<JavaClass> fixture =
                 new ClassFileImporter()
-                        .importPackages("org.meldtech.platform.conformance.fixtures.telemetry");
+                        .importPackages(
+                                "org.meldtech.platform.conformance.fixtures.telemetry.slice.invalid");
 
         AssertionError failure =
                 assertThrows(AssertionError.class, () -> assertTelemetryBoundary(fixture));
 
         assertTrue(String.valueOf(failure.getMessage()).contains(FAILURE_PREFIX));
         assertTrue(String.valueOf(failure.getMessage()).contains("BusinessEventRecorder"));
+    }
+
+    @Test
+    void rejectsDirectVendorTracingFromADomainPackage() {
+        Iterable<JavaClass> fixture =
+                new ClassFileImporter()
+                        .importPackages(
+                                "org.meldtech.platform.conformance.fixtures.telemetry.domain.invalid");
+
+        AssertionError failure =
+                assertThrows(AssertionError.class, () -> assertTelemetryBoundary(fixture));
+
+        assertTrue(String.valueOf(failure.getMessage()).contains(FAILURE_PREFIX));
+        assertTrue(
+                String.valueOf(failure.getMessage()).contains("io.opentelemetry.api.trace.Tracer"));
     }
 
     private static void assertTelemetryBoundary(Iterable<JavaClass> classes) {

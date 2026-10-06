@@ -8,9 +8,13 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import io.micrometer.tracing.handler.DefaultTracingObservationHandler;
 import io.micrometer.tracing.test.simple.SimpleTracer;
 import io.micrometer.tracing.test.simple.TracerAssert;
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import io.prometheus.metrics.tracer.common.SpanContext;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +54,12 @@ class CorrelationIdLifecycleTest {
         ReactorContextPropagationConfiguration propagation =
                 new ReactorContextPropagationConfiguration();
         SimpleTracer tracer = new SimpleTracer();
+        PrometheusMeterRegistry meters =
+                new PrometheusMeterRegistry(
+                        PrometheusConfig.DEFAULT,
+                        new PrometheusRegistry(),
+                        io.micrometer.core.instrument.Clock.SYSTEM,
+                        new TracingExemplarContext(tracer));
         ObservationRegistry registry = ObservationRegistry.create();
         registry.observationConfig()
                 .observationHandler(new DefaultTracingObservationHandler(tracer));
@@ -86,9 +96,13 @@ class CorrelationIdLifecycleTest {
                                                                         "correlationId",
                                                                         correlationId)
                                                                 .observe(
-                                                                        () ->
-                                                                                logger.info(
-                                                                                        "joined diagnostic surfaces"));
+                                                                        () -> {
+                                                                            meters.counter(
+                                                                                            "correlation_join_total")
+                                                                                    .increment();
+                                                                            logger.info(
+                                                                                    "joined diagnostic surfaces");
+                                                                        });
                                                         return Mono.empty();
                                                     })))
                     .verifyComplete();
@@ -108,6 +122,15 @@ class CorrelationIdLifecycleTest {
                     .onlySpan()
                     .hasNameEqualTo("correlation.join")
                     .hasTag("correlationId", expected);
+            var joinedSpan = tracer.onlySpan();
+            assertEquals(
+                    true,
+                    meters.scrape("application/openmetrics-text; version=1.0.0; charset=utf-8")
+                            .contains("trace_id=\"" + joinedSpan.getTraceId() + "\""));
+            assertEquals(
+                    true,
+                    meters.scrape("application/openmetrics-text; version=1.0.0; charset=utf-8")
+                            .contains("span_id=\"" + joinedSpan.getSpanId() + "\""));
             suppliedHeader
                     .filter(value -> !value.equals(expected))
                     .ifPresent(
@@ -146,5 +169,32 @@ class CorrelationIdLifecycleTest {
                 Map.of(),
                 ProblemDetailMetrics.NOOP,
                 () -> CorrelationId.parse(GENERATED));
+    }
+
+    private static final class TracingExemplarContext implements SpanContext {
+
+        private final SimpleTracer tracer;
+
+        private TracingExemplarContext(SimpleTracer tracer) {
+            this.tracer = tracer;
+        }
+
+        @Override
+        public String getCurrentTraceId() {
+            return Objects.requireNonNull(tracer.currentSpan()).getTraceId();
+        }
+
+        @Override
+        public String getCurrentSpanId() {
+            return Objects.requireNonNull(tracer.currentSpan()).getSpanId();
+        }
+
+        @Override
+        public boolean isCurrentSpanSampled() {
+            return tracer.currentSpan() != null;
+        }
+
+        @Override
+        public void markCurrentSpanAsExemplar() {}
     }
 }

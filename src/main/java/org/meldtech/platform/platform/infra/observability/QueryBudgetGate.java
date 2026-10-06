@@ -57,6 +57,39 @@ public final class QueryBudgetGate {
         }
     }
 
+    static void verifyQueryCount(Path budgetContract, String routeId, long actualQueries) {
+        verify(budgetContract);
+        if (actualQueries < 0) {
+            throw ObservabilityContractFiles.invalid(
+                    budgetContract, "query count must be non-negative for " + routeId);
+        }
+        JsonNode routes =
+                ObservabilityContractFiles.required(
+                        ObservabilityContractFiles.readObject(budgetContract),
+                        "routes",
+                        budgetContract);
+        for (JsonNode route : routes) {
+            if (routeId.equals(
+                    ObservabilityContractFiles.requiredText(route, "routeId", budgetContract))) {
+                int maxQueries =
+                        ObservabilityContractFiles.requiredNonNegativeInt(
+                                route, "maxQueries", budgetContract);
+                if (actualQueries > maxQueries) {
+                    throw ObservabilityContractFiles.invalid(
+                            budgetContract,
+                            routeId
+                                    + " used "
+                                    + actualQueries
+                                    + " queries; approved maximum is "
+                                    + maxQueries);
+                }
+                return;
+            }
+        }
+        throw ObservabilityContractFiles.invalid(
+                budgetContract, "route has no query budget: " + routeId);
+    }
+
     private static String routeIdFrom(String routeType, Path source) {
         try {
             Class<?> type = Class.forName(routeType);
