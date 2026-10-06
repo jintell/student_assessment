@@ -286,17 +286,17 @@ against existing stages.
 
 # Phase 10 – Documentation and Knowledge Transfer
 
-1. [ ] Publish the structured-log field contract as the normative platform interface, with the provenance table from `P1.1`. Deliverable: `docs/logging-contract.md`.
-2. [ ] Publish the metric catalogue and naming convention, marking each metric's owning feature and its label-cardinality budget. Deliverable: `docs/metric-catalogue.md` — the input `FEAT-OPS-004` builds panels from.
-3. [ ] Publish the tracing contract: span naming, the span inventory, mandatory attributes, the prohibited attribute categories and the sampling rules. Deliverable: `docs/tracing-contract.md`.
-4. [ ] Write the instrumentation authoring guide for slice authors: how to record a business event through the port, what to log and what never to, which fields arrive automatically, and how to run the telemetry assertions locally. Deliverable: `docs/instrumentation-authoring.md` — the guide every later feature follows to satisfy the universal DoD's "required telemetry exists" clause.
-5. [ ] Write the telemetry hygiene guide: the redaction pattern, the permitted-`key` allowlist and why it is enumerated, the personal-data rules, and what the CI stage 10 log limb will reject. Deliverable: `docs/telemetry-hygiene.md`.
-6. [ ] Write the query-budget guide: the §15.2 per-route numbers, how `dbQueryCount` is measured, and what to do when a route exceeds its budget. Deliverable: `docs/query-budget.md`.
-7. [ ] Document the telemetry degradation contract for operations and for reviewers: what an unreachable collector does and does not affect. Deliverable: `docs/telemetry-degradation.md`.
-8. [ ] Document the observability layering decision — ports in the kernel, adapters in `platform.infra`, no vendor type in `domain` or `slice` — with the conformance rule that enforces it. Deliverable: `docs/observability-architecture.md`. Acceptance: states why a business event is recorded through a port rather than from an HTTP filter.
-9. [ ] Raise `TASK-OBS1-DEFECT-001` through `-007` and `TASK-OBS1-OBS-001` to the Architecture Owner as baseline defects, each with the resolution this feature adopted, and raise `-003` to the `FEAT-PLAT-003` owner as a correction at the `SecretFieldPattern` definition site. Deliverable: eight defect records.
-10. [ ] Update the plan §19 traceability matrix with this feature's evidence: task ranges, CI stages and retained artifacts, noting that no `ARC-VERIFY` identifier is assigned. Deliverable: updated matrix rows.
-11. [ ] Run a walkthrough with the engineering team covering the port-not-vendor rule, the log schema, the redaction allowlist, the business-event enumeration and the query budget. Deliverable: session record plus attendance.
+1. [*] Publish the structured-log field contract as the normative platform interface, with the provenance table from `P1.1`. Deliverable: `docs/logging-contract.md`.
+2. [*] Publish the metric catalogue and naming convention, marking each metric's owning feature and its label-cardinality budget. Deliverable: `docs/metric-catalogue.md` — the input `FEAT-OPS-004` builds panels from.
+3. [*] Publish the tracing contract: span naming, the span inventory, mandatory attributes, the prohibited attribute categories and the sampling rules. Deliverable: `docs/tracing-contract.md`.
+4. [*] Write the instrumentation authoring guide for slice authors: how to record a business event through the port, what to log and what never to, which fields arrive automatically, and how to run the telemetry assertions locally. Deliverable: `docs/instrumentation-authoring.md` — the guide every later feature follows to satisfy the universal DoD's "required telemetry exists" clause.
+5. [*] Write the telemetry hygiene guide: the redaction pattern, the permitted-`key` allowlist and why it is enumerated, the personal-data rules, and what the CI stage 10 log limb will reject. Deliverable: `docs/telemetry-hygiene.md`.
+6. [*] Write the query-budget guide: the §15.2 per-route numbers, how `dbQueryCount` is measured, and what to do when a route exceeds its budget. Deliverable: `docs/query-budget.md`.
+7. [*] Document the telemetry degradation contract for operations and for reviewers: what an unreachable collector does and does not affect. Deliverable: `docs/telemetry-degradation.md`.
+8. [*] Document the observability layering decision — ports in the kernel, adapters in `platform.infra`, no vendor type in `domain` or `slice` — with the conformance rule that enforces it. Deliverable: `docs/observability-architecture.md`. Acceptance: states why a business event is recorded through a port rather than from an HTTP filter.
+9. [*] Raise `TASK-OBS1-DEFECT-001` through `-007` and `TASK-OBS1-OBS-001` to the Architecture Owner as baseline defects, each with the resolution this feature adopted, and raise `-003` to the `FEAT-PLAT-003` owner as a correction at the `SecretFieldPattern` definition site. Deliverable: eight defect records.
+10. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, CI stages and retained artifacts, noting that no `ARC-VERIFY` identifier is assigned. Deliverable: updated matrix rows.
+11. [*] Run a walkthrough with the engineering team covering the port-not-vendor rule, the log schema, the redaction allowlist, the business-event enumeration and the query budget. Deliverable: session record plus attendance.
 
 ---
 
