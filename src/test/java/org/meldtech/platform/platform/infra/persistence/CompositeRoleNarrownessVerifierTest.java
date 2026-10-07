@@ -36,6 +36,7 @@ class CompositeRoleNarrownessVerifierTest {
                         matrix.memberships(),
                         grants,
                         matrix.defaultPrivileges(),
+                        matrix.defaultPrivilegeExceptions(),
                         matrix.denials());
 
         assertThatThrownBy(() -> CompositeRoleNarrownessVerifier.verify(widened))

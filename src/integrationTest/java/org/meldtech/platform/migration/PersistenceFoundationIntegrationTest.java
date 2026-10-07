@@ -12,9 +12,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.meldtech.platform.PostgreSqlTestContainer;
+import org.meldtech.platform.audit.testing.AuditPostgreSqlFixture;
 import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -26,6 +28,7 @@ class PersistenceFoundationIntegrationTest {
     private static final String MIGRATOR_PASSWORD = UUID.randomUUID().toString();
 
     private PostgreSQLContainer postgres;
+    private AuditPostgreSqlFixture.Manifest auditFixtureManifest;
 
     @BeforeAll
     void migrateDatabase() throws Exception {
@@ -35,6 +38,9 @@ class PersistenceFoundationIntegrationTest {
         executeAsClusterOwner("ALTER ROLE app_migrator PASSWORD '%s'".formatted(MIGRATOR_PASSWORD));
 
         runMigrations();
+        try (Connection connection = clusterOwnerConnection()) {
+            auditFixtureManifest = AuditPostgreSqlFixture.seed(connection);
+        }
     }
 
     @Test
@@ -193,6 +199,151 @@ class PersistenceFoundationIntegrationTest {
         try (Connection connection = clusterOwnerConnection()) {
             CompositeRoleGrantAudit.verify(connection);
         }
+    }
+
+    @Test
+    void auditShardHeadsArePreProvisionedIdempotentlyWithDeterministicSeeds() throws SQLException {
+        String tenantId = "00000000-0000-0000-0000-000000000061";
+        executeAsClusterOwner(
+                """
+                SET ROLE app_migrator;
+                SELECT audit.provision_audit_epoch_heads(
+                    '%s',
+                    'GENERAL_AUDIT_EVENT',
+                    date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date,
+                    4,
+                    1::smallint
+                );
+                SELECT audit.provision_audit_epoch_heads(
+                    '%s',
+                    'GENERAL_AUDIT_EVENT',
+                    date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date,
+                    4,
+                    1::smallint
+                );
+                RESET ROLE;
+                """
+                        .formatted(tenantId, tenantId));
+
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM audit.audit_chain_head
+                                WHERE tenant_id = '%s'
+                                  AND retention_class = 'GENERAL_AUDIT_EVENT'
+                                  AND seq = 0
+                                  AND shard_count = 4
+                                  AND octet_length(head_hash) = 32
+                                """
+                                        .formatted(tenantId)))
+                .isEqualTo(4);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(DISTINCT encode(head_hash, 'hex'))
+                                FROM audit.audit_chain_head
+                                WHERE tenant_id = '%s'
+                                  AND retention_class = 'GENERAL_AUDIT_EVENT'
+                                """
+                                        .formatted(tenantId)))
+                .isEqualTo(4);
+    }
+
+    @Test
+    void auditFixtureSeedsMixedRetentionAcrossTwoUtcMonthBoundaries() throws SQLException {
+        assertThat(auditFixtureManifest.events()).hasSize(24);
+        assertThat(auditFixtureManifest.utcMonthBoundaries()).hasSize(2);
+        assertThat(auditFixtureManifest.legalHolds()).hasSize(1);
+        assertThat(auditFixtureManifest.eligibleDispositionUnits()).hasSize(4);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(DISTINCT retention_class)
+                                FROM audit.audit_event
+                                WHERE tenant_id = '%s'
+                                """
+                                        .formatted(AuditPostgreSqlFixture.TENANT_ID)))
+                .isEqualTo(4);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(DISTINCT period)
+                                FROM audit.audit_event
+                                WHERE tenant_id = '%s'
+                                """
+                                        .formatted(AuditPostgreSqlFixture.TENANT_ID)))
+                .isEqualTo(3);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(DISTINCT shard_id)
+                                FROM audit.audit_event
+                                WHERE tenant_id = '%s'
+                                """
+                                        .formatted(AuditPostgreSqlFixture.TENANT_ID)))
+                .isEqualTo(2);
+
+        AuditPostgreSqlFixture.LegalHoldSeed legalHold =
+                auditFixtureManifest.legalHolds().getFirst();
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM audit.audit_event
+                                WHERE tenant_id = '%s'
+                                  AND retention_class = '%s'
+                                  AND period = DATE '%s'
+                                """
+                                        .formatted(
+                                                AuditPostgreSqlFixture.TENANT_ID,
+                                                legalHold.promotedEpoch().retentionClass(),
+                                                legalHold.promotedEpoch().period())))
+                .isEqualTo(2);
+        assertThat(
+                        auditFixtureManifest.events().stream()
+                                .filter(
+                                        seeded ->
+                                                seeded.event()
+                                                        .eventId()
+                                                        .equals(legalHold.coveredEventId())))
+                .hasSize(1);
+    }
+
+    @Test
+    @Tag("audit-daily-chain-verification")
+    void dailyAuditChainVerificationWalksEveryOpenFixtureShard() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM audit.audit_event AS event
+                                JOIN audit.audit_chain_head AS head
+                                  ON head.tenant_id = event.tenant_id
+                                 AND head.retention_class = event.retention_class
+                                 AND head.period = event.period
+                                 AND head.shard_id = event.shard_id
+                                WHERE event.tenant_id = '%s'
+                                  AND event.seq = 1
+                                  AND event.prev_hash = audit.audit_chain_seed(
+                                      event.tenant_id,
+                                      event.retention_class,
+                                      event.period,
+                                      event.shard_id,
+                                      head.shard_count
+                                  )
+                                  AND event.record_hash = audit.digest(
+                                      event.prev_hash
+                                      || convert_to('meldtech.audit.fixture.record.v1', 'UTF8')
+                                      || decode('00', 'hex')
+                                      || convert_to(event.audit_event_id::text, 'UTF8'),
+                                      'sha256'
+                                  )
+                                  AND head.seq = event.seq
+                                  AND head.head_hash = event.record_hash
+                                """
+                                        .formatted(AuditPostgreSqlFixture.TENANT_ID)))
+                .isEqualTo(auditFixtureManifest.events().size());
     }
 
     private void runMigrations() {

@@ -1,0 +1,23 @@
+schemaVersion: 1
+feature: FEAT-AUD-001
+gates:
+  - stage: 8
+    name: daily-chain-verification
+    status: active
+    gradleTask: auditDailyChainVerificationTest
+    testTag: audit-daily-chain-verification
+    mode: open-chain-walk
+    database: postgresql-testcontainer
+    failurePolicy: blocking
+  - stage: 10
+    name: audit-payload-secret-leak-scan
+    status: active
+    gradleTask: auditPayloadSecretScan
+    captureDirectory: build/reports/integration-audit-payloads
+    fieldPattern: org.meldtech.platform.shared.kernel.security.SecretFieldPattern
+    failurePolicy: blocking
+  - stage: 6
+    name: audit-domain-mutation-test
+    status: proposed
+    configuration: config/audit/stage-6-pitest-proposal.yaml
+    failurePolicy: blocking-on-activation

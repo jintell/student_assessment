@@ -1,0 +1,24 @@
+schemaVersion: 1
+proposalId: TASK-AUD1-OBS-001
+status: PROPOSED
+engine: PIT
+stage: 6
+targetClasses:
+  - org.meldtech.platform.audit.domain.*
+targetTests:
+  - org.meldtech.platform.audit.domain.*Test
+mutationThreshold: 90
+coverageThreshold: 90
+excludedClasses: []
+requiredSubjects:
+  - canonical-json-v1
+  - record-hash
+  - shard-assignment
+  - epoch-identity
+  - epoch-root
+  - root-chain-compare-and-swap-input
+activationPrerequisites:
+  - audit.domain exists as a pure package
+  - golden-vector and algebra tests are implemented
+  - the repository has an approved blocking CI stage 6
+  - mutation runtime and worker limits are approved

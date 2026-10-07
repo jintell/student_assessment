@@ -26,7 +26,11 @@ class YamlExamCriticalTableRegistryTest {
                         "delivery.answer",
                         "delivery.answer_operation",
                         "delivery.attempt",
-                        "audit.audit_event"),
+                        "audit.audit_event",
+                        "audit.audit_chain_checkpoint",
+                        "audit.audit_chain_head",
+                        "audit.audit_chain_root_head",
+                        "audit.audit_chain_seal"),
                 registry.relations());
         assertTrue(registry.isCritical("DELIVERY.ANSWER"));
     }

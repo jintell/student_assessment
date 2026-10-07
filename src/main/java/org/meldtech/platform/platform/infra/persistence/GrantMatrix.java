@@ -9,6 +9,7 @@ record GrantMatrix(
         List<RoleMembership> memberships,
         List<ObjectGrant> objectGrants,
         List<DefaultPrivilege> defaultPrivileges,
+        List<DefaultPrivilegeException> defaultPrivilegeExceptions,
         List<Denial> denials) {
 
     enum ObjectType {
@@ -53,6 +54,9 @@ record GrantMatrix(
             ObjectType objectType,
             List<String> grantees,
             List<Privilege> privileges) {}
+
+    record DefaultPrivilegeException(
+            String owner, String schema, String object, List<Privilege> privileges) {}
 
     record Denial(DenialKind kind, String role, String schema, List<Privilege> privileges) {}
 }

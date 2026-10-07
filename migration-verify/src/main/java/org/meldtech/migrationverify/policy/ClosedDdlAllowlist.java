@@ -29,7 +29,14 @@ public final class ClosedDdlAllowlist {
             boolean concurrentShape =
                     statement.kind() == StatementKind.CREATE_INDEX
                             || statement.kind() == StatementKind.DROP_INDEX;
-            if (concurrentShape && (!statement.concurrent() || header.transactional())) {
+            boolean emptyPartitionedParentIndex =
+                    statement.kind() == StatementKind.CREATE_INDEX
+                            && statement.newEmptyPartitionedParentIndex()
+                            && !statement.concurrent()
+                            && header.transactional();
+            if (concurrentShape
+                    && !emptyPartitionedParentIndex
+                    && (!statement.concurrent() || header.transactional())) {
                 violations.add(rejected(header, statement, "CONCURRENT_INDEX_REQUIRED"));
             }
             if (!concurrentShape && !header.transactional()) {
@@ -37,6 +44,10 @@ public final class ClosedDdlAllowlist {
             }
             if (statement.cascade()) {
                 violations.add(rejected(header, statement, "CASCADE_NOT_ALLOWED"));
+            }
+            if (statement.newEmptyPartitionedParentIndex()
+                    && statement.kind() != StatementKind.CREATE_INDEX) {
+                violations.add(rejected(header, statement, "INDEX_BUILD_EXCEPTION_MISAPPLIED"));
             }
             if (statement.kind() == StatementKind.COMMENT && !isAllowedComment(index, statements)) {
                 violations.add(rejected(header, statement, "ORPHAN_COMMENT"));
@@ -58,6 +69,7 @@ public final class ClosedDdlAllowlist {
             if (previous.kind() != StatementKind.COMMENT) {
                 return EnumSet.of(
                                 StatementKind.CREATE_TABLE,
+                                StatementKind.CREATE_INDEX,
                                 StatementKind.ADD_COLUMN,
                                 StatementKind.ADD_CONSTRAINT)
                         .contains(previous.kind());
@@ -87,10 +99,19 @@ public final class ClosedDdlAllowlist {
                 MigrationPhase.EXPAND,
                 EnumSet.of(
                         StatementKind.CREATE_TABLE,
+                        StatementKind.CREATE_EXTENSION,
+                        StatementKind.CREATE_FUNCTION,
+                        StatementKind.CREATE_TRIGGER,
+                        StatementKind.CREATE_POLICY,
+                        StatementKind.ROW_LEVEL_SECURITY,
                         StatementKind.ADD_COLUMN,
                         StatementKind.ADD_CONSTRAINT,
                         StatementKind.CREATE_INDEX,
-                        StatementKind.COMMENT));
+                        StatementKind.COMMENT,
+                        StatementKind.GRANT,
+                        StatementKind.REVOKE,
+                        StatementKind.INVOKE_FUNCTION,
+                        StatementKind.PROCEDURAL_BLOCK));
         allowed.put(
                 MigrationPhase.MIGRATE,
                 EnumSet.of(StatementKind.VALIDATE_CONSTRAINT, StatementKind.SET_DEFAULT));

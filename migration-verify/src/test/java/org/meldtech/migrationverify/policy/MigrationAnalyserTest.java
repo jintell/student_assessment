@@ -79,13 +79,76 @@ class MigrationAnalyserTest {
         assertFalse(message.contains("id = 42"));
     }
 
+    @Test
+    void acceptsExplicitPostgresqlInfrastructureShapes() throws IOException {
+        Path migration =
+                migration(
+                        "EXPAND",
+                        true,
+                        """
+                        CREATE TABLE delivery.answer (
+                            answer_id uuid NOT NULL,
+                            retention_class text NOT NULL,
+                            initial_hash bytea NOT NULL DEFAULT decode(repeat('00', 32), 'hex'),
+                            PRIMARY KEY (retention_class, answer_id)
+                        ) PARTITION BY LIST (retention_class);
+                        CREATE TABLE delivery.answer_p1
+                            PARTITION OF delivery.answer FOR VALUES IN (1);
+                        CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA delivery;
+                        CREATE FUNCTION delivery.provision_answer()
+                        RETURNS void LANGUAGE plpgsql AS $$
+                        BEGIN
+                            PERFORM 1;
+                        END;
+                        $$;
+                        CREATE TRIGGER answer_immutable
+                        BEFORE UPDATE ON delivery.answer
+                        FOR EACH ROW EXECUTE FUNCTION delivery.provision_answer();
+                        ALTER TABLE delivery.answer ENABLE ROW LEVEL SECURITY;
+                        ALTER TABLE delivery.answer FORCE ROW LEVEL SECURITY;
+                        CREATE POLICY tenant_isolation ON delivery.answer
+                            USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+                            WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+                        GRANT EXECUTE ON FUNCTION delivery.provision_answer() TO app_delivery;
+                        REVOKE UPDATE ON TABLE delivery.answer FROM app_delivery;
+                        SELECT delivery.provision_answer();
+                        DO $$
+                        BEGIN
+                            NULL;
+                        END;
+                        $$;
+                        """);
+
+        var analysis = analyser.analyse(migration);
+
+        assertTrue(analysis.valid(), () -> analysis.violations().toString());
+    }
+
+    @Test
+    void acceptsAnExplicitIndexBuildOnANewEmptyPartitionedParent() throws IOException {
+        Path migration =
+                migration(
+                        "EXPAND",
+                        true,
+                        """
+                        -- PostgreSQL cannot build this index concurrently on a partitioned parent.
+                        -- cbt:index-build NEW_EMPTY_PARTITIONED_PARENT
+                        CREATE INDEX delivery.delivery_answer_tenant_idx
+                            ON delivery.answer (tenant_id);
+                        """);
+
+        var analysis = analyser.analyse(migration);
+
+        assertTrue(analysis.valid(), () -> analysis.violations().toString());
+    }
+
     private static Stream<Arguments> permittedShapes() {
         return Stream.of(
                 Arguments.of(
-                        "EXPAND create table",
+                        "EXPAND create table with required column",
                         "EXPAND",
                         true,
-                        "CREATE TABLE delivery.new_answer (id bigint);"),
+                        "CREATE TABLE delivery.new_answer (id bigint NOT NULL);"),
                 Arguments.of(
                         "EXPAND add column",
                         "EXPAND",

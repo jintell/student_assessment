@@ -113,7 +113,44 @@ final class GrantMatrixLoader {
             }
         }
         validateDefaultPrivileges(matrix, schemas, roles);
+        validateDefaultPrivilegeExceptions(matrix, schemas, roles);
         validateDenials(matrix, roles, schemas);
+    }
+
+    private static void validateDefaultPrivilegeExceptions(
+            GrantMatrix matrix, Set<String> schemas, Set<String> roles) {
+        Set<String> facts = new HashSet<>();
+        for (GrantMatrix.DefaultPrivilegeException exception :
+                matrix.defaultPrivilegeExceptions()) {
+            require(roles.contains(exception.owner()), "Unknown exception owner");
+            require(schemas.contains(exception.schema()), "Unknown exception schema");
+            require(isIdentifier(exception.object()), "Invalid exception table");
+            GrantMatrix.DefaultPrivilege matchingDefault =
+                    matrix.defaultPrivileges().stream()
+                            .filter(grant -> grant.owner().equals(exception.owner()))
+                            .filter(grant -> grant.schema().equals(exception.schema()))
+                            .filter(grant -> grant.objectType() == GrantMatrix.ObjectType.TABLE)
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "Default-privilege exception has no matching default"));
+            for (GrantMatrix.Privilege privilege : exception.privileges()) {
+                require(
+                        matchingDefault.privileges().contains(privilege),
+                        "Exception privilege is not granted by its matching default");
+                require(
+                        facts.add(
+                                exception.owner()
+                                        + ":"
+                                        + exception.schema()
+                                        + ":"
+                                        + exception.object()
+                                        + ":"
+                                        + privilege),
+                        "Duplicate default-privilege exception");
+            }
+        }
     }
 
     private static void validateDefaultPrivileges(
@@ -268,6 +305,7 @@ final class GrantMatrixLoader {
                         .toList(),
                 List.copyOf(matrix.objectGrants()),
                 List.copyOf(matrix.defaultPrivileges()),
+                List.copyOf(matrix.defaultPrivilegeExceptions()),
                 List.copyOf(matrix.denials()));
     }
 

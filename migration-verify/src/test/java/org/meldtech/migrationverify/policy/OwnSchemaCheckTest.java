@@ -65,4 +65,24 @@ class OwnSchemaCheckTest {
 
         assertTrue(violation.message().contains("foreign schema '<unqualified>'"));
     }
+
+    @Test
+    void acceptsAnUnqualifiedCreatedIndexOnAnOwnedQualifiedTable() throws IOException {
+        Path migration = directory.resolve("V11__owned_index.sql");
+        Files.writeString(
+                migration,
+                "-- cbt:phase EXPAND\n"
+                        + "-- cbt:module delivery\n"
+                        + "-- cbt:transactional false\n"
+                        + "-- cbt:justification add owned index\n"
+                        + "CREATE INDEX CONCURRENTLY answer_source_idx "
+                        + "ON delivery.answer (source);\n");
+        var analyser =
+                new MigrationAnalyser(
+                        new MigrationHeaderParser(),
+                        new JSqlParserMigrationAdapter(),
+                        new ClosedDdlAllowlist());
+
+        assertTrue(analyser.analyse(migration).valid());
+    }
 }
