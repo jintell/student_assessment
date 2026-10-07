@@ -1,0 +1,30 @@
+{
+  "codec": "AUDIT_CANONICAL_JSON_V1",
+  "hashAlgorithmVersion": 1,
+  "vectors": [
+    {
+      "name": "recursive-key-ordering",
+      "typedInput": "object{b:integer(2),a:integer(1)}",
+      "canonicalUtf8Hex": "7b2261223a312c2262223a327d",
+      "canonicalSha256": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "name": "unicode-nfc",
+      "typedInput": "object{name:string(Cafe followed by U+0301)}",
+      "canonicalUtf8Hex": "7b226e616d65223a22436166c3a9227d",
+      "canonicalSha256": "659906f125d844f7081786e4a1cba739414e49a9b9061d80ce09c691b5f56602"
+    },
+    {
+      "name": "fixed-utc-microseconds",
+      "typedInput": "object{occurred_at:instant(2026-10-07T04:04:05.123456+01:00)}",
+      "canonicalUtf8Hex": "7b226f636375727265645f6174223a22323032362d31302d30375430333a30343a30352e3132333435365a227d",
+      "canonicalSha256": "a4b23137f5da1cdf81216071d30324638686ed10238f68b7f31ba703336f51dc"
+    },
+    {
+      "name": "decimal-null-and-absent",
+      "typedInput": "object{z:decimal(-0012.3400),explicit_null:null,whole_decimal:decimal(1.000),omitted:absent}",
+      "canonicalUtf8Hex": "7b226578706c696369745f6e756c6c223a6e756c6c2c2277686f6c655f646563696d616c223a312e302c227a223a2d31322e33347d",
+      "canonicalSha256": "a6b82e00ffe6519b97a5fb148251a06a82d81a3eaf784fdfd3a4c11afbb57f63"
+    }
+  ]
+}

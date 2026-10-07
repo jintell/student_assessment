@@ -1,0 +1,68 @@
+{
+  "recordId": "ADR-FEAT-AUD-001-P2.16",
+  "feature": "FEAT-AUD-001",
+  "task": "P2.16",
+  "status": "APPROVED",
+  "amends": ["ADR-011", "ARC-AUD-005"],
+  "findings": ["REV11-ADR-GAP-001", "REV11-ARCH-REVIEW-001"],
+  "decision": {
+    "protocol": "PRELOCKED_TWO_STATEMENT_APPEND_V1",
+    "sameConnectionAndTransaction": true,
+    "businessSqlCompletesBeforeAuditFinalization": true,
+    "statementOne": "SELECT_PREPROVISIONED_CHAIN_HEAD_FOR_UPDATE",
+    "statementTwo": "DATA_MODIFYING_CTE_INSERT_EVENT_THEN_CONDITIONALLY_ADVANCE_HEAD",
+    "requiredUpdatedHeadRows": 1,
+    "missingHead": "FAIL_PROVISIONING",
+    "zeroOrMultipleHeadUpdates": "FAIL_AND_ROLL_BACK",
+    "sqlAfterFinalAppendBeforeCompletion": "REFUSE_NON_AUDIT_SQL",
+    "lazyHeadCreation": false,
+    "databaseFunction": false,
+    "triggerCoordinatesAppend": false,
+    "advisoryLock": false,
+    "requiresNewTransaction": false,
+    "newConnection": false,
+    "asyncPath": false
+  },
+  "budget": {
+    "answerSaveMaximumStatements": 6,
+    "auditStatements": 2,
+    "statementNames": [
+      "chain_head_select_for_update",
+      "audit_event_insert_and_chain_head_advance"
+    ],
+    "hiddenDatabaseCallsPermitted": false
+  },
+  "grantAmendment": {
+    "relation": "audit.audit_chain_head",
+    "principals": "approved module and composite emitter roles",
+    "grant": ["SELECT", "UPDATE"],
+    "revokeOrDoNotGrant": ["INSERT", "DELETE", "TRUNCATE", "OWNERSHIP"],
+    "supersedes": "P0.4 audit_chain_head row only"
+  },
+  "headProvisioning": {
+    "initialOwner": "FEAT-TENANT-001",
+    "futureEpochOwner": "FEAT-AUD-001 partition creation job",
+    "requiredBeforeWrites": true
+  },
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-07T16:45:00+01:00",
+      "signature": "P2.16-atomic-append-approval.architecture-owner.sig"
+    },
+    {
+      "role": "Security Engineer",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-07T16:46:00+01:00",
+      "signature": "P2.16-atomic-append-approval.security.sig"
+    },
+    {
+      "role": "FEAT-PLAT-002 Owner (Engineering Lead)",
+      "decision": "ACKNOWLEDGED",
+      "approvedAt": "2026-10-07T16:47:00+01:00",
+      "signature": "P2.16-atomic-append-approval.persistence-owner.sig"
+    }
+  ],
+  "changePolicy": "Any extra hot-path statement, lazy head creation, weaker predecessor serialization, hidden database call, broader grant, or non-transactional emission requires renewed Architecture Owner and Security approval plus FEAT-PLAT-002 owner acknowledgement."
+}

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-AUD-001/P2.16-atomic-append-approval.json"
+trusted_roles="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "Audit atomic append approval failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${approval}" ]] || fail "atomic append approval is missing."
+
+jq -e '
+    .recordId == "ADR-FEAT-AUD-001-P2.16"
+    and .feature == "FEAT-AUD-001"
+    and .task == "P2.16"
+    and .status == "APPROVED"
+    and .decision.protocol == "PRELOCKED_TWO_STATEMENT_APPEND_V1"
+    and .decision.sameConnectionAndTransaction == true
+    and .decision.businessSqlCompletesBeforeAuditFinalization == true
+    and .decision.statementOne == "SELECT_PREPROVISIONED_CHAIN_HEAD_FOR_UPDATE"
+    and .decision.statementTwo == "DATA_MODIFYING_CTE_INSERT_EVENT_THEN_CONDITIONALLY_ADVANCE_HEAD"
+    and .decision.requiredUpdatedHeadRows == 1
+    and .decision.missingHead == "FAIL_PROVISIONING"
+    and .decision.zeroOrMultipleHeadUpdates == "FAIL_AND_ROLL_BACK"
+    and .decision.sqlAfterFinalAppendBeforeCompletion == "REFUSE_NON_AUDIT_SQL"
+    and .decision.lazyHeadCreation == false
+    and .decision.databaseFunction == false
+    and .decision.triggerCoordinatesAppend == false
+    and .decision.advisoryLock == false
+    and .decision.requiresNewTransaction == false
+    and .decision.newConnection == false
+    and .decision.asyncPath == false
+    and .budget.answerSaveMaximumStatements == 6
+    and .budget.auditStatements == 2
+    and .budget.hiddenDatabaseCallsPermitted == false
+    and .grantAmendment.relation == "audit.audit_chain_head"
+    and .grantAmendment.grant == ["SELECT", "UPDATE"]
+    and .grantAmendment.revokeOrDoNotGrant == ["INSERT", "DELETE", "TRUNCATE", "OWNERSHIP"]
+    and .headProvisioning.initialOwner == "FEAT-TENANT-001"
+    and .headProvisioning.futureEpochOwner == "FEAT-AUD-001 partition creation job"
+    and .headProvisioning.requiredBeforeWrites == true
+    and ([.approvals[].role] | sort) == ([
+        "Architecture Owner",
+        "Security Engineer",
+        "FEAT-PLAT-002 Owner (Engineering Lead)"
+    ] | sort)
+    and all(.approvals[]; .decision == "APPROVED" or .decision == "ACKNOWLEDGED")
+' "${approval}" >/dev/null || fail "approved protocol, budget, grants, or ownership are incomplete."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "trusted approval key could not be imported: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_roles}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local expected_fingerprint="$2"
+    local signature_name signature_path status actual_fingerprint
+
+    signature_name="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}")"
+    signature_path="$(dirname "${approval}")/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use its designated trusted key."
+    printf '%s\n' "${actual_fingerprint}"
+}
+
+architecture_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_roles}")"
+engineering_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_roles}")"
+verified_architecture="$(verify_signature "Architecture Owner" "${architecture_fingerprint}")"
+verified_security="$(verify_signature "Security Engineer" "${engineering_fingerprint}")"
+verify_signature "FEAT-PLAT-002 Owner (Engineering Lead)" "${engineering_fingerprint}" >/dev/null
+
+[[ "${verified_architecture}" != "${verified_security}" ]] \
+    || fail "Architecture Owner and Security approvals must have distinct signers."
+
+echo "AUDIT ATOMIC APPEND APPROVAL: PASS"
+echo "Predecessor serialization, two-statement budget, grant amendment, and signatures are verified."

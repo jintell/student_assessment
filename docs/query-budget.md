@@ -12,7 +12,7 @@ Architecture section 15.2 defines these acceptance baselines:
 |---|---:|---|
 | Timer/state refresh | 1 | One indexed attempt read. |
 | Question navigation | 1-2 | Presentation state plus question text from attempt tables. |
-| Answer save | 6 | Lifecycle check, locked attempt, operation insert, answer upsert, audit insert, and audit chain-head upsert in one transaction. |
+| Answer save | 6 | Lifecycle check, locked attempt, operation insert, answer upsert, pre-provisioned audit chain-head lock, and one atomic audit-event-insert/head-advance statement in the caller's transaction. |
 | Authorized workforce request | 2 + slice | Fixed PostgreSQL user-lifecycle and membership reads plus the owning slice's declared budget; effective permissions come from Redis. |
 | Exam entry | Approximately 10 | Approved planning envelope for the heaviest request path, kept in one transaction. Each concrete route still needs an exact registered maximum. |
 
