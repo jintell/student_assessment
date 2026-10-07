@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-AUD-001/P0.4-audit-grant-amendment-approval.json"
+trusted_roles="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "Audit grant amendment approval failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${approval}" ]] || fail "approval record is missing."
+
+jq -e '
+    .recordId == "DOR-FEAT-AUD-001-P0.4"
+    and .feature == "FEAT-AUD-001"
+    and .dependency == "P0.4"
+    and .blocker == "TASK-AUD1-BLOCKER-001"
+    and .status == "APPROVED"
+    and .decision.grantScope == "PER_TABLE_ONLY"
+    and .decision.denials == {
+        "schemaWideUpdate": false,
+        "schemaWideDelete": false,
+        "auditEventUpdate": false,
+        "auditEventDelete": false,
+        "chainHeadDelete": false,
+        "applicationDelete": false
+    }
+    and ([.decision.tables[] | {table, privileges}] | sort_by(.table)) == ([
+        {"table": "audit.audit_event", "privileges": ["INSERT"]},
+        {"table": "audit.audit_chain_checkpoint", "privileges": ["INSERT"]},
+        {"table": "audit.audit_chain_head", "privileges": ["INSERT", "UPDATE"]},
+        {"table": "audit.audit_chain_root_head", "privileges": ["UPDATE"]},
+        {"table": "audit.audit_chain_seal", "privileges": ["INSERT"]},
+        {"table": "expired audit-event partitions", "privileges": ["DELETE"]}
+    ] | sort_by(.table))
+    and (.persistenceTestAmendments | length) == 3
+    and ([.approvals[].role] | sort) == ([
+        "Architecture Owner",
+        "Security Engineer",
+        "FEAT-PLAT-002 Owner (Engineering Lead)"
+    ] | sort)
+    and all(.approvals[]; .decision == "APPROVED" or .decision == "ACKNOWLEDGED")
+' "${approval}" >/dev/null || fail "approved grant or test-amendment matrix is incomplete."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "trusted approval key could not be imported: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_roles}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local expected_fingerprint="$2"
+    local signature_name signature_path status actual_fingerprint
+
+    signature_name="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}")"
+    signature_path="$(dirname "${approval}")/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use its designated trusted key."
+    printf '%s\n' "${actual_fingerprint}"
+}
+
+architecture_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_roles}")"
+engineering_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_roles}")"
+
+verified_architecture="$(verify_signature "Architecture Owner" "${architecture_fingerprint}")"
+verified_security="$(verify_signature "Security Engineer" "${engineering_fingerprint}")"
+verify_signature "FEAT-PLAT-002 Owner (Engineering Lead)" "${engineering_fingerprint}" >/dev/null
+
+[[ "${verified_architecture}" != "${verified_security}" ]] \
+    || fail "Architecture Owner and Security approvals must have distinct signers."
+
+echo "AUDIT GRANT AMENDMENT APPROVAL: PASS"
+echo "Per-table grants, persistence-test amendments, and all required signatures are verified."

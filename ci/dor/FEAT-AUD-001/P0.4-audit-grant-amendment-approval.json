@@ -1,0 +1,87 @@
+{
+  "recordId": "DOR-FEAT-AUD-001-P0.4",
+  "feature": "FEAT-AUD-001",
+  "dependency": "P0.4",
+  "blocker": "TASK-AUD1-BLOCKER-001",
+  "status": "APPROVED",
+  "decision": {
+    "grantScope": "PER_TABLE_ONLY",
+    "tables": [
+      {
+        "table": "audit.audit_event",
+        "principal": "module and approved composite roles",
+        "privileges": ["INSERT"],
+        "trigger": "BEFORE UPDATE OR DELETE raises"
+      },
+      {
+        "table": "audit.audit_chain_head",
+        "principal": "module and approved composite roles",
+        "privileges": ["INSERT", "UPDATE"]
+      },
+      {
+        "table": "audit.audit_chain_checkpoint",
+        "principal": "background audit workload",
+        "privileges": ["INSERT"]
+      },
+      {
+        "table": "audit.audit_chain_seal",
+        "principal": "background audit workload",
+        "privileges": ["INSERT"]
+      },
+      {
+        "table": "audit.audit_chain_root_head",
+        "principal": "audit sealer role",
+        "privileges": ["UPDATE"],
+        "constraint": "compare-and-swap only"
+      },
+      {
+        "table": "expired audit-event partitions",
+        "principal": "retention role",
+        "privileges": ["DELETE"]
+      }
+    ],
+    "denials": {
+      "schemaWideUpdate": false,
+      "schemaWideDelete": false,
+      "auditEventUpdate": false,
+      "auditEventDelete": false,
+      "chainHeadDelete": false,
+      "applicationDelete": false
+    }
+  },
+  "persistenceTestAmendments": [
+    {
+      "task": "FEAT-PLAT-002 P7.8",
+      "decision": "Compare grants per table; preserve UPDATE and DELETE denial on immutable audit evidence while allowing explicit audit_chain_head INSERT and UPDATE."
+    },
+    {
+      "task": "FEAT-PLAT-002 P7.15",
+      "decision": "Continue proving default privileges grant INSERT only; permit a later audit migration to add the explicit audit_chain_head grant."
+    },
+    {
+      "task": "FEAT-PLAT-002 composite-role exclusion assertion",
+      "decision": "Distinguish immutable event and evidence tables from the audit_chain_head coordination table."
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-07T04:15:00+01:00",
+      "signature": "P0.4-audit-grant-amendment-approval.architecture-owner.sig"
+    },
+    {
+      "role": "Security Engineer",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-07T04:16:00+01:00",
+      "signature": "P0.4-audit-grant-amendment-approval.security.sig"
+    },
+    {
+      "role": "FEAT-PLAT-002 Owner (Engineering Lead)",
+      "decision": "ACKNOWLEDGED",
+      "approvedAt": "2026-10-07T04:17:00+01:00",
+      "signature": "P0.4-audit-grant-amendment-approval.persistence-owner.sig"
+    }
+  ],
+  "changePolicy": "Any wider privilege, additional role membership, schema-wide mutation grant, or weakening of an immutable-table denial requires renewed Architecture Owner and Security approval plus FEAT-PLAT-002 owner acknowledgement."
+}
