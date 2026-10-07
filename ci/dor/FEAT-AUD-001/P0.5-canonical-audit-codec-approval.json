@@ -1,0 +1,37 @@
+{
+  "recordId": "DOR-FEAT-AUD-001-P0.5",
+  "feature": "FEAT-AUD-001",
+  "dependency": "P0.5",
+  "defect": "TASK-AUD1-DEFECT-001",
+  "status": "APPROVED",
+  "decision": {
+    "selectedDirection": "AUDIT_CANONICAL_JSON_V1",
+    "specificationOwner": "FEAT-AUD-001 P2.4",
+    "implementationOwner": "audit.domain",
+    "initialHashAlgorithmVersion": 1,
+    "invariants": {
+      "configurableApplicationObjectMapper": false,
+      "recursiveObjectKeyOrdering": "DETERMINISTIC_SORTED",
+      "textEncoding": "UTF-8",
+      "unicodeNormalization": "NFC",
+      "timestampFormat": "UTC_RFC_3339_FIXED_PRECISION",
+      "numberFormat": "CANONICAL_LOCALE_INDEPENDENT_INTEGER_AND_DECIMAL",
+      "nullAndAbsentAreDistinct": true,
+      "goldenVectorsRequired": true,
+      "goldenVectorsFreezeExactBytesAndHashes": true
+    }
+  },
+  "versioningPolicy": {
+    "hashAlgorithmVersionPersistedOnEveryRow": true,
+    "byteAffectingChangeRequiresNewVersion": true,
+    "existingRowsMayBeRewrittenOrRehashed": false,
+    "verificationRetainsEveryVersionPresentInRetainedData": true
+  },
+  "approval": {
+    "role": "Architecture Owner",
+    "decision": "APPROVED",
+    "approvedAt": "2026-10-07T04:30:00+01:00",
+    "signature": "P0.5-canonical-audit-codec-approval.architecture-owner.sig"
+  },
+  "changePolicy": "P2.4 may make the version-1 byte grammar stricter but may not relax an approved invariant. Any relaxation, rewrite of historical rows, or reuse of a version number for different bytes requires renewed Architecture Owner approval."
+}

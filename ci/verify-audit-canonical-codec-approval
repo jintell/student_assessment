@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-AUD-001/P0.5-canonical-audit-codec-approval.json"
+trusted_roles="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "Audit canonical codec approval failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${approval}" ]] || fail "approval record is missing."
+
+jq -e '
+    .recordId == "DOR-FEAT-AUD-001-P0.5"
+    and .feature == "FEAT-AUD-001"
+    and .dependency == "P0.5"
+    and .defect == "TASK-AUD1-DEFECT-001"
+    and .status == "APPROVED"
+    and .decision.selectedDirection == "AUDIT_CANONICAL_JSON_V1"
+    and .decision.specificationOwner == "FEAT-AUD-001 P2.4"
+    and .decision.implementationOwner == "audit.domain"
+    and .decision.initialHashAlgorithmVersion == 1
+    and .decision.invariants == {
+        "configurableApplicationObjectMapper": false,
+        "recursiveObjectKeyOrdering": "DETERMINISTIC_SORTED",
+        "textEncoding": "UTF-8",
+        "unicodeNormalization": "NFC",
+        "timestampFormat": "UTC_RFC_3339_FIXED_PRECISION",
+        "numberFormat": "CANONICAL_LOCALE_INDEPENDENT_INTEGER_AND_DECIMAL",
+        "nullAndAbsentAreDistinct": true,
+        "goldenVectorsRequired": true,
+        "goldenVectorsFreezeExactBytesAndHashes": true
+    }
+    and .versioningPolicy == {
+        "hashAlgorithmVersionPersistedOnEveryRow": true,
+        "byteAffectingChangeRequiresNewVersion": true,
+        "existingRowsMayBeRewrittenOrRehashed": false,
+        "verificationRetainsEveryVersionPresentInRetainedData": true
+    }
+    and .approval.role == "Architecture Owner"
+    and .approval.decision == "APPROVED"
+' "${approval}" >/dev/null || fail "approved codec invariants or versioning policy are incomplete."
+
+expected_fingerprint="$(jq -r '."Architecture Owner".fingerprint // empty' "${trusted_roles}")"
+public_key_name="$(jq -r '."Architecture Owner".publicKey // empty' "${trusted_roles}")"
+[[ "${expected_fingerprint}" =~ ^[0-9A-F]{40}$ ]] \
+    || fail "registered Architecture Owner fingerprint is invalid."
+
+signature_name="$(jq -r '.approval.signature // empty' "${approval}")"
+signature_path="$(dirname "${approval}")/${signature_name}"
+[[ -f "${signature_path}" ]] || fail "Architecture Owner signature is missing."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+gpg --homedir "${gnupg_home}" --batch --quiet \
+    --import "${repo_root}/ci/${public_key_name}" >/dev/null 2>&1 \
+    || fail "trusted Architecture Owner key could not be imported."
+
+status="$(
+    gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+        --verify "${signature_path}" "${approval}" 2>/dev/null
+)" || fail "Architecture Owner signature is invalid or untrusted."
+actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+[[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+    || fail "signature does not use the designated Architecture Owner key."
+
+echo "AUDIT CANONICAL CODEC APPROVAL: PASS"
+echo "Version-1 direction, invariants, golden-vector requirement, and no-rewrite policy are verified."

@@ -105,3 +105,89 @@ Per-table grants, persistence-test amendments, and all required signatures are v
 The approval authorizes `P2.5` and `P3.8` to implement only the signed
 per-table model. Any wider privilege remains blocked by the decision's change
 policy.
+
+## P0.5 - Canonical Audit Codec Decision
+
+Status: **SATISFIED**
+
+`TASK-AUD1-DEFECT-001` is resolved by the signed Architecture Owner decision
+at `ci/dor/FEAT-AUD-001/P0.5-canonical-audit-codec-approval.json`.
+
+The decision selects `AUDIT_CANONICAL_JSON_V1`: an audit-domain-owned codec
+with recursively sorted keys, UTF-8 NFC text, fixed-precision UTC RFC 3339
+timestamps, locale-independent canonical numbers, distinct null and absent
+values, committed golden vectors, and `hash_algo_version = 1` on every row.
+Byte-affecting changes require a new version and existing rows are never
+rewritten or re-hashed.
+
+Verification on 2026-10-07:
+
+```text
+./ci/verify-audit-canonical-codec-approval
+AUDIT CANONICAL CODEC APPROVAL: PASS
+Version-1 direction, invariants, golden-vector requirement, and no-rewrite policy are verified.
+```
+
+Task `P2.4` is unblocked to define the exact version-1 byte grammar and golden
+vectors without relaxing the signed constraints.
+
+## P0.6 - Secret-Pattern policy_key Conflict
+
+Status: **SATISFIED**
+
+`TASK-AUD1-DEFECT-003` and `TASK-OBS1-DEFECT-003` now form the joint correction
+record at the `FEAT-PLAT-003` ownership boundary. `SecretFieldPattern` permits
+exactly the required `policy_key` leaf while retaining rejection of all other
+secret-key forms.
+
+The observability validator was corrected to consume
+`SecretFieldPattern.permittedKeyFields()` instead of duplicating the approved
+catalogue. A source-wide production check now finds one definition site.
+
+Verification on 2026-10-07:
+
+```text
+./gradlew test \
+  --tests 'org.meldtech.platform.shared.kernel.security.SecretFieldPatternTest' \
+  --tests 'org.meldtech.platform.platform.infra.observability.ObservabilityConfigurationValidatorTest' \
+  --tests 'org.meldtech.platform.platform.infra.observability.RedactingJsonSerializerTest' \
+  --console=plain
+
+BUILD SUCCESSFUL
+```
+
+## P0.7 - Architecture Baseline Gaps
+
+Status: **SATISFIED - THREE GAPS RAISED WITH LOCAL RESOLUTIONS**
+
+The following baseline defects are recorded for the Architecture Owner:
+
+- `TASK-AUD1-DEFECT-002` preserves the real `ARC-VERIFY-010` and
+  `ARC-VERIFY-011` ownership, records daily chain verification without
+  inventing an identifier, and requests a next-baseline identifier;
+- `TASK-AUD1-DEFECT-004` fixes the version-1 empty-shard contribution as
+  `47b1714f4cbd8e976e91ea9c96957b99e2047333643d50060f98f07432e62908`,
+  paired with count zero and ordered by ascending shard identifier; and
+- `TASK-AUD1-DEFECT-006` records the complete five-table audit ownership set,
+  including checkpoints, seals, and the root-chain head.
+
+The empty-shard sentinel is settled before task `P2.7`; that task must carry
+the exact input bytes and digest into the seal specification.
+
+## P0.8 - Feature-Specific Definition of Ready
+
+Status: **BLOCKED - SIGNED DOR AND PROVISIONING OWNER MISSING**
+
+The ratified architecture supplies `N = 64`, monthly
+`(retention_class, period)` epochs, and canonical `(period, retention_class)`
+close ordering. The audit task list also requires a stable event-catalogue
+convention before later features declare events.
+
+`TASK-AUD1-DEFECT-007` records the proposed ownership boundary in which
+`FEAT-AUD-001` owns the shard-count contract and `FEAT-TENANT-001` applies it
+during tenant provisioning. No signed audit-specific DoR or acknowledgement
+from the tenant-provisioning owner exists, and the catalogue convention has
+not been approved as a consumer contract.
+
+Task `P0.8` remains open. Task `P0.9` cannot confirm universal readiness until
+this feature-specific gate is signed.
