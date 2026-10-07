@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-AUD-001/P0.8-audit-contract-dor.json"
+trusted_roles="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "Audit contract Definition of Ready failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${approval}" ]] || fail "signed Definition of Ready is missing."
+
+jq -e '
+    .recordId == "DOR-FEAT-AUD-001-P0.8"
+    and .feature == "FEAT-AUD-001"
+    and .dependency == "P0.8"
+    and .defect == "TASK-AUD1-DEFECT-007"
+    and .status == "APPROVED"
+    and .shardContract == {
+        "defaultShardCount": 64,
+        "auditOwner": "FEAT-AUD-001",
+        "provisioningOwner": "FEAT-TENANT-001",
+        "provisioningAccountableRole": "Engineering Lead",
+        "provisioningMustCompleteBeforeTenantWrites": true,
+        "immutableWithinEpoch": true,
+        "changeBoundary": "NEXT_EPOCH_ONLY",
+        "changeRequiresClosedCurrentEpochs": true,
+        "changeRequiresAuditPolicyEvent": true
+    }
+    and .epochContract == {
+        "identity": ["retention_class", "period"],
+        "period": "UTC_CALENDAR_MONTH",
+        "periodKey": "YYYY-MM",
+        "closedEpochMayReopen": false
+    }
+    and .closeOrdering == {
+        "keys": ["period", "retention_class"],
+        "periodOrder": "ASCENDING",
+        "retentionClassOrder": [
+            "RESULT_CORRECTION_EVIDENCE",
+            "RESULT_PUBLICATION_EVIDENCE",
+            "PIN_SECURITY_EVENT",
+            "GENERAL_AUDIT_EVENT"
+        ],
+        "sealsPerTransaction": 1
+    }
+    and .eventCatalogueConvention.eventTypePattern == "<bounded-context>.<EVENT_CODE>.v<major>"
+    and .eventCatalogueConvention.observabilityAlignment == "EVENT_CODE token exactly equals FEAT-OBS-001 eventCode"
+    and .eventCatalogueConvention.registrationOwner == "owning capability feature"
+    and .eventCatalogueConvention.registrationRequiredBeforeEmission == true
+    and .eventCatalogueConvention.registeredIdentifierMayBeRenamedOrReused == false
+    and .eventCatalogueConvention.breakingSemanticChangeRequiresNewMajor == true
+    and ([.approvals[].role] | sort) == ([
+        "Architecture Owner",
+        "FEAT-TENANT-001 Owner (Engineering Lead)"
+    ] | sort)
+    and any(.approvals[];
+        .role == "Architecture Owner" and .decision == "APPROVED")
+    and any(.approvals[];
+        .role == "FEAT-TENANT-001 Owner (Engineering Lead)"
+        and .decision == "ACKNOWLEDGED")
+' "${approval}" >/dev/null || fail "readiness contracts or ownership acknowledgement are incomplete."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "trusted approval key could not be imported: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_roles}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local expected_fingerprint="$2"
+    local signature_name signature_path status actual_fingerprint
+
+    signature_name="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}")"
+    signature_path="$(dirname "${approval}")/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use its designated trusted key."
+    printf '%s\n' "${actual_fingerprint}"
+}
+
+architecture_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_roles}")"
+engineering_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_roles}")"
+verified_architecture="$(verify_signature "Architecture Owner" "${architecture_fingerprint}")"
+verified_tenant_owner="$(verify_signature "FEAT-TENANT-001 Owner (Engineering Lead)" "${engineering_fingerprint}")"
+
+[[ "${verified_architecture}" != "${verified_tenant_owner}" ]] \
+    || fail "Architecture Owner and tenant-provisioning owner must have distinct signers."
+
+echo "AUDIT CONTRACT DOR: PASS"
+echo "Shard, epoch, close-ordering, catalogue, provisioning ownership, and both signatures are verified."

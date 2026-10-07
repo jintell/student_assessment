@@ -1,0 +1,71 @@
+{
+  "recordId": "DOR-FEAT-AUD-001-P0.8",
+  "feature": "FEAT-AUD-001",
+  "dependency": "P0.8",
+  "defect": "TASK-AUD1-DEFECT-007",
+  "status": "APPROVED",
+  "shardContract": {
+    "defaultShardCount": 64,
+    "auditOwner": "FEAT-AUD-001",
+    "provisioningOwner": "FEAT-TENANT-001",
+    "provisioningAccountableRole": "Engineering Lead",
+    "provisioningMustCompleteBeforeTenantWrites": true,
+    "immutableWithinEpoch": true,
+    "changeBoundary": "NEXT_EPOCH_ONLY",
+    "changeRequiresClosedCurrentEpochs": true,
+    "changeRequiresAuditPolicyEvent": true
+  },
+  "epochContract": {
+    "identity": ["retention_class", "period"],
+    "period": "UTC_CALENDAR_MONTH",
+    "periodKey": "YYYY-MM",
+    "closedEpochMayReopen": false
+  },
+  "closeOrdering": {
+    "keys": ["period", "retention_class"],
+    "periodOrder": "ASCENDING",
+    "retentionClassOrder": [
+      "RESULT_CORRECTION_EVIDENCE",
+      "RESULT_PUBLICATION_EVIDENCE",
+      "PIN_SECURITY_EVENT",
+      "GENERAL_AUDIT_EVENT"
+    ],
+    "sealsPerTransaction": 1
+  },
+  "eventCatalogueConvention": {
+    "eventTypePattern": "<bounded-context>.<EVENT_CODE>.v<major>",
+    "boundedContextPattern": "^[a-z][a-z0-9]*$",
+    "eventCodePattern": "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$",
+    "versionPattern": "^v[1-9][0-9]*$",
+    "observabilityAlignment": "EVENT_CODE token exactly equals FEAT-OBS-001 eventCode",
+    "registrationOwner": "owning capability feature",
+    "registrationRequiredBeforeEmission": true,
+    "registrationFields": [
+      "event_type",
+      "owner",
+      "purpose",
+      "retention_class",
+      "payload_schema_version",
+      "eventCode"
+    ],
+    "registeredIdentifierMayBeRenamedOrReused": false,
+    "breakingSemanticChangeRequiresNewMajor": true
+  },
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "identity": "Josiah Adetayo",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-07T04:55:00+01:00",
+      "signature": "P0.8-audit-contract-dor.architecture-owner.sig"
+    },
+    {
+      "role": "FEAT-TENANT-001 Owner (Engineering Lead)",
+      "identity": "Francis Okechukwu",
+      "decision": "ACKNOWLEDGED",
+      "approvedAt": "2026-10-07T04:56:00+01:00",
+      "signature": "P0.8-audit-contract-dor.tenant-owner.sig"
+    }
+  ],
+  "changePolicy": "A shard-count default, provisioning boundary, epoch identity, close order, or published event-type convention change requires renewed Architecture Owner approval and FEAT-TENANT-001 owner acknowledgement."
+}
