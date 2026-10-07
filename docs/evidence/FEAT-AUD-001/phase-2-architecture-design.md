@@ -617,3 +617,233 @@ Approval:
 AUDIT ATOMIC APPEND APPROVAL: PASS
 Predecessor serialization, two-statement budget, grant amendment, and signatures are verified.
 ```
+
+## P2.17 Tenant-Scoped Compliance Query Slice
+
+The read surface is the vertical slice
+`audit.slice.getComplianceAuditEvents` with operation id
+`audit.getComplianceAuditEvents` and route `GET /api/v1/audit-events`. Its
+`Endpoint`, `Request`, `Response`, `Policy`, `Handler`, and `Queries` follow the
+normative slice template. The HTTP response is `Cache-Control: no-store` and
+contains only immutable audit DTOs; it never exposes persistence entities,
+raw signature bytes, secret material, SQL, or operational-log data.
+
+`Policy` permits only a workforce actor with a non-empty kernel `tenantId`
+and the platform-authoritative `AUDIT_COMPLIANCE_READ` capability for that
+same tenant. Audit Officer, Tenant Administrator, and Compliance Officer role
+assignments may confer that capability; token role claims alone do not. A
+candidate, platform-global actor, missing/duplicate policy, evaluation error,
+unknown capability, or tenant mismatch denies. The request has no tenant
+parameter: `TenantId` comes only from `ActorContext`, is the first `Queries`
+argument, is installed into the database security context, and is enforced by
+RLS. Cross-tenant identifiers return the standard non-disclosing `404`.
+
+The filter allowlist exposes three mutually exclusive query modes, each tied
+to one section 9.5 index:
+
+| Query mode | Required and optional filters | Index contract |
+|---|---|---|
+| Tenant timeline | Optional inclusive `occurredFrom` and exclusive `occurredTo` | `(tenant_id, occurred_at DESC)` |
+| Entity history | Required `entityType` plus `entityId`; optional occurrence bounds | `(tenant_id, entity_type, entity_id)` |
+| Event-type timeline | Required registered `eventType`; optional occurrence bounds | `(tenant_id, event_type, occurred_at DESC)` |
+
+Entity type without entity id, entity id without type, simultaneous entity
+and event-type modes, unregistered values, an inverted/oversized time range,
+and arbitrary payload/actor text search are rejected. Entity-history results
+use the entity index to select the bounded history before ordering; Phase 7
+captures its production-shaped plan so a sort that exceeds the query budget
+cannot pass unnoticed.
+
+Pagination is keyset-only, ordered by `(occurred_at DESC, retention_class,
+shard_id DESC, seq DESC)`. The first request captures an `asOf` upper bound;
+the opaque authenticated cursor carries that bound, last ordering tuple,
+tenant binding, normalized filter fingerprint, and schema version. Reusing a
+cursor with another tenant or filter, changing its bytes, or using an unknown
+version fails validation. Page size defaults to 100 and is capped at 500.
+Responses use `{ "items": [...], "nextCursor": "...", "hasMore": true }`;
+offset/page parameters do not exist. The fixed snapshot prevents new audit
+rows from duplicating or skipping items while a report is paged.
+
+The handler runs one reactive transaction. It executes the page query first,
+then emits `audit.COMPLIANCE_AUDIT_EVENTS_READ.v1` through the normal emitter
+before returning any data. The event records the actor, tenant, controlled
+time, correlation id, normalized query mode, non-sensitive filter digest,
+`asOf`, result count, and whether another page exists; it does not copy result
+payloads or cursor authentication material. `ADR-011A` finalization therefore
+occurs after the read SQL and leaves no later database call. Query or emission
+failure returns no page, and transaction rollback prevents an unattributed
+privileged read. The `asOf` bound is captured before emission, so the read
+event cannot appear in the page it describes.
+
+## P2.18 Answer-Save Statement Budget
+
+`ADR-011A` preserves the section 15.2 hard maximum of six executed database
+statements for the answer-save route. The maximum path is fixed as follows:
+
+| Order | Owner | Statement and purpose |
+|---:|---|---|
+| 1 | Identity/exam access | Authoritative principal-lifecycle validation. |
+| 2 | Assessment | Lock the current attempt row with `FOR UPDATE`. |
+| 3 | Assessment | Insert the idempotent answer operation. |
+| 4 | Assessment | Upsert the current answer value. |
+| 5 | Audit | Select the pre-provisioned shard head `FOR UPDATE`, returning the serialized predecessor and sequence. |
+| 6 | Audit | Execute one data-modifying CTE that inserts the immutable event and conditionally advances the observed head. |
+
+Statements 1-4 finish before audit finalization. Statement 5 starts that
+phase, and statement 6 is the final database execution before commit or
+rollback. The finalization state machine rejects later business SQL. The CTE
+must report exactly one inserted event and one updated head; any other result
+fails the request transaction.
+
+Canonical serialization, event catalogue lookup, secret-field validation,
+write-time retention selection from the already materialized policy view,
+shard calculation, and record hashing are in-memory work. Head and partition
+rows exist before the route is enabled. Checkpointing, sealing, KMS calls,
+verification, metric export, partition creation, and policy refresh run off
+the request path. No lazy head creation, separate predecessor read, existence
+probe, database function, insert trigger, advisory lock, connection switch,
+automatic SQL retry, or transaction-synchronization callback may add or hide
+a seventh execution.
+
+The instrumented R2DBC connection counts each `Statement.execute()` in the
+request's Reactor context, independently of trace sampling, including failed
+or cancelled attempts. The answer-save route registers `maxQueries = 6` in
+`config/observability/query-budgets.json`; its integration test asserts the
+maximum success path and proves one extra execution fails the
+`FEAT-OBS-001 P7.12` gate. Audit `P7.23` additionally captures statement
+shapes and order, proving executions five and six are the approved
+`ADR-011A` protocol rather than two cheaper-looking calls that weaken
+predecessor serialization.
+
+Changing the count, combining a business statement, adding a hot-path policy
+lookup, or concealing work behind database-side code requires renewed
+Architecture Owner, Security, persistence-owner, and performance approval.
+The latency target is not permission to omit attribution, locking, or atomic
+audit emission.
+
+## P2.19 A6/A7 Verification Harness
+
+The Phase 0 deliverable is a reusable harness, not an A6/A7 pass claim. It
+has five replaceable components: deterministic fixture builder, reactive load
+driver, barrier-based fault controller, read-only integrity oracle, and
+evidence recorder. Integration runs use the approved PostgreSQL 17 image and
+a deterministic test signer; Phase 6 uses production-shaped staging,
+production workload identities, and the real KMS adapter. Both modes execute
+the same scenarios and assertions.
+
+Every run records the source commit, schema/Flyway versions, container or
+deployment image digests, PostgreSQL settings, tenant shard count, random
+seed, synthetic-data manifest, UTC clock boundaries, load profile, barrier
+and fault schedule, signer/key version, policy versions, raw metric export,
+verifier report, and final verdict. Fixtures use synthetic opaque identities
+only and contain no real candidate data or secret-shaped payload fields.
+
+### A6 Load and Concurrent Close
+
+The full profile provisions one tenant with 64 shards, ten simultaneous exam
+sessions, and up to 50,000 candidates. Entity identifiers are deterministic
+and their measured shard distribution is retained. The driver sustains about
+1,110 answer saves per second while also producing the approved navigation,
+entry, submission, and administrative audit mix. A reduced but
+concurrency-equivalent profile runs in CI; it is evidence that the harness
+works, not the Phase 6 A6 discharge.
+
+The driver verifies every answer-save request executes six statements, then
+holds at steady state while two or more retention-class epochs for the same
+tenant become sealable. Independent sealer workers load their immutable epoch
+material, rendezvous at a barrier, and attempt close concurrently while
+business writes continue. The controller requires at least one real CAS loss;
+a test where scheduling accidentally serializes all sealers is invalid.
+
+Assertions require answer-acceptance p95 at or below one second, no
+unattributed committed business change, no orphan event or head, every shard
+sequence dense with exact predecessor links, each epoch root reproducible,
+one seal per epoch, a dense duplicate-free tenant `root_seq`, no sibling root,
+and every CAS loser observed to roll back, re-read, re-derive, re-sign, and
+eventually append from the winner. The post-run full verifier must report zero
+breaks.
+
+### Sealer Kill Point
+
+A named barrier pauses the sealer after KMS returns a signature but before
+the database transaction inserting the seal and advancing the root head. The
+controller terminates that worker process, proves no seal or head advance was
+committed, restarts a clean worker, and releases the same epoch for normal
+selection. The restarted worker must re-read, derive, and sign rather than
+reusing process memory. Exactly one seal is committed, the root sequence has
+no gap or duplicate, and the signature/root reproduce. The scenario runs
+once without a competing sealer and once with another class closing
+concurrently.
+
+### A7 Mixed Retention and Concurrent Seal
+
+The fixture seeds all four retention classes across two UTC monthly
+boundaries and multiple shards. It contains overlapping obligations that
+exercise longest-wins under two append-only policy versions, plus a legal
+hold covering only part of one leaf partition. Expected placement, sequence
+ranges, seals, policy key/version, original retention start, and eligible
+disposition units are calculated before execution and stored in the manifest.
+
+The harness expires one unheld class/month and starts its five-step
+disposition. A separate class's sealer is paused successively before KMS,
+after signature, and immediately before root-head CAS while disposition is
+released through its verify, disposition-event, detach, and re-verification
+barriers. Each interleaving uses a fresh fixture; timing sleeps are forbidden.
+
+Assertions require class-homogeneous partitions, correct stored longest-wins
+placement, full verification and seal confirmation before detach, exactly one
+`AUDIT_EPOCH_DISPOSED` in the current epoch with range/root/policy evidence,
+and successful verification of every retained tail and the root chain across
+the gap. The held partition must remain attached in `HOLD_SUSPENDED`, record
+one audited suppression with hold and policy references, and on release use
+the original start time. The concurrent seal must commit once or retry through
+CAS without being lost, duplicated, or interleaved into a root gap.
+
+### Required Measurements
+
+The recorder rejects a run with a missing required series or report field.
+At minimum it captures:
+
+| Area | Required evidence |
+|---|---|
+| Request path | Offered/completed rate, status outcomes, answer latency p50/p95/p99, exact query count, audit-attributable time and total transaction time |
+| Shard append | Head-lock wait p50/p95/p99, records per shard, max/median shard skew, emit failures, rollback/cancellation outcomes |
+| Root sealing | Seal outcomes and latency, KMS latency/errors, CAS retry count per attempt, kill-point state, root sequence, fork counter |
+| Verification | Open/full walk duration, checked event/epoch counts, signature results, chain/root mismatch counts, final signed report |
+| Disposition/hold | Outcomes by `DISPOSED`, `HOLD_SUSPENDED`, and `VERIFY_FAILED`; detached unit, retained-tail verdict, suppression age, policy key/version |
+| Infrastructure | PostgreSQL CPU/I/O/lock waits, connection-pool acquire/pending state, worker resource use, and clock synchronization status |
+
+The harness ships with Phase 0 integration fixtures and fault controls.
+`ARC-VERIFY-031` A6 is discharged only by the full Phase 6 profile with its
+contention and audit-share measurements; `ARC-VERIFY-032` A7 is discharged by
+the production-shaped mixed-retention/hold/concurrent-seal evidence. A green
+functional run without the required measurements remains `NOT EVIDENCED`.
+
+## P2.20 Failure-Mode Matrix
+
+The three governing rules are fail-closed emission, failure-isolated signing,
+and over-retention on lifecycle uncertainty. No failure enables an async audit
+fallback, unsigned seal, synthetic predecessor, repair, or forced disposal.
+
+| Failure | Required behavior | Transaction/data outcome | Signal and recovery |
+|---|---|---|---|
+| Event/catalogue/attribution/payload validation or canonicalization fails | Propagate the error from `AuditEmitter`; do not execute audit SQL | Caller business transaction rolls back; no event or head change | Increment `audit_emit_failure_total`; P1 on any increment. Correct the caller or contract, then retry the idempotent business operation. |
+| Retention policy view is unavailable, stale, or inconsistent | Refuse placement; there is no default retention class | Caller business transaction rolls back | Same P1 emit-failure path. Restore an approved effective policy snapshot; never guess a shorter class. |
+| Pre-provisioned head or monthly partition is missing | Treat as provisioning failure; do not create lazily | Caller business transaction rolls back | Same P1 emit-failure path plus provisioning diagnostic. Create the governed partition/heads before reopening writes. |
+| Head lock times out, connection fails, CTE affects other than one event and one head, cancellation occurs, or process dies before commit | Propagate and let PostgreSQL roll back the whole caller transaction | Business mutation, event insert, and head advance commit together or not at all; no orphan or sibling | Same P1 emit-failure path. Retry only at the idempotent request boundary, never inside the emitter with stale predecessor state. |
+| KMS unavailable while checkpointing | Defer the checkpoint; never enter the business-write path | Audited writes continue; existing checkpoint remains valid and the unsigned tail grows | Record signing failure. `audit_checkpoint_overdue_count > 0` for 30 minutes raises P2; retry with bounded backoff after KMS health returns. |
+| KMS unavailable or rejects while sealing | Leave the epoch unsealed and retry off the hot path; never store an unsigned or locally signed seal | Business writes continue in eligible open epochs; no seal/root-head mutation occurs | Record `audit_epoch_seal_total` failure and raise the seal-deferred P2. Restore workload identity/KMS, then re-read, re-derive, and sign. |
+| Sealer dies after KMS signature and before root-head advance | Discard process-local result on restart and execute normal selection again | Without the seal-insert/CAS transaction, neither seal nor root head commits; if the transaction had committed, uniqueness makes restart observe completion | Kill-point metric/evidence; restart re-reads and re-derives. Never backfill a gap or reuse an unverified cached signature. |
+| Root CAS loses to another sealer | Roll back the seal insert, re-read the winner, re-derive, and re-sign | Winner alone advances the dense root sequence | Increment `audit_epoch_seal_cas_retry_total`; brief loss is normal. Above 5/min per tenant or 10 attempts raises P2 starvation. |
+| Disposition targets an unsealed epoch | Reject before verification/detach; sealing is a hard precondition | Partition remains attached and retained; no disposition event claims success | Surface `BLOCKED_UNSEALED` operational state and the underlying seal/checkpoint alert. It is not `DISPOSED` and cannot be overridden. |
+| Seal, signature, chain, range, or root verification fails | Halt the affected verification/disposition path and preserve evidence | No detach occurs when detected before step 4; no repair, re-sign, branch selection, or preferred fork | `audit_chain_verification_result` failure or `audit_epoch_disposition_total{outcome="VERIFY_FAILED"}` raises P1. Snapshot evidence and escalate. |
+| Detach committed but retained-tail re-verification fails | Stop all further disposition for the tenant and preserve the detached relation/archive plus database snapshot | Do not drop or mutate retained evidence; the disposition stays incomplete | P1 `VERIFY_FAILED`; investigate from protected copies. Recovery cannot rewrite the chain or repeat detach against another relation. |
+| Hold/policy evaluation is unavailable or a hold appears before detach | Choose over-retention and suppress/abort disposition | Partition remains attached; the lifecycle clock is unchanged | Record the suppression when a hold is known. Unknown policy/hold state alerts operations; a 90-day known hold raises the defined P3 review. |
+
+Emission availability is therefore intentionally coupled to business-write
+availability: an unattributed action is forbidden. Signing availability is
+intentionally decoupled because checkpoints and seals are asynchronous, but
+that decoupling ends at disposition: an unsealed epoch cannot be deleted.
+Failure counters, logs, and traces carry bounded identifiers and reasons only;
+they never include canonical payload bytes, actor personal data, SQL, key
+material, or provider error bodies.
