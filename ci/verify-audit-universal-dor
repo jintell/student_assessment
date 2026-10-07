@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/FEAT-AUD-001/P0.9-universal-dor.json"
+feature_dor="${repo_root}/ci/dor/FEAT-AUD-001/P0.8-audit-contract-dor.json"
+trusted_roles="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "Audit universal Definition of Ready failed: $*" >&2
+    exit 1
+}
+
+for command in awk gpg jq shasum; do
+    command -v "${command}" >/dev/null 2>&1 || fail "${command} is required."
+done
+
+[[ -f "${approval}" ]] || fail "signed universal Definition of Ready is missing."
+[[ -x "${repo_root}/ci/verify-audit-contract-dor" ]] \
+    || fail "feature-specific Definition of Ready verifier is missing."
+"${repo_root}/ci/verify-audit-contract-dor" >/dev/null \
+    || fail "feature-specific Definition of Ready is invalid."
+
+jq -e '
+    .recordId == "DOR-FEAT-AUD-001-P0.9"
+    and .feature == "FEAT-AUD-001"
+    and .dependency == "P0.9"
+    and .status == "APPROVED"
+    and .baselines.requirementsVersion == "3.7"
+    and .baselines.requirementsSha256 == "df1e22d2f64cf8a24ba0c502bcbb14632b47ca7344c755ac769dabe898713ee1"
+    and .baselines.architectureVersion == "1.4"
+    and .baselines.architectureSha256 == "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da"
+    and .baselines.ratifiedArchitectureCommit == "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc"
+    and ([.criteria[].id] | sort) == ([
+        "UPSTREAM_REQUIREMENTS_APPROVED_AND_UNCHANGED",
+        "ACCEPTANCE_CRITERIA_STATED_AND_TESTABLE",
+        "ARCHITECTURE_REFERENCES_RESOLVE",
+        "HARD_DEPENDENCIES_DELIVERED_OR_SCHEDULED_AHEAD",
+        "NO_OPEN_BLOCKING_QUESTION_APPLIES",
+        "SECURITY_EXPECTATIONS_IDENTIFIED",
+        "CONSUMED_INTERFACES_DEFINED"
+    ] | sort)
+    and all(.criteria[]; .status == "SATISFIED" and (.evidence | length) > 0)
+    and .additionalDefinitionOfReady.task == "P0.8"
+    and .additionalDefinitionOfReady.status == "SATISFIED"
+    and .additionalDefinitionOfReady.record == "P0.8-audit-contract-dor.json"
+    and (.additionalDefinitionOfReady.recordSha256 | test("^[0-9a-f]{64}$"))
+    and .unmetItems == []
+    and all(.carriedConditions[];
+        .blocksReadiness == false and .blocksProductionRelease == true)
+    and .decision.readyForDiscoveryAndDesign == true
+    and .decision.readyForImplementation == true
+    and .decision.readinessWaiverUsed == false
+    and .decision.productionReleaseApproved == false
+    and ([.approvals[].role] | sort) == (["Solution Architect", "Engineering Lead"] | sort)
+    and all(.approvals[]; .decision == "APPROVED")
+' "${approval}" >/dev/null || fail "universal readiness assessment is incomplete or contains a waiver."
+
+expected_feature_dor_hash="$(jq -r '.additionalDefinitionOfReady.recordSha256' "${approval}")"
+actual_feature_dor_hash="$(shasum -a 256 "${feature_dor}" | awk '{print $1}')"
+[[ "${actual_feature_dor_hash}" == "${expected_feature_dor_hash}" ]] \
+    || fail "feature-specific Definition of Ready differs from the approved input."
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "trusted approval key could not be imported: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_roles}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local expected_fingerprint="$2"
+    local signature_name signature_path status actual_fingerprint declared_fingerprint
+
+    signature_name="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}")"
+    declared_fingerprint="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .fingerprint' "${approval}")"
+    [[ "${declared_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} declares the wrong fingerprint."
+    signature_path="$(dirname "${approval}")/${signature_name}"
+    [[ -f "${signature_path}" ]] || fail "${role} signature is missing."
+
+    status="$(
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature_path}" "${approval}" 2>/dev/null
+    )" || fail "${role} signature is invalid or untrusted."
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${role} signature does not use its designated trusted key."
+    printf '%s\n' "${actual_fingerprint}"
+}
+
+solution_architect_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_roles}")"
+engineering_lead_fingerprint="$(jq -r '."Engineering Lead".fingerprint' "${trusted_roles}")"
+verified_architect="$(verify_signature "Solution Architect" "${solution_architect_fingerprint}")"
+verified_lead="$(verify_signature "Engineering Lead" "${engineering_lead_fingerprint}")"
+
+[[ "${verified_architect}" != "${verified_lead}" ]] \
+    || fail "Solution Architect and Engineering Lead must have distinct signers."
+
+echo "AUDIT UNIVERSAL DOR: PASS"
+echo "All seven readiness criteria, the signed feature DoR, and both detached signatures are verified."

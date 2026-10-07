@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.meldtech.platform.shared.kernel.security.SecretFieldPattern;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 
@@ -19,7 +20,6 @@ final class ObservabilityConfigurationValidator {
     private static final Duration MAXIMUM_ITEM_AGE = Duration.ofMinutes(5);
     private static final Duration MINIMUM_CONTINUATION_AGE = Duration.ofMinutes(1);
     private static final Duration MAXIMUM_CONTINUATION_AGE = Duration.ofHours(24);
-    private static final Set<String> APPROVED_KEY_FIELDS = Set.of("policy_key");
     private static final Set<String> REQUIRED_CEILINGS =
             Set.of(
                     "active-sessions",
@@ -147,7 +147,7 @@ final class ObservabilityConfigurationValidator {
 
     private void validateRedaction(ObservabilityProperties.Redaction redaction) {
         require(redaction, "redaction");
-        if (!APPROVED_KEY_FIELDS.equals(redaction.permittedKeyFields())) {
+        if (!SecretFieldPattern.permittedKeyFields().equals(redaction.permittedKeyFields())) {
             throw invalid("redaction.permitted-key-fields", "must match the approved catalogue");
         }
     }
