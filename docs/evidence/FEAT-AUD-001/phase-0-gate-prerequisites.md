@@ -176,18 +176,67 @@ the exact input bytes and digest into the seal specification.
 
 ## P0.8 - Feature-Specific Definition of Ready
 
-Status: **BLOCKED - SIGNED DOR AND PROVISIONING OWNER MISSING**
+Status: **SATISFIED**
 
-The ratified architecture supplies `N = 64`, monthly
-`(retention_class, period)` epochs, and canonical `(period, retention_class)`
-close ordering. The audit task list also requires a stable event-catalogue
-convention before later features declare events.
+The signed audit Definition of Ready is
+`ci/dor/FEAT-AUD-001/P0.8-audit-contract-dor.json`. It fixes:
 
-`TASK-AUD1-DEFECT-007` records the proposed ownership boundary in which
-`FEAT-AUD-001` owns the shard-count contract and `FEAT-TENANT-001` applies it
-during tenant provisioning. No signed audit-specific DoR or acknowledgement
-from the tenant-provisioning owner exists, and the catalogue convention has
-not been approved as a consumer contract.
+- `N = 64`, owned as a contract by `FEAT-AUD-001` and provisioned by
+  `FEAT-TENANT-001` before tenant writes are enabled;
+- UTC monthly `(retention_class, period)` epochs;
+- ascending `(period, retention_class)` close order with the signed retention
+  class order and one seal per transaction; and
+- versioned `<bounded-context>.<EVENT_CODE>.v<major>` event types, registered
+  by each owning capability before emission and aligned exactly with the
+  `FEAT-OBS-001` `eventCode` token.
 
-Task `P0.8` remains open. Task `P0.9` cannot confirm universal readiness until
-this feature-specific gate is signed.
+The Architecture Owner approved the contracts and the `FEAT-TENANT-001`
+owner, acting as Engineering Lead, acknowledged the provisioning boundary.
+
+Verification on 2026-10-07:
+
+```text
+./ci/verify-audit-contract-dor
+AUDIT CONTRACT DOR: PASS
+Shard, epoch, close-ordering, catalogue, provisioning ownership, and both signatures are verified.
+```
+
+`TASK-AUD1-DEFECT-007` is resolved and `P0.9` may now assess universal
+readiness against this signed feature-specific gate.
+
+## P0.9 - Universal Definition of Ready
+
+Status: **BLOCKED - SIGNED UNIVERSAL DOR RECORD MISSING**
+
+All seven plan section 8.0 readiness criteria assess as satisfied:
+
+| Criterion | Evidence | Result |
+|---|---|---|
+| Upstream requirements are approved and unchanged | Requirements v3.7 is the approved source baseline referenced by the plan and existing signed universal-DoR records | SATISFIED |
+| Acceptance criteria are stated and testable | The `FEAT-AUD-001` feature card names `AC-AUD-001-01...02` and `AC-AUD-002-01...06`; task-list Appendix A maps them to executable work | SATISFIED |
+| Architecture references resolve | Ratified architecture v1.4 contains `ADR-011`, `ARC-AUD-001...007`, `ARC-DATA-030/031`, and section 9.5 | SATISFIED |
+| Hard dependencies are delivered or scheduled ahead | `P0.2` verifies `FEAT-PLAT-002`; `P0.3` verifies `FEAT-PLAT-003`; later retention and operational consumers are explicitly deferred to their owning features | SATISFIED |
+| No open blocking question applies | The grant and codec decisions are signed (`P0.4`, `P0.5`); the secret conflict and baseline gaps have adopted resolutions (`P0.6`, `P0.7`); the feature-specific DoR is signed (`P0.8`) | SATISFIED |
+| Security expectations are identified | Per-table least privilege, append-only trigger backstop, tenant-scoped reads, privileged-read emission, payload secret rejection, and evidence-preservation rules are assigned to tasks | SATISFIED |
+| Consumed interfaces are defined sufficiently | Persistence schema/default grants and kernel actor, tenant, clock, correlation, and secret-field contracts have published handovers | SATISFIED |
+
+Verification on 2026-10-07:
+
+```text
+./ci/stage-4a
+STAGE 4a: PASS
+
+./ci/verify-audit-grant-amendment-approval
+AUDIT GRANT AMENDMENT APPROVAL: PASS
+
+./ci/verify-audit-canonical-codec-approval
+AUDIT CANONICAL CODEC APPROVAL: PASS
+
+./ci/verify-audit-contract-dor
+AUDIT CONTRACT DOR: PASS
+```
+
+The assessment is not itself an approval. No audit-specific universal-DoR
+artifact with detached Solution Architect and Engineering Lead signatures is
+present. Task `P0.9` remains open until that signed record is committed and
+verified; no readiness criterion is being waived.
