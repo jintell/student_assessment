@@ -206,7 +206,7 @@ readiness against this signed feature-specific gate.
 
 ## P0.9 - Universal Definition of Ready
 
-Status: **BLOCKED - SIGNED UNIVERSAL DOR RECORD MISSING**
+Status: **SATISFIED**
 
 All seven plan section 8.0 readiness criteria assess as satisfied:
 
@@ -236,7 +236,22 @@ AUDIT CANONICAL CODEC APPROVAL: PASS
 AUDIT CONTRACT DOR: PASS
 ```
 
-The assessment is not itself an approval. No audit-specific universal-DoR
-artifact with detached Solution Architect and Engineering Lead signatures is
-present. Task `P0.9` remains open until that signed record is committed and
-verified; no readiness criterion is being waived.
+The approved record is
+`ci/dor/FEAT-AUD-001/P0.9-universal-dor.json`. It records no unmet readiness
+item and uses no waiver. Phase 6 A6/A7 evidence and audit metric work remain
+explicit production-release conditions rather than being misclassified as
+readiness failures.
+
+The Solution Architect and Engineering Lead signed the exact record with
+distinct trusted identities.
+
+Verification on 2026-10-07:
+
+```text
+./ci/verify-audit-universal-dor
+AUDIT UNIVERSAL DOR: PASS
+All seven readiness criteria, the signed feature DoR, and both detached signatures are verified.
+```
+
+`FEAT-AUD-001` is ready for discovery, design, and implementation. This DoR
+does not approve production release or discharge any Definition-of-Done item.
