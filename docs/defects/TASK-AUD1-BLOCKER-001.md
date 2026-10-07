@@ -70,3 +70,11 @@ approved in:
 trusted signer fingerprints, and Architecture/Security separation. Tasks
 `P2.5` and `P3.8` may now implement only the approved per-table model; any
 wider grant requires renewed approval under the signed change policy.
+
+## Subsequent Atomic-Append Amendment
+
+`ADR-011A` replaces lazy chain-head upsert with pre-provisioned rows and a
+keyed `SELECT ... FOR UPDATE`. Its separately signed `P2.16` decision narrows
+emitter grants on `audit.audit_chain_head` from `INSERT, UPDATE` to
+`SELECT, UPDATE`; all approvers required by the change policy countersigned
+that amendment. Every other grant and denial above remains unchanged.
