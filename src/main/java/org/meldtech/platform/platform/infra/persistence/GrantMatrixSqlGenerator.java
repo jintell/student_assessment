@@ -32,6 +32,12 @@ final class GrantMatrixSqlGenerator {
                 .sorted(Comparator.comparing(GrantMatrix.DefaultPrivilege::schema))
                 .map(GrantMatrixSqlGenerator::defaultPrivilegeStatement)
                 .forEach(statements::add);
+        matrix.defaultPrivilegeExceptions().stream()
+                .sorted(
+                        Comparator.comparing(GrantMatrix.DefaultPrivilegeException::schema)
+                                .thenComparing(GrantMatrix.DefaultPrivilegeException::object))
+                .map(exception -> defaultPrivilegeExceptionStatement(matrix, exception))
+                .forEach(statements::add);
         return "-- GENERATED from db/grants/grant-matrix.json; do not edit.\n"
                 + "-- source-sha256: "
                 + sourceSha256
@@ -109,6 +115,32 @@ final class GrantMatrixSqlGenerator {
                         grant.schema(),
                         privileges(grant.privileges()),
                         String.join(", ", grant.grantees().stream().sorted().toList()));
+    }
+
+    private static String defaultPrivilegeExceptionStatement(
+            GrantMatrix matrix, GrantMatrix.DefaultPrivilegeException exception) {
+        GrantMatrix.DefaultPrivilege matchingDefault =
+                matrix.defaultPrivileges().stream()
+                        .filter(grant -> grant.owner().equals(exception.owner()))
+                        .filter(grant -> grant.schema().equals(exception.schema()))
+                        .findFirst()
+                        .orElseThrow();
+        String qualifiedName = exception.schema() + "." + exception.object();
+        return """
+                DO $$
+                BEGIN
+                    IF to_regclass('%s') IS NOT NULL THEN
+                        EXECUTE 'REVOKE %s ON TABLE %s FROM %s';
+                    END IF;
+                END
+                $$;
+                """
+                .formatted(
+                        qualifiedName,
+                        privileges(exception.privileges()),
+                        qualifiedName,
+                        String.join(", ", matchingDefault.grantees().stream().sorted().toList()))
+                .stripTrailing();
     }
 
     private static String privileges(List<GrantMatrix.Privilege> privileges) {

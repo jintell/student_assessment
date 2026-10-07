@@ -7,6 +7,7 @@ public record ParsedMigrationStatement(
         String objectName,
         String normalizedForm,
         boolean concurrent,
+        boolean newEmptyPartitionedParentIndex,
         boolean notValid,
         boolean cascade,
         boolean notNullWithoutDefault,

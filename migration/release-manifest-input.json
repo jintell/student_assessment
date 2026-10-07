@@ -3,6 +3,66 @@
   "classification": "EXPAND",
   "migrations": [
     {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V3__create_audit_event.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V4__create_audit_event_partitions.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V5__create_audit_event_indexes.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V6__create_audit_chain_head.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V7__create_audit_chain_root_head.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V8__create_audit_chain_checkpoint.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V9__create_audit_chain_seal.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V10__secure_audit_store.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V11__scope_audit_retention_delete.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
+      "module": "audit",
+      "path": "src/main/resources/db/migration/audit/V12__enforce_audit_row_level_security.sql",
+      "phase": "EXPAND",
+      "transactional": true
+    },
+    {
       "module": "platform",
       "path": "src/main/resources/db/migration/platform/V7__expand_migration_fixture.sql",
       "phase": "EXPAND",

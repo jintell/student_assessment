@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 final class GrantDiffGate {
@@ -128,17 +129,33 @@ final class GrantDiffGate {
                                 .filter(name -> name.startsWith("TABLE:" + grant.schema() + "."))
                                 .forEach(
                                         relation ->
-                                                facts.add(
-                                                        fact(
-                                                                "RELATION_PRIVILEGE",
-                                                                grantee,
-                                                                relation,
-                                                                privilege.name())));
+                                                defaultPrivilegeFact(
+                                                                matrix, grant, grantee, relation,
+                                                                privilege)
+                                                        .ifPresent(facts::add));
                     }
                 }
             }
         }
         return facts;
+    }
+
+    private static Optional<Fact> defaultPrivilegeFact(
+            GrantMatrix matrix,
+            GrantMatrix.DefaultPrivilege grant,
+            String grantee,
+            String relation,
+            GrantMatrix.Privilege privilege) {
+        String object = relation.substring(relation.indexOf('.') + 1);
+        boolean excepted =
+                matrix.defaultPrivilegeExceptions().stream()
+                        .filter(exception -> exception.owner().equals(grant.owner()))
+                        .filter(exception -> exception.schema().equals(grant.schema()))
+                        .filter(exception -> exception.object().equals(object))
+                        .anyMatch(exception -> exception.privileges().contains(privilege));
+        return excepted
+                ? Optional.empty()
+                : Optional.of(fact("RELATION_PRIVILEGE", grantee, relation, privilege.name()));
     }
 
     private static Set<Fact> actualFacts(Connection connection, GrantMatrix matrix)
@@ -252,6 +269,7 @@ final class GrantDiffGate {
                 LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
                 WHERE namespace.nspname IN (%s)
                   AND relation.relkind IN ('r', 'p', 'v', 'm', 'S')
+                  AND NOT relation.relispartition
                   AND (acl.grantee = 0 OR grantee.rolname LIKE 'app\\_%%' ESCAPE '\\')
                   AND acl.grantee <> relation.relowner
                 """

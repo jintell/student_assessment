@@ -54,7 +54,7 @@ final class CompositeRoleNarrownessVerifier {
                                 + envelope);
             }
         }
-        rejectUnsafeSupportingPrivileges(compositePrivileges);
+        rejectUnsafeSupportingPrivileges(matrix, compositePrivileges);
     }
 
     private static Map<String, Set<GrantMatrix.Privilege>> moduleEnvelopes(GrantMatrix matrix) {
@@ -75,21 +75,36 @@ final class CompositeRoleNarrownessVerifier {
     }
 
     private static void rejectUnsafeSupportingPrivileges(
-            Map<String, Set<GrantMatrix.Privilege>> compositePrivileges) {
+            GrantMatrix matrix, Map<String, Set<GrantMatrix.Privilege>> compositePrivileges) {
         Set<GrantMatrix.Privilege> tenancy = compositePrivileges.getOrDefault("tenancy", Set.of());
         if (!Set.of(GrantMatrix.Privilege.SELECT).containsAll(tenancy)) {
             throw new IllegalStateException(
                     "COMPOSITE_ROLE_NOT_NARROW: tenancy access must be read-only");
         }
-        for (String appendOnlySchema : Set.of("audit", "outbox")) {
-            Set<GrantMatrix.Privilege> privileges =
-                    compositePrivileges.getOrDefault(appendOnlySchema, Set.of());
-            if (!Set.of(GrantMatrix.Privilege.INSERT).containsAll(privileges)) {
-                throw new IllegalStateException(
-                        "COMPOSITE_ROLE_NOT_NARROW: "
-                                + appendOnlySchema
-                                + " access must be insert-only");
-            }
+        Set<GrantMatrix.Privilege> outbox = compositePrivileges.getOrDefault("outbox", Set.of());
+        if (!Set.of(GrantMatrix.Privilege.INSERT).containsAll(outbox)) {
+            throw new IllegalStateException(
+                    "COMPOSITE_ROLE_NOT_NARROW: outbox access must be insert-only");
+        }
+
+        Map<String, Set<GrantMatrix.Privilege>> expectedAudit =
+                Map.of(
+                        "audit_event", Set.of(GrantMatrix.Privilege.INSERT),
+                        "audit_chain_head",
+                                Set.of(GrantMatrix.Privilege.SELECT, GrantMatrix.Privilege.UPDATE));
+        Map<String, Set<GrantMatrix.Privilege>> actualAudit = new HashMap<>();
+        matrix.objectGrants().stream()
+                .filter(grant -> grant.grantee().equals(COMPOSITE_ROLE))
+                .filter(grant -> grant.schema().equals("audit"))
+                .filter(grant -> grant.objectType() != GrantMatrix.ObjectType.SCHEMA)
+                .forEach(
+                        grant ->
+                                actualAudit
+                                        .computeIfAbsent(grant.object(), ignored -> new HashSet<>())
+                                        .addAll(grant.privileges()));
+        if (!actualAudit.equals(expectedAudit)) {
+            throw new IllegalStateException(
+                    "COMPOSITE_ROLE_NOT_NARROW: audit grants must match the atomic append protocol");
         }
     }
 }

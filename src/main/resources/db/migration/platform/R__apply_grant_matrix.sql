@@ -1,10 +1,16 @@
 -- GENERATED from db/grants/grant-matrix.json; do not edit.
--- source-sha256: 64f24090fac84d86b68bc1e9748f0ef3df3d17f7fbe7c232204c5af6d2bdebea
+-- source-sha256: 9b489d10e1725155edaa6fd6d16152d499e78ccef3859e3a6efff5e888dd8082
 -- Grant refresh: ${grantRefresh}
 
 ALTER ROLE app_academic WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
 ALTER ROLE app_api WITH LOGIN NOCREATEROLE NOINHERIT;
+
+ALTER ROLE app_audit_partition_maintenance WITH NOLOGIN NOCREATEROLE NOINHERIT;
+
+ALTER ROLE app_audit_retention WITH NOLOGIN NOCREATEROLE NOINHERIT;
+
+ALTER ROLE app_audit_sealer WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
 ALTER ROLE app_authoring WITH NOLOGIN NOCREATEROLE NOINHERIT;
 
@@ -104,6 +110,100 @@ GRANT USAGE ON SCHEMA audit TO app_academic;
 
 GRANT USAGE ON SCHEMA outbox TO app_academic;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_academic';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_academic';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_academic';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regprocedure('audit.provision_audit_epoch_heads(uuid, text, date, integer, smallint)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION audit.provision_audit_epoch_heads(uuid, text, date, integer, smallint) TO app_audit_partition_maintenance';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regprocedure('audit.provision_audit_month(date)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION audit.provision_audit_month(date) TO app_audit_partition_maintenance';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regprocedure('audit.provision_audit_root_head(uuid)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION audit.provision_audit_root_head(uuid) TO app_audit_partition_maintenance';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regprocedure('audit.provision_future_epoch_heads(date)') IS NOT NULL THEN
+        EXECUTE 'GRANT EXECUTE ON FUNCTION audit.provision_future_epoch_heads(date) TO app_audit_partition_maintenance';
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA audit TO app_audit_partition_maintenance;
+
+GRANT USAGE ON SCHEMA audit TO app_audit_retention;
+
+GRANT USAGE ON SCHEMA audit TO app_audit_sealer;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_checkpoint') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_chain_checkpoint TO app_audit_sealer';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT ON TABLE audit.audit_chain_head TO app_audit_sealer';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_root_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_root_head TO app_audit_sealer';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_seal') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT, SELECT ON TABLE audit.audit_chain_seal TO app_audit_sealer';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA authoring TO app_authoring;
 
 GRANT USAGE ON SCHEMA audit TO app_authoring;
@@ -111,6 +211,30 @@ GRANT USAGE ON SCHEMA audit TO app_authoring;
 GRANT USAGE ON SCHEMA authoring TO app_authoring;
 
 GRANT USAGE ON SCHEMA outbox TO app_authoring;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_authoring';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_authoring';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_authoring';
+    END IF;
+END
+$$;
 
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA correction TO app_correction;
 
@@ -120,6 +244,30 @@ GRANT USAGE ON SCHEMA correction TO app_correction;
 
 GRANT USAGE ON SCHEMA outbox TO app_correction;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_correction';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_correction';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_correction';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA delivery TO app_delivery;
 
 GRANT USAGE ON SCHEMA audit TO app_delivery;
@@ -127,6 +275,30 @@ GRANT USAGE ON SCHEMA audit TO app_delivery;
 GRANT USAGE ON SCHEMA delivery TO app_delivery;
 
 GRANT USAGE ON SCHEMA outbox TO app_delivery;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_delivery';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_delivery';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_delivery';
+    END IF;
+END
+$$;
 
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA examaccess TO app_examaccess;
 
@@ -136,6 +308,30 @@ GRANT USAGE ON SCHEMA examaccess TO app_examaccess;
 
 GRANT USAGE ON SCHEMA outbox TO app_examaccess;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_examaccess';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_examaccess';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_examaccess';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA grading TO app_grading;
 
 GRANT USAGE ON SCHEMA audit TO app_grading;
@@ -143,6 +339,30 @@ GRANT USAGE ON SCHEMA audit TO app_grading;
 GRANT USAGE ON SCHEMA grading TO app_grading;
 
 GRANT USAGE ON SCHEMA outbox TO app_grading;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_grading';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_grading';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_grading';
+    END IF;
+END
+$$;
 
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA iam TO app_iam;
 
@@ -152,6 +372,30 @@ GRANT USAGE ON SCHEMA iam TO app_iam;
 
 GRANT USAGE ON SCHEMA outbox TO app_iam;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_iam';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_iam';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_iam';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA notification TO app_notification;
 
 GRANT USAGE ON SCHEMA audit TO app_notification;
@@ -159,6 +403,30 @@ GRANT USAGE ON SCHEMA audit TO app_notification;
 GRANT USAGE ON SCHEMA notification TO app_notification;
 
 GRANT USAGE ON SCHEMA outbox TO app_notification;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_notification';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_notification';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_notification';
+    END IF;
+END
+$$;
 
 DO $$
 BEGIN
@@ -196,6 +464,30 @@ GRANT USAGE ON SCHEMA outbox TO app_people;
 
 GRANT USAGE ON SCHEMA people TO app_people;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_people';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_people';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_people';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA questionbank TO app_questionbank;
 
 GRANT USAGE ON SCHEMA audit TO app_questionbank;
@@ -203,6 +495,30 @@ GRANT USAGE ON SCHEMA audit TO app_questionbank;
 GRANT USAGE ON SCHEMA outbox TO app_questionbank;
 
 GRANT USAGE ON SCHEMA questionbank TO app_questionbank;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_questionbank';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_questionbank';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_questionbank';
+    END IF;
+END
+$$;
 
 GRANT USAGE ON SCHEMA platform TO app_readonly_ops;
 
@@ -222,6 +538,30 @@ GRANT USAGE ON SCHEMA outbox TO app_result;
 
 GRANT USAGE ON SCHEMA result TO app_result;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_result';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_result';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_result';
+    END IF;
+END
+$$;
+
 GRANT DELETE, INSERT, SELECT, UPDATE ON ALL TABLES IN SCHEMA tenancy TO app_tenancy;
 
 GRANT USAGE ON SCHEMA audit TO app_tenancy;
@@ -229,6 +569,30 @@ GRANT USAGE ON SCHEMA audit TO app_tenancy;
 GRANT USAGE ON SCHEMA outbox TO app_tenancy;
 
 GRANT USAGE ON SCHEMA tenancy TO app_tenancy;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_tenancy';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE audit.audit_event TO app_tenancy';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('outbox.outbox_event') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT ON TABLE outbox.outbox_event TO app_tenancy';
+    END IF;
+END
+$$;
 
 GRANT USAGE ON SCHEMA audit TO app_txn_examentry;
 
@@ -243,6 +607,14 @@ GRANT USAGE ON SCHEMA outbox TO app_txn_examentry;
 GRANT USAGE ON SCHEMA people TO app_txn_examentry;
 
 GRANT USAGE ON SCHEMA tenancy TO app_txn_examentry;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT, UPDATE ON TABLE audit.audit_chain_head TO app_txn_examentry';
+    END IF;
+END
+$$;
 
 DO $$
 BEGIN
@@ -391,3 +763,35 @@ $$;
 ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA audit GRANT INSERT ON TABLES TO app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA outbox GRANT INSERT ON TABLES TO app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_checkpoint') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_chain_checkpoint FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_head') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_chain_head FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_root_head') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_chain_root_head FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_chain_seal') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_chain_seal FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;

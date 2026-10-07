@@ -180,7 +180,9 @@ final class PostgreSqlCatalogGate {
             List<RlsPolicy> policies) {
 
         private boolean isCompliant() {
-            return enabled && forced && (isStandardTenantTable() || isOutboxTable());
+            return enabled
+                    && forced
+                    && (isStandardTenantTable() || isOutboxTable() || isAuditTable());
         }
 
         private boolean isStandardTenantTable() {
@@ -204,6 +206,32 @@ final class PostgreSqlCatalogGate {
                     && tenantPolicy.matchesTenantPolicy("tenant_outbox_write", OUTBOX_WRITER_ROLES)
                     && relayPolicy != null
                     && relayPolicy.matchesRelayPolicy();
+        }
+
+        private boolean isAuditTable() {
+            if (!schema.equals("audit")) {
+                return false;
+            }
+            Map<String, RlsPolicy> byName =
+                    policies.stream()
+                            .collect(
+                                    java.util.stream.Collectors.toUnmodifiableMap(
+                                            RlsPolicy::name, policy -> policy));
+            RlsPolicy tenantPolicy = byName.get("tenant_isolation");
+            RlsPolicy maintenancePolicy = byName.get("audit_migrator_maintenance");
+            if (tenantPolicy == null
+                    || !tenantPolicy.matchesAuditTenantPolicy()
+                    || maintenancePolicy == null
+                    || !maintenancePolicy.matchesAuditMaintenancePolicy()) {
+                return false;
+            }
+            if (!table.equals("audit_event")) {
+                return policies.size() == 2;
+            }
+            RlsPolicy platformPolicy = byName.get("audit_platform_scope");
+            return policies.size() == 3
+                    && platformPolicy != null
+                    && platformPolicy.matchesAuditPlatformPolicy();
         }
 
         private String violation() {
@@ -241,6 +269,33 @@ final class PostgreSqlCatalogGate {
                     && isStrictRelayPredicate(checkExpression);
         }
 
+        private boolean matchesAuditTenantPolicy() {
+            return name.equals("tenant_isolation")
+                    && command.equals("*")
+                    && permissive
+                    && roles.equals(Set.of("PUBLIC"))
+                    && isAuditTenantPredicate(usingExpression)
+                    && isAuditTenantPredicate(checkExpression);
+        }
+
+        private boolean matchesAuditMaintenancePolicy() {
+            return name.equals("audit_migrator_maintenance")
+                    && command.equals("*")
+                    && permissive
+                    && roles.equals(Set.of("app_migrator"))
+                    && isMigrationOwnerPredicate(usingExpression)
+                    && isMigrationOwnerPredicate(checkExpression);
+        }
+
+        private boolean matchesAuditPlatformPolicy() {
+            return name.equals("audit_platform_scope")
+                    && command.equals("*")
+                    && permissive
+                    && roles.equals(Set.of("PUBLIC"))
+                    && isAuditPlatformPredicate(usingExpression)
+                    && isAuditPlatformPredicate(checkExpression);
+        }
+
         private static boolean isStrictRelayPredicate(String expression) {
             if (expression == null) {
                 return false;
@@ -250,6 +305,26 @@ final class PostgreSqlCatalogGate {
                     && normalized.contains("app_outbox_relay")
                     && normalized.contains("current_setting('app.platform_scope'::text, false)")
                     && normalized.contains("outbox_relay");
+        }
+
+        private static boolean isAuditTenantPredicate(String expression) {
+            return expression != null
+                    && expression.contains("tenant_id")
+                    && expression.contains("current_setting('app.tenant_id'::text, true)")
+                    && expression.contains("uuid");
+        }
+
+        private static boolean isMigrationOwnerPredicate(String expression) {
+            return expression != null
+                    && expression.contains("CURRENT_USER")
+                    && expression.contains("app_migrator");
+        }
+
+        private static boolean isAuditPlatformPredicate(String expression) {
+            return expression != null
+                    && expression.contains("tenant_id IS NULL")
+                    && expression.contains("current_setting('app.platform_scope'::text, true)")
+                    && expression.contains("audit");
         }
 
         private static boolean isStrictTenantPredicate(String expression) {

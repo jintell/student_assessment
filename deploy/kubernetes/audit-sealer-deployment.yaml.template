@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cbt-audit-sealer
+  labels:
+    app.kubernetes.io/name: cbt-platform
+    app.kubernetes.io/component: audit-sealer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cbt-platform
+      app.kubernetes.io/component: audit-sealer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cbt-platform
+        app.kubernetes.io/component: audit-sealer
+    spec:
+      serviceAccountName: cbt-audit-sealer
+      containers:
+        - name: audit-sealer
+          image: ${CBT_PLATFORM_IMAGE_DIGEST}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: audit-sealer
+            - name: CBT_AUDIT_SIGNING_KEY_REFERENCE
+              value: ${CBT_AUDIT_SIGNING_KEY_REFERENCE}
+            - name: CBT_AUDIT_SIGNING_ALGORITHM
+              value: ${CBT_AUDIT_SIGNING_ALGORITHM}
+          ports: []

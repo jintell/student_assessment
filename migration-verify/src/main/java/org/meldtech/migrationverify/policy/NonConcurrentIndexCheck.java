@@ -11,7 +11,9 @@ public final class NonConcurrentIndexCheck implements ForbiddenOperationCheck {
     @Override
     public Optional<MigrationViolation> evaluate(
             MigrationHeader header, ParsedMigrationStatement statement) {
-        return statement.kind() == StatementKind.CREATE_INDEX && !statement.concurrent()
+        return statement.kind() == StatementKind.CREATE_INDEX
+                        && !statement.concurrent()
+                        && !statement.newEmptyPartitionedParentIndex()
                 ? Optional.of(
                         ForbiddenViolation.create(
                                 "NON_CONCURRENT_INDEX",

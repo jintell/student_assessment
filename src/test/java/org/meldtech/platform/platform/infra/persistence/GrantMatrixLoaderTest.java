@@ -61,7 +61,8 @@ class GrantMatrixLoaderTest {
                   {"name":"app_worker","login":true,"createRole":false},
                   {"name":"app_pindist","login":true,"createRole":false},
                   {"name":"app_txn_examentry","login":false,"createRole":false}
-                ],"memberships":%s,"objectGrants":[],"defaultPrivileges":[],"denials":[
+                ],"memberships":%s,"objectGrants":[],"defaultPrivileges":[],
+                "defaultPrivilegeExceptions":[],"denials":[
                   {"kind":"NO_DIRECT_OBJECT_GRANTS","role":"app_api"},
                   {"kind":"NO_DIRECT_OBJECT_GRANTS","role":"app_worker"},
                   {"kind":"NO_DIRECT_OBJECT_GRANTS","role":"app_pindist"}

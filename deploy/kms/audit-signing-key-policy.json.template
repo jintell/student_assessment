@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "keyAlias": "${CBT_AUDIT_SIGNING_KEY_ALIAS}",
+  "keyType": "ASYMMETRIC",
+  "keyUsage": "SIGN_VERIFY",
+  "algorithm": "${CBT_AUDIT_SIGNING_ALGORITHM}",
+  "exportable": false,
+  "rotation": {
+    "period": "P1Y",
+    "retainPublicKeyVersions": "P5Y",
+    "rotateOnSuspectedDisclosure": true,
+    "rotateOnSignerOffboarding": true
+  },
+  "principals": {
+    "sign": ["${CBT_AUDIT_SEALER_WORKLOAD_IDENTITY}"],
+    "verifyAndDescribe": [
+      "${CBT_AUDIT_SEALER_WORKLOAD_IDENTITY}",
+      "${CBT_AUDIT_VERIFIER_WORKLOAD_IDENTITY}"
+    ],
+    "administerWithoutSigning": ["${CBT_KMS_SECURITY_ADMIN_IDENTITY}"],
+    "explicitlyDenied": [
+      "${CBT_API_WORKLOAD_IDENTITY}",
+      "${CBT_WORKER_WORKLOAD_IDENTITY}",
+      "${CBT_PINDIST_WORKLOAD_IDENTITY}",
+      "${CBT_MIGRATION_WORKLOAD_IDENTITY}",
+      "${CBT_RETENTION_WORKLOAD_IDENTITY}"
+    ]
+  },
+  "deniedOperations": [
+    "Decrypt",
+    "Encrypt",
+    "ExportPrivateKey",
+    "MutatePolicy",
+    "DisableKey",
+    "ScheduleDeletion",
+    "Delegate"
+  ]
+}

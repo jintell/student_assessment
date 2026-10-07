@@ -147,7 +147,7 @@ class PersistenceSecurityGatesIntegrationTest {
     }
 
     @Test
-    void moduleRoleGrantsMatchOwnedSchemaAndSharedInsertContracts() throws SQLException {
+    void moduleRoleGrantsMatchOwnedSchemaAndSharedAtomicAppendContracts() throws SQLException {
         GrantMatrix matrix = new GrantMatrixLoader().loadDefault();
         Set<String> moduleSchemas =
                 matrix.schemas().stream()
@@ -178,7 +178,10 @@ class PersistenceSecurityGatesIntegrationTest {
                             "SCHEMA:" + schema + ":[USAGE]",
                             "ALL_TABLES_IN_SCHEMA:" + schema + ":[DELETE, INSERT, SELECT, UPDATE]",
                             "SCHEMA:audit:[USAGE]",
-                            "SCHEMA:outbox:[USAGE]");
+                            "SCHEMA:outbox:[USAGE]",
+                            "TABLE:audit:[INSERT]",
+                            "TABLE:audit:[SELECT, UPDATE]",
+                            "TABLE:outbox:[INSERT]");
         }
 
         for (String sharedSchema : List.of("audit", "outbox")) {
@@ -330,7 +333,7 @@ class PersistenceSecurityGatesIntegrationTest {
     }
 
     @Test
-    void examEntryRoleCannotUpdateOrDeleteAuditRecords() throws SQLException {
+    void examEntryRoleCanAdvanceOnlyTheAuditCoordinationHead() throws SQLException {
         assertThat(
                         queryIntAsClusterOwner(
                                 """
@@ -338,9 +341,112 @@ class PersistenceSecurityGatesIntegrationTest {
                                 FROM information_schema.role_table_grants
                                 WHERE grantee = 'app_txn_examentry'
                                   AND table_schema = 'audit'
+                                  AND table_name <> 'audit_chain_head'
                                   AND privilege_type IN ('UPDATE', 'DELETE')
                                 """))
                 .as("exam-entry grants that mutate audit records")
+                .isZero();
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM information_schema.role_table_grants
+                                WHERE grantee = 'app_txn_examentry'
+                                  AND table_schema = 'audit'
+                                  AND table_name = 'audit_chain_head'
+                                  AND privilege_type IN ('SELECT', 'UPDATE')
+                                """))
+                .as("exam-entry atomic append head grants")
+                .isEqualTo(2);
+    }
+
+    @Test
+    void immutableAuditTriggerCoversTheParentAndEveryPartition() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                WITH RECURSIVE audit_event_tree(relation_id) AS (
+                                    SELECT 'audit.audit_event'::regclass
+                                    UNION ALL
+                                    SELECT inheritance.inhrelid
+                                    FROM pg_catalog.pg_inherits AS inheritance
+                                    JOIN audit_event_tree AS parent
+                                      ON parent.relation_id = inheritance.inhparent
+                                )
+                                SELECT count(*)
+                                FROM audit_event_tree AS relation
+                                WHERE NOT EXISTS (
+                                    SELECT 1
+                                    FROM pg_catalog.pg_trigger AS trigger
+                                    WHERE trigger.tgrelid = relation.relation_id
+                                      AND trigger.tgname = 'audit_event_immutable'
+                                      AND NOT trigger.tgisinternal
+                                )
+                                """))
+                .as("audit event relations missing the immutable trigger")
+                .isZero();
+    }
+
+    @Test
+    void auditEventPartitionsEnableAndForceRlsWithAllRequiredPolicies() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM pg_catalog.pg_partition_tree('audit.audit_event'::regclass)
+                                     AS partition_tree
+                                JOIN pg_catalog.pg_class AS relation
+                                  ON relation.oid = partition_tree.relid
+                                WHERE partition_tree.level = 2
+                                  AND (
+                                      NOT relation.relrowsecurity
+                                      OR NOT relation.relforcerowsecurity
+                                      OR (
+                                          SELECT count(*)
+                                          FROM pg_catalog.pg_policy AS policy
+                                          WHERE policy.polrelid = relation.oid
+                                      ) <> 3
+                                  )
+                                """))
+                .isZero();
+    }
+
+    @Test
+    void retentionDeleteCannotBeGrantedOnAnAttachedAuditPartition() throws SQLException {
+        assertThatThrownBy(
+                        () ->
+                                executeAsClusterOwner(
+                                        """
+                                        SET ROLE app_migrator;
+                                        SELECT audit.authorize_retention_delete(
+                                            (
+                                                SELECT inheritance.inhrelid::regclass
+                                                FROM pg_catalog.pg_inherits AS inheritance
+                                                JOIN pg_catalog.pg_class AS child
+                                                  ON child.oid = inheritance.inhrelid
+                                                WHERE child.relkind = 'r'
+                                                  AND inheritance.inhparent IN (
+                                                      SELECT class_parent.inhrelid
+                                                      FROM pg_catalog.pg_inherits AS class_parent
+                                                      WHERE class_parent.inhparent =
+                                                          'audit.audit_event'::regclass
+                                                  )
+                                                LIMIT 1
+                                            ),
+                                            CURRENT_TIMESTAMP - interval '1 day'
+                                        );
+                                        """))
+                .isInstanceOf(SQLException.class);
+
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM information_schema.role_table_grants
+                                WHERE grantee = 'app_audit_retention'
+                                  AND table_schema = 'audit'
+                                  AND privilege_type = 'DELETE'
+                                """))
                 .isZero();
     }
 

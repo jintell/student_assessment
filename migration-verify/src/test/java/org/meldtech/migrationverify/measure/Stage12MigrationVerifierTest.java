@@ -31,7 +31,7 @@ class Stage12MigrationVerifierTest {
                                 outputDirectory);
 
         assertEquals("PASS", report.overallVerdict());
-        assertEquals(1, report.statements().size());
+        assertEquals(11, report.statements().size());
         assertFalse(report.statements().getFirst().locks().isEmpty());
         assertTrue(
                 report.statements().getFirst().locks().stream()

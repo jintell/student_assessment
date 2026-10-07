@@ -2,6 +2,11 @@ package org.meldtech.migrationverify.core;
 
 public enum StatementKind {
     CREATE_TABLE,
+    CREATE_EXTENSION,
+    CREATE_FUNCTION,
+    CREATE_TRIGGER,
+    CREATE_POLICY,
+    ROW_LEVEL_SECURITY,
     ADD_COLUMN,
     ADD_CONSTRAINT,
     CREATE_INDEX,
@@ -14,6 +19,10 @@ public enum StatementKind {
     DROP_TABLE,
     RENAME_COLUMN,
     COMMENT,
+    GRANT,
+    REVOKE,
+    INVOKE_FUNCTION,
+    PROCEDURAL_BLOCK,
     DATA_MODIFICATION,
     OTHER
 }

@@ -296,11 +296,34 @@ val integrationTest =
         shouldRunAfter(tasks.test, sliceTest)
         val payloadCaptureDirectory =
             layout.buildDirectory.dir("reports/integration-event-payloads")
+        val auditPayloadCaptureDirectory =
+            layout.buildDirectory.dir("reports/integration-audit-payloads")
+        useJUnitPlatform {
+            excludeTags("audit-daily-chain-verification")
+        }
         systemProperty(
             "cbt.event-payload-capture-dir",
             payloadCaptureDirectory.get().asFile.absolutePath,
         )
+        systemProperty(
+            "cbt.audit-payload-capture-dir",
+            auditPayloadCaptureDirectory.get().asFile.absolutePath,
+        )
         outputs.dir(payloadCaptureDirectory)
+        outputs.dir(auditPayloadCaptureDirectory)
+    }
+
+val auditDailyChainVerificationTest =
+    tasks.register<Test>("auditDailyChainVerificationTest") {
+        description = "Runs the daily open-audit-chain verification gate against PostgreSQL."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = integrationTestSourceSet.output.classesDirs
+        classpath = integrationTestSourceSet.runtimeClasspath
+        dependsOn(tasks.testClasses, integrationTestSourceSet.classesTaskName)
+        useJUnitPlatform {
+            includeTags("audit-daily-chain-verification")
+        }
+        shouldRunAfter(integrationTest)
     }
 
 tasks.register<Test>("stagingAdversarialTest") {
@@ -475,6 +498,34 @@ val eventPayloadSecretScan =
         args(
             layout.buildDirectory
                 .dir("reports/integration-event-payloads")
+                .get()
+                .asFile.absolutePath,
+        )
+    }
+
+val auditPayloadLeakScannerSelfTest =
+    tasks.register<Test>("auditPayloadLeakScannerSelfTest") {
+        description = "Proves the audit-payload scanner rejects credential fields."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include("**/AuditPayloadLeakScannerTest.class")
+        dependsOn(tasks.testClasses)
+    }
+
+val auditPayloadSecretScan =
+    tasks.register<JavaExec>("auditPayloadSecretScan") {
+        description = "Scans captured audit payloads for credential fields."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn(integrationTest, auditPayloadLeakScannerSelfTest)
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set("org.meldtech.platform.platform.infra.audit.AuditPayloadLeakScanner")
+        args(
+            layout.buildDirectory
+                .dir("reports/integration-audit-payloads")
                 .get()
                 .asFile.absolutePath,
         )
@@ -791,9 +842,9 @@ tasks.register("ciStage7") {
 }
 
 tasks.register("ciStage8") {
-    description = "CI stage 8: runs PostgreSQL integration tests."
+    description = "CI stage 8: runs PostgreSQL integration and daily audit-chain verification."
     group = "ci"
-    dependsOn(integrationTest, queryBudgetGate)
+    dependsOn(integrationTest, auditDailyChainVerificationTest, queryBudgetGate)
 }
 
 tasks.register("ciStage9") {
@@ -810,6 +861,7 @@ tasks.register("ciStage10") {
         problemDetailAllowlistTest,
         tenantIsolationMatrixTest,
         eventPayloadSecretScan,
+        auditPayloadSecretScan,
         operationalLogSecretScan,
     )
 }

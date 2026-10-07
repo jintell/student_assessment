@@ -20,8 +20,16 @@ public final class OwnSchemaCheck {
                     violations.add(violation(header, statement, relationSchema, "relation"));
                 }
             }
-            if (statement.kind() == StatementKind.CREATE_INDEX
-                    || statement.kind() == StatementKind.DROP_INDEX) {
+            if (statement.kind() == StatementKind.CREATE_INDEX) {
+                schema(statement.objectName())
+                        .filter(indexSchema -> !indexSchema.equals(header.module()))
+                        .ifPresent(
+                                indexSchema ->
+                                        violations.add(
+                                                violation(
+                                                        header, statement, indexSchema, "index")));
+            }
+            if (statement.kind() == StatementKind.DROP_INDEX) {
                 String indexSchema = schema(statement.objectName()).orElse("<unqualified>");
                 if (!indexSchema.equals(header.module())) {
                     violations.add(violation(header, statement, indexSchema, "index"));

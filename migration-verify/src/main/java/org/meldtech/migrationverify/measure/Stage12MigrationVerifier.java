@@ -422,6 +422,10 @@ public final class Stage12MigrationVerifier {
                     throw new IllegalStateException("Cannot discover migration schemas", exception);
                 }
                 Set<Path> applied = new HashSet<>();
+                Set<Path> releaseMigrations =
+                        manifest.migrations().stream()
+                                .map(migration -> repository.resolve(migration.path()).normalize())
+                                .collect(java.util.stream.Collectors.toUnmodifiableSet());
                 for (ReleaseManifestGenerator.MigrationSpecification migration :
                         manifest.migrations()) {
                     Path target = repository.resolve(migration.path()).normalize();
@@ -439,7 +443,9 @@ public final class Stage12MigrationVerifier {
                                         .filter(
                                                 path ->
                                                         version(path) > 1
-                                                                && version(path) < targetVersion)
+                                                                && version(path) < targetVersion
+                                                                && !releaseMigrations.contains(
+                                                                        path.normalize()))
                                         .sorted(
                                                 Comparator.comparingInt(
                                                         Stage12MigrationVerifier::version))
