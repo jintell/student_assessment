@@ -8,6 +8,14 @@ public interface TransactionalConnection {
 
     Statement createStatement(String sql);
 
+    default void beginAuditFinalization() {}
+
+    default Statement createAuditStatement(AuditStatementKind kind, String sql) {
+        return createStatement(sql);
+    }
+
+    default void verifyReadyForCompletion() {}
+
     static Mono<TransactionalConnection> current() {
         return Mono.deferContextual(
                 context ->

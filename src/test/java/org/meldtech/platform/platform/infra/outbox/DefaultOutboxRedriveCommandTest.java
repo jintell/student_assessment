@@ -2,16 +2,17 @@ package org.meldtech.platform.platform.infra.outbox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import org.meldtech.platform.audit.api.AuditEvent;
 import org.meldtech.platform.outbox.api.DeadLetterKind;
 import org.meldtech.platform.outbox.api.DeadLetterRedrive;
 import org.meldtech.platform.outbox.api.FailedOutboxRedrive;
 import org.meldtech.platform.outbox.api.RedriveResult;
+import org.meldtech.platform.shared.kernel.audit.AuditEvent;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
@@ -25,6 +26,7 @@ class DefaultOutboxRedriveCommandTest {
 
     private static final TenantId TENANT = TenantId.parse("01950f47-6000-7000-8000-000000000001");
     private static final UUID EVENT_ID = UUID.fromString("01950f47-6000-7000-8000-000000000002");
+    private static final Instant NOW = Instant.parse("2026-10-08T00:00:00Z");
 
     @Test
     void deadLetterRedriveRechecksConsumerGuardBeforeRepublishing() {
@@ -36,14 +38,19 @@ class DefaultOutboxRedriveCommandTest {
                         (tenantId, eventId) -> Mono.just(true),
                         request -> Mono.just(true),
                         request -> Mono.fromRunnable(publications::incrementAndGet),
-                        (tenantId, event) -> Mono.fromRunnable(() -> auditEvents.add(event)));
+                        (event, actor, occurredAt) ->
+                                Mono.fromRunnable(() -> auditEvents.add(event)),
+                        () -> NOW);
 
         StepVerifier.create(command.redriveDeadLetter(request()))
                 .expectNext(RedriveResult.ALREADY_PROCESSED)
                 .verifyComplete();
 
         assertThat(publications).hasValue(0);
-        assertThat(auditEvents).singleElement().isInstanceOf(OutboxRedriveAuditEvent.class);
+        assertThat(auditEvents)
+                .singleElement()
+                .extracting(AuditEvent::eventType)
+                .isEqualTo("platform.OUTBOX_REDRIVE_COMPLETED.v1");
     }
 
     @Test
@@ -106,7 +113,8 @@ class DefaultOutboxRedriveCommandTest {
                 (tenantId, eventId) -> Mono.just(processed),
                 request -> Mono.just(eligible),
                 request -> Mono.fromRunnable(publications::incrementAndGet),
-                (tenantId, event) -> Mono.fromRunnable(() -> auditEvents.add(event)));
+                (event, actor, occurredAt) -> Mono.fromRunnable(() -> auditEvents.add(event)),
+                () -> NOW);
     }
 
     private static DeadLetterRedrive request() {

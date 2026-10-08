@@ -4,6 +4,7 @@ import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Statement;
 import java.util.Objects;
 import java.util.function.Function;
+import org.meldtech.platform.platform.api.AuditStatementKind;
 import org.meldtech.platform.platform.api.TransactionalCollaboration;
 import org.meldtech.platform.platform.api.TransactionalConnection;
 import org.meldtech.platform.shared.api.AtomicCrossModuleFlow;
@@ -47,21 +48,80 @@ final class DefaultTransactionalCollaboration implements TransactionalCollaborat
 
     private static <T> Mono<T> invoke(
             Function<TransactionalConnection, Mono<T>> work, Connection connection) {
-        TransactionalConnection handle = new R2dbcTransactionalConnection(connection);
+        R2dbcTransactionalConnection handle = new R2dbcTransactionalConnection(connection);
         return Mono.defer(() -> work.apply(handle))
+                .doOnSuccess(ignored -> handle.verifyReadyForCompletion())
                 .contextWrite(context -> context.put(TransactionalConnection.class, handle));
     }
 
-    private record R2dbcTransactionalConnection(Connection connection)
-            implements TransactionalConnection {
+    private static final class R2dbcTransactionalConnection implements TransactionalConnection {
 
-        private R2dbcTransactionalConnection {
-            Objects.requireNonNull(connection, "connection");
+        private final Connection connection;
+        private FinalizationState finalizationState = FinalizationState.BUSINESS_SQL;
+
+        private R2dbcTransactionalConnection(Connection connection) {
+            this.connection = Objects.requireNonNull(connection, "connection");
         }
 
         @Override
-        public Statement createStatement(String sql) {
+        public synchronized Statement createStatement(String sql) {
+            if (finalizationState != FinalizationState.BUSINESS_SQL) {
+                throw new IllegalStateException(
+                        "Business SQL is forbidden after audit finalization begins");
+            }
             return connection.createStatement(sql);
+        }
+
+        @Override
+        public synchronized void beginAuditFinalization() {
+            if (finalizationState != FinalizationState.BUSINESS_SQL
+                    && finalizationState != FinalizationState.FINALIZED) {
+                throw new IllegalStateException("An audit append protocol is already in progress");
+            }
+            finalizationState = FinalizationState.LOCK_REQUIRED;
+        }
+
+        @Override
+        public synchronized Statement createAuditStatement(AuditStatementKind kind, String sql) {
+            Objects.requireNonNull(kind, "kind");
+            Objects.requireNonNull(sql, "sql");
+            return switch (kind) {
+                case LOCK_PREDECESSOR -> {
+                    requireState(FinalizationState.LOCK_REQUIRED, kind);
+                    finalizationState = FinalizationState.APPEND_REQUIRED;
+                    yield connection.createStatement(sql);
+                }
+                case APPEND_AND_ADVANCE -> {
+                    requireState(FinalizationState.APPEND_REQUIRED, kind);
+                    finalizationState = FinalizationState.FINALIZED;
+                    yield connection.createStatement(sql);
+                }
+            };
+        }
+
+        @Override
+        public synchronized void verifyReadyForCompletion() {
+            if (finalizationState != FinalizationState.BUSINESS_SQL
+                    && finalizationState != FinalizationState.FINALIZED) {
+                throw new IllegalStateException("Audit append protocol is incomplete");
+            }
+        }
+
+        private void requireState(FinalizationState expected, AuditStatementKind attempted) {
+            if (finalizationState != expected) {
+                throw new IllegalStateException(
+                        "Audit statement "
+                                + attempted
+                                + " is invalid while connection is "
+                                + finalizationState);
+            }
+        }
+
+        private enum FinalizationState {
+            BUSINESS_SQL,
+            LOCK_REQUIRED,
+            APPEND_REQUIRED,
+            FINALIZED
         }
     }
 }

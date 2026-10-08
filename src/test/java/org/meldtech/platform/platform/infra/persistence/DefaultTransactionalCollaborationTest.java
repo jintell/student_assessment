@@ -1,6 +1,7 @@
 package org.meldtech.platform.platform.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.ConnectionFactory;
@@ -11,6 +12,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.meldtech.platform.platform.api.AuditStatementKind;
 import org.meldtech.platform.platform.api.TransactionalConnection;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
@@ -64,6 +66,62 @@ class DefaultTransactionalCollaborationTest {
                                                                 sql -> statementProxy())))
                 .expectErrorMessage("Nested synchronous collaboration transactions are forbidden")
                 .verify();
+    }
+
+    @Test
+    void auditFinalizationAllowsOnlyTheSignedStatementOrder() {
+        List<String> events = new ArrayList<>();
+        DefaultTransactionalCollaboration collaboration = collaboration(events);
+
+        StepVerifier.create(
+                        collaboration.inExamEntryTransaction(
+                                tenantId(),
+                                handle -> {
+                                    handle.createStatement("UPDATE business_state");
+                                    handle.beginAuditFinalization();
+                                    handle.createAuditStatement(
+                                            AuditStatementKind.LOCK_PREDECESSOR,
+                                            "SELECT audit_head FOR UPDATE");
+                                    assertThatThrownBy(
+                                                    () ->
+                                                            handle.createStatement(
+                                                                    "UPDATE late_business_state"))
+                                            .hasMessageContaining("forbidden");
+                                    handle.createAuditStatement(
+                                            AuditStatementKind.APPEND_AND_ADVANCE,
+                                            "WITH inserted_event AS ...");
+                                    return Mono.just("done");
+                                }))
+                .expectNext("done")
+                .verifyComplete();
+
+        assertThat(events)
+                .containsSubsequence(
+                        "UPDATE business_state",
+                        "SELECT audit_head FOR UPDATE",
+                        "WITH inserted_event AS ...",
+                        "COMMIT");
+    }
+
+    @Test
+    void incompleteAuditFinalizationRollsBack() {
+        List<String> events = new ArrayList<>();
+        DefaultTransactionalCollaboration collaboration = collaboration(events);
+
+        StepVerifier.create(
+                        collaboration.inExamEntryTransaction(
+                                tenantId(),
+                                handle -> {
+                                    handle.beginAuditFinalization();
+                                    handle.createAuditStatement(
+                                            AuditStatementKind.LOCK_PREDECESSOR,
+                                            "SELECT audit_head FOR UPDATE");
+                                    return Mono.just("incomplete");
+                                }))
+                .expectErrorMessage("Audit append protocol is incomplete")
+                .verify();
+
+        assertThat(events).contains("ROLLBACK").doesNotContain("COMMIT");
     }
 
     private DefaultTransactionalCollaboration collaboration(List<String> events) {

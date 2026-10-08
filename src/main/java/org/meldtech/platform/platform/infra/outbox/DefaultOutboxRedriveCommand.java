@@ -1,11 +1,12 @@
 package org.meldtech.platform.platform.infra.outbox;
 
 import java.util.Objects;
-import org.meldtech.platform.audit.api.AuditEmitter;
 import org.meldtech.platform.outbox.api.DeadLetterRedrive;
 import org.meldtech.platform.outbox.api.FailedOutboxRedrive;
 import org.meldtech.platform.outbox.api.OutboxRedriveCommand;
 import org.meldtech.platform.outbox.api.RedriveResult;
+import org.meldtech.platform.shared.kernel.audit.AuditEmitter;
+import org.meldtech.platform.shared.kernel.time.Clock;
 import org.springframework.transaction.reactive.TransactionSynchronizationManager;
 import reactor.core.publisher.Mono;
 
@@ -16,18 +17,21 @@ final class DefaultOutboxRedriveCommand implements OutboxRedriveCommand {
     private final RedriveEligibility eligibility;
     private final DeadLetterRedriveGateway deadLetters;
     private final AuditEmitter auditEmitter;
+    private final Clock clock;
 
     DefaultOutboxRedriveCommand(
             OutboxRedriveRepository repository,
             ConsumerGuardProbe consumerGuard,
             RedriveEligibility eligibility,
             DeadLetterRedriveGateway deadLetters,
-            AuditEmitter auditEmitter) {
+            AuditEmitter auditEmitter,
+            Clock clock) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.consumerGuard = Objects.requireNonNull(consumerGuard, "consumerGuard");
         this.eligibility = Objects.requireNonNull(eligibility, "eligibility");
         this.deadLetters = Objects.requireNonNull(deadLetters, "deadLetters");
         this.auditEmitter = Objects.requireNonNull(auditEmitter, "auditEmitter");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     @Override
@@ -44,8 +48,7 @@ final class DefaultOutboxRedriveCommand implements OutboxRedriveCommand {
                                                 request.actor(),
                                                 request.reason(),
                                                 "FAILED_ROW",
-                                                outcome,
-                                                request.tenantId())
+                                                outcome)
                                         .thenReturn(outcome));
     }
 
@@ -80,8 +83,7 @@ final class DefaultOutboxRedriveCommand implements OutboxRedriveCommand {
                                                 request.actor(),
                                                 request.reason(),
                                                 request.deadLetterKind().name(),
-                                                outcome,
-                                                request.tenantId())
+                                                outcome)
                                         .thenReturn(outcome));
     }
 
@@ -91,10 +93,11 @@ final class DefaultOutboxRedriveCommand implements OutboxRedriveCommand {
             org.meldtech.platform.shared.kernel.context.ActorContext actor,
             String reason,
             String source,
-            RedriveResult outcome,
-            org.meldtech.platform.shared.kernel.identity.TenantId tenantId) {
-        return auditEmitter.emit(
-                tenantId,
-                new OutboxRedriveAuditEvent(requestId, eventId, actor, reason, source, outcome));
+            RedriveResult outcome) {
+        return Mono.from(
+                auditEmitter.emit(
+                        OutboxRedriveAuditEvent.create(requestId, eventId, reason, source, outcome),
+                        actor,
+                        clock.now()));
     }
 }

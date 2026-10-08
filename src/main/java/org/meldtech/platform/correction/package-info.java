@@ -6,7 +6,7 @@
             "iam::api",
             "result::api",
             "shared::api",
-            "audit::api",
+            "shared::kernel",
             "outbox::api"
         },
         type = org.springframework.modulith.ApplicationModule.Type.CLOSED)

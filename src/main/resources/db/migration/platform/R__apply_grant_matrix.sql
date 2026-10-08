@@ -1,5 +1,5 @@
 -- GENERATED from db/grants/grant-matrix.json; do not edit.
--- source-sha256: 9b489d10e1725155edaa6fd6d16152d499e78ccef3859e3a6efff5e888dd8082
+-- source-sha256: 87020c953fef58fbdcaee3e65262c3b5d07dd34ed91947f174b35da332b11913
 -- Grant refresh: ${grantRefresh}
 
 ALTER ROLE app_academic WITH NOLOGIN NOCREATEROLE NOINHERIT;
@@ -168,7 +168,23 @@ $$;
 
 GRANT USAGE ON SCHEMA audit TO app_audit_partition_maintenance;
 
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_shard_policy') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT, SELECT ON TABLE audit.audit_shard_policy TO app_audit_partition_maintenance';
+    END IF;
+END
+$$;
+
 GRANT USAGE ON SCHEMA audit TO app_audit_retention;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_disposition_lifecycle') IS NOT NULL THEN
+        EXECUTE 'GRANT INSERT, SELECT, UPDATE ON TABLE audit.audit_disposition_lifecycle TO app_audit_retention';
+    END IF;
+END
+$$;
 
 GRANT USAGE ON SCHEMA audit TO app_audit_sealer;
 
@@ -792,6 +808,22 @@ DO $$
 BEGIN
     IF to_regclass('audit.audit_chain_seal') IS NOT NULL THEN
         EXECUTE 'REVOKE INSERT ON TABLE audit.audit_chain_seal FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_disposition_lifecycle') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_disposition_lifecycle FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF to_regclass('audit.audit_shard_policy') IS NOT NULL THEN
+        EXECUTE 'REVOKE INSERT ON TABLE audit.audit_shard_policy FROM app_academic, app_authoring, app_correction, app_delivery, app_examaccess, app_grading, app_iam, app_notification, app_people, app_questionbank, app_result, app_tenancy, app_txn_examentry';
     END IF;
 END
 $$;
