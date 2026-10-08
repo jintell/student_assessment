@@ -171,7 +171,9 @@
     {"grantee": "app_audit_partition_maintenance", "objectType": "FUNCTION", "schema": "audit", "object": "provision_audit_epoch_heads(uuid, text, date, integer, smallint)", "privileges": ["EXECUTE"]},
     {"grantee": "app_audit_partition_maintenance", "objectType": "FUNCTION", "schema": "audit", "object": "provision_future_epoch_heads(date)", "privileges": ["EXECUTE"]},
     {"grantee": "app_audit_partition_maintenance", "objectType": "FUNCTION", "schema": "audit", "object": "provision_audit_root_head(uuid)", "privileges": ["EXECUTE"]},
+    {"grantee": "app_audit_partition_maintenance", "objectType": "TABLE", "schema": "audit", "object": "audit_shard_policy", "privileges": ["INSERT", "SELECT"]},
     {"grantee": "app_audit_retention", "objectType": "SCHEMA", "schema": "audit", "privileges": ["USAGE"]},
+    {"grantee": "app_audit_retention", "objectType": "TABLE", "schema": "audit", "object": "audit_disposition_lifecycle", "privileges": ["INSERT", "SELECT", "UPDATE"]},
     {"grantee": "app_audit_sealer", "objectType": "SCHEMA", "schema": "audit", "privileges": ["USAGE"]},
     {"grantee": "app_audit_sealer", "objectType": "TABLE", "schema": "audit", "object": "audit_chain_head", "privileges": ["SELECT"]},
     {"grantee": "app_audit_sealer", "objectType": "TABLE", "schema": "audit", "object": "audit_chain_checkpoint", "privileges": ["INSERT"]},
@@ -210,7 +212,9 @@
     {"owner": "app_migrator", "schema": "audit", "object": "audit_chain_head", "privileges": ["INSERT"]},
     {"owner": "app_migrator", "schema": "audit", "object": "audit_chain_checkpoint", "privileges": ["INSERT"]},
     {"owner": "app_migrator", "schema": "audit", "object": "audit_chain_root_head", "privileges": ["INSERT"]},
-    {"owner": "app_migrator", "schema": "audit", "object": "audit_chain_seal", "privileges": ["INSERT"]}
+    {"owner": "app_migrator", "schema": "audit", "object": "audit_chain_seal", "privileges": ["INSERT"]},
+    {"owner": "app_migrator", "schema": "audit", "object": "audit_disposition_lifecycle", "privileges": ["INSERT"]},
+    {"owner": "app_migrator", "schema": "audit", "object": "audit_shard_policy", "privileges": ["INSERT"]}
   ],
   "denials": [
     {"kind": "NO_DIRECT_OBJECT_GRANTS", "role": "app_api"},

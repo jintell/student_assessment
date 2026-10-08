@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.meldtech.platform.audit.api.AuditEmitter;
+import org.meldtech.platform.shared.kernel.audit.AuditEmitter;
 import org.springframework.transaction.annotation.Transactional;
 
 class R8AuditCoverageTests {
@@ -36,6 +36,16 @@ class R8AuditCoverageTests {
                                         fixture));
 
         assertTrue(String.valueOf(failure.getMessage()).contains("R8 audit coverage violated:"));
+    }
+
+    @Test
+    void acceptsAMutatingHandlerThatUsesTheRealKernelEmitterPort() {
+        Iterable<JavaClass> fixture =
+                new ClassFileImporter()
+                        .importPackages(
+                                "org.meldtech.platform.conformance.fixtures.r8.slice.valid");
+
+        assertEveryMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod(fixture);
     }
 
     private static void assertEveryMutatingHandlerEmitsAnAuditEventInsideItsTransactionMethod(

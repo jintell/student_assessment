@@ -20,15 +20,17 @@ class ContextModuleDependencyTests {
 
     private static final Map<String, Set<String>> EXPECTED_DEPENDENCIES =
             Map.ofEntries(
-                    Map.entry("tenancy", Set.of("shared::api", "audit::api", "outbox::api")),
+                    Map.entry("tenancy", Set.of("shared::api", "shared::kernel", "outbox::api")),
                     Map.entry(
                             "iam",
-                            Set.of("tenancy::api", "shared::api", "audit::api", "outbox::api")),
-                    Map.entry("academic", Set.of("tenancy::api", "shared::api", "audit::api")),
+                            Set.of("tenancy::api", "shared::api", "shared::kernel", "outbox::api")),
+                    Map.entry("academic", Set.of("tenancy::api", "shared::api", "shared::kernel")),
                     Map.entry(
                             "people",
-                            Set.of("tenancy::api", "shared::api", "audit::api", "outbox::api")),
-                    Map.entry("questionbank", Set.of("tenancy::api", "shared::api", "audit::api")),
+                            Set.of("tenancy::api", "shared::api", "shared::kernel", "outbox::api")),
+                    Map.entry(
+                            "questionbank",
+                            Set.of("tenancy::api", "shared::api", "shared::kernel")),
                     Map.entry(
                             "authoring",
                             Set.of(
@@ -38,7 +40,7 @@ class ContextModuleDependencyTests {
                                     "people::api",
                                     "questionbank::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "examaccess",
@@ -49,7 +51,7 @@ class ContextModuleDependencyTests {
                                     "authoring::api",
                                     "delivery::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "delivery",
@@ -57,7 +59,7 @@ class ContextModuleDependencyTests {
                                     "tenancy::api",
                                     "authoring::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "grading",
@@ -66,7 +68,7 @@ class ContextModuleDependencyTests {
                                     "authoring::api",
                                     "delivery::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "result",
@@ -76,7 +78,7 @@ class ContextModuleDependencyTests {
                                     "people::api",
                                     "grading::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "correction",
@@ -85,7 +87,7 @@ class ContextModuleDependencyTests {
                                     "iam::api",
                                     "result::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")),
                     Map.entry(
                             "notification",
@@ -96,7 +98,7 @@ class ContextModuleDependencyTests {
                                     "result::api",
                                     "correction::api",
                                     "shared::api",
-                                    "audit::api",
+                                    "shared::kernel",
                                     "outbox::api")));
 
     private static final Set<String> ALL_MODULES =
