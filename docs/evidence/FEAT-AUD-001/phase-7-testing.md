@@ -165,18 +165,33 @@ authorization and full-load A6/A7 evidence remain separate outstanding obligatio
   zero failures, errors or skips (495 total).
 - Targeted `integrationTest` for `AuditAppendIntegrationTest` and
   `AuditStoreHardeningIntegrationTest`: 526 cases passed, zero failures or skips.
-- Full `conformanceTest`: 54 passed, two failed. The requested R8 audit coverage
-  and audit append protocol suites pass. The failures are pre-existing in
-  `R2dbcComplianceAuditQueries`: R1 rejects imports from the compliance slice,
-  and R5 flags its `required`, `map` and `bind` helpers without TenantId parameters.
-  `git diff --exit-code HEAD` confirmed this adapter and both failing rule tests
-  are unchanged. Their owning P4.29 task was already reopened before this run.
+- Full `conformanceTest`: 56 passed, zero failures, errors or skips. The
+  `R2dbcComplianceAuditQueries` adapter now lives under the compliance slice's
+  `infra` package, so its dependency direction satisfies R1. Its row-mapping and
+  binding helpers are isolated in a non-query support type, leaving the
+  `TenantScopedQuery` implementation with only `find(TenantId, ...)`, satisfying
+  R5 without weakening either conformance rule.
 - Four long SQL lines found by Checkstyle were corrected before the final
   PostgreSQL rerun; no test semantics were relaxed.
 - Final `spotlessCheck`, `checkstyleTest`, `checkstyleIntegrationTest` and
   `checkstyleConformanceTest`: passed.
 - `git diff --check`: passed. No generated content was added to version control.
 
-The full build and pipeline are not claimed green: the two conformance failures,
-missing seal persistence and previously documented compliance/KMS dependencies
-remain. No task outside P7.1-P7.14 was marked or repaired.
+The full build and pipeline are not claimed green: missing seal persistence and
+previously documented compliance/KMS dependencies remain. No task outside
+P7.1-P7.14 was marked complete by this run.
+
+## Conformance failure closure
+
+Closed 2026-10-09. The failure was an adapter-boundary defect introduced during
+the P6.7 prerequisite repair, not a defect in R1 or R5. Moving the adapter beneath
+`audit.slice.getComplianceAuditEvents` makes its imports internal to that slice.
+Extracting only stateless SQL binding and row mapping into
+`ComplianceAuditQuerySupport` keeps the query implementation's complete method
+surface tenant-explicit. SQL remains on the adapter's `find` method, preserving
+R3 schema-ownership inspection.
+
+The relocated seven adapter unit cases and all 518 focused PostgreSQL hardening
+cases pass. Compilation, `spotlessCheck`, main/test/integration/conformance
+Checkstyle, the 56-test conformance suite and `git diff --check` pass. No
+conformance assertion or production query behavior was relaxed.

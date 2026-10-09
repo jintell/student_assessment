@@ -1,4 +1,4 @@
-package org.meldtech.platform.audit.infra;
+package org.meldtech.platform.audit.slice.getComplianceAuditEvents.infra;
 
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 

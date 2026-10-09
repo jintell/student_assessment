@@ -1,9 +1,7 @@
-package org.meldtech.platform.audit.infra;
+package org.meldtech.platform.audit.slice.getComplianceAuditEvents.infra;
 
-import io.r2dbc.spi.Row;
 import io.r2dbc.spi.Statement;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,29 +60,33 @@ public final class R2dbcComplianceAuditQueries implements Queries {
                                             value ->
                                                     sql.append(" AND occurred_at >= ")
                                                             .append(
-                                                                    bind(
-                                                                            bindings,
-                                                                            value.atOffset(
-                                                                                    ZoneOffset
-                                                                                            .UTC))));
+                                                                    ComplianceAuditQuerySupport
+                                                                            .bind(
+                                                                                    bindings,
+                                                                                    value.atOffset(
+                                                                                            ZoneOffset
+                                                                                                    .UTC))));
                             request.occurredTo()
                                     .ifPresent(
                                             value ->
                                                     sql.append(" AND occurred_at < ")
                                                             .append(
-                                                                    bind(
-                                                                            bindings,
-                                                                            value.atOffset(
-                                                                                    ZoneOffset
-                                                                                            .UTC))));
+                                                                    ComplianceAuditQuerySupport
+                                                                            .bind(
+                                                                                    bindings,
+                                                                                    value.atOffset(
+                                                                                            ZoneOffset
+                                                                                                    .UTC))));
                             request.entityType()
                                     .ifPresent(
                                             value -> {
                                                 sql.append(" AND entity_type = ")
-                                                        .append(bind(bindings, value));
+                                                        .append(
+                                                                ComplianceAuditQuerySupport.bind(
+                                                                        bindings, value));
                                                 sql.append(" AND entity_id = ")
                                                         .append(
-                                                                bind(
+                                                                ComplianceAuditQuerySupport.bind(
                                                                         bindings,
                                                                         request.entityId()
                                                                                 .orElseThrow()));
@@ -93,17 +95,27 @@ public final class R2dbcComplianceAuditQueries implements Queries {
                                     .ifPresent(
                                             value ->
                                                     sql.append(" AND event_type = ")
-                                                            .append(bind(bindings, value)));
+                                                            .append(
+                                                                    ComplianceAuditQuerySupport
+                                                                            .bind(
+                                                                                    bindings,
+                                                                                    value)));
                             after.ifPresent(
                                     cursor -> {
                                         String time =
-                                                bind(
+                                                ComplianceAuditQuerySupport.bind(
                                                         bindings,
                                                         cursor.occurredAt()
                                                                 .atOffset(ZoneOffset.UTC));
-                                        String retention = bind(bindings, cursor.retentionClass());
-                                        String shard = bind(bindings, cursor.shardId());
-                                        String sequence = bind(bindings, cursor.sequence());
+                                        String retention =
+                                                ComplianceAuditQuerySupport.bind(
+                                                        bindings, cursor.retentionClass());
+                                        String shard =
+                                                ComplianceAuditQuerySupport.bind(
+                                                        bindings, cursor.shardId());
+                                        String sequence =
+                                                ComplianceAuditQuerySupport.bind(
+                                                        bindings, cursor.sequence());
                                         // Retention sorts ascending; the other cursor components
                                         // sort descending.
                                         sql.append(" AND (occurred_at < ")
@@ -125,38 +137,19 @@ public final class R2dbcComplianceAuditQueries implements Queries {
                             sql.append(
                                             " ORDER BY occurred_at DESC, retention_class ASC,"
                                                     + " shard_id DESC, seq DESC LIMIT ")
-                                    .append(bind(bindings, limit));
+                                    .append(ComplianceAuditQuerySupport.bind(bindings, limit));
                             Statement statement = connection.createStatement(sql.toString());
                             for (int index = 0; index < bindings.size(); index++) {
                                 statement.bind(index, bindings.get(index));
                             }
                             return Flux.from(statement.execute())
-                                    .concatMap(result -> result.map((row, metadata) -> map(row)))
+                                    .concatMap(
+                                            result ->
+                                                    result.map(
+                                                            (row, metadata) ->
+                                                                    ComplianceAuditQuerySupport.map(
+                                                                            row)))
                                     .collectList();
                         });
-    }
-
-    private static String bind(List<Object> bindings, Object value) {
-        bindings.add(value);
-        return "$" + bindings.size();
-    }
-
-    private static AuditEventItem map(Row row) {
-        return new AuditEventItem(
-                required(row, "audit_event_id", UUID.class),
-                required(row, "event_type", String.class),
-                required(row, "entity_type", String.class),
-                required(row, "entity_id", String.class),
-                required(row, "actor_type", String.class),
-                required(row, "actor_id", String.class),
-                required(row, "occurred_at", OffsetDateTime.class).toInstant(),
-                required(row, "correlation_id", String.class),
-                required(row, "retention_class", String.class),
-                required(row, "shard_id", Integer.class),
-                required(row, "seq", Long.class));
-    }
-
-    private static <T> T required(Row row, String column, Class<T> type) {
-        return Objects.requireNonNull(row.get(column, type), column);
     }
 }

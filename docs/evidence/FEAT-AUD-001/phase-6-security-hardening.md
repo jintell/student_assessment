@@ -354,7 +354,8 @@ requested task-list entries.
 Reviewed and implemented 2026-10-09. Status: PARTIAL; P6.7 is not closed.
 This record supersedes the earlier claim that no production query adapter exists.
 
-`audit.infra.R2dbcComplianceAuditQueries` now implements `Queries` using the
+`audit.slice.getComplianceAuditEvents.infra.R2dbcComplianceAuditQueries` now
+implements `Queries` using the
 caller-owned `TransactionalConnection`. It binds tenant/filter/cursor/limit
 values, projects only the compliance DTO columns, supports all three query modes,
 and applies inclusive-from/exclusive-to occurrence bounds and the captured `asOf`.
@@ -397,7 +398,7 @@ wrapping three Checkstyle line-length violations:
 
 ```text
 ./gradlew spotlessJavaApply compileJava compileTestJava test \
-  --tests 'org.meldtech.platform.audit.infra.R2dbcComplianceAuditQueriesTest' \
+  --tests 'org.meldtech.platform.audit.slice.getComplianceAuditEvents.infra.R2dbcComplianceAuditQueriesTest' \
   spotlessCheck checkstyleMain checkstyleTest checkstyleIntegrationTest \
   integrationTest --tests 'org.meldtech.platform.audit.AuditStoreHardeningIntegrationTest' \
   --console=plain
