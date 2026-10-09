@@ -35,6 +35,7 @@ import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
+import org.meldtech.platform.shared.kernel.context.SystemActor;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import reactor.core.publisher.Mono;
@@ -89,6 +90,34 @@ class R2dbcAuditEmitterTest {
                                                                 })))
                 .expectErrorMatches(error -> error == failure)
                 .verify();
+    }
+
+    static Stream<ActorContext> platformActors() {
+        ActorContext tenantActor = actor();
+        return Stream.of(
+                ActorContext.platformWorkforce(
+                        tenantActor.actorId(), tenantActor.correlationId(), tenantActor.sourceIp()),
+                ActorContext.platformSystem(
+                        SystemActor.RETENTION_ENGINE,
+                        tenantActor.correlationId(),
+                        tenantActor.sourceIp()));
+    }
+
+    @ParameterizedTest
+    @MethodSource("platformActors")
+    void rejectsTenantlessActorsBeforeAccessingTheAuditStore(ActorContext platformActor) {
+        AuditAppendStore appendStore = mock(AuditAppendStore.class);
+
+        StepVerifier.create(
+                        Mono.from(emitter(appendStore).emit(event(), platformActor, OCCURRED_AT)))
+                .expectErrorMatches(
+                        failure ->
+                                failure instanceof IllegalArgumentException
+                                        && "Tenant audit emission requires a tenant actor context"
+                                                .equals(failure.getMessage()))
+                .verify(Duration.ofSeconds(5));
+
+        verifyNoInteractions(appendStore);
     }
 
     static Stream<Arguments> secretPayloads() {

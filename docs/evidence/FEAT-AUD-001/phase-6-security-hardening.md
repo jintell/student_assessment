@@ -407,3 +407,277 @@ BUILD SUCCESSFUL. Seven adapter unit cases and 518 hardening integration cases
 passed, with zero failures, errors or skips. Compilation, formatting, all three
 Checkstyle checks and `git diff --check` passed. The full integration suite and
 `clean build` were not run. Existing uncommitted work was preserved.
+
+## P6.8 Dependency review
+
+Reviewed 2026-10-09 for the requested P6.8-P6.12 range. Status: BLOCKED by
+`TASK-AUD1-BLOCKER-002`; no completion marker was set.
+
+`getComplianceAuditEvents.Handler.handle` invokes `queries.find`, constructs the
+page, emits `audit.COMPLIANCE_AUDIT_EVENTS_READ.v1`, and uses `thenReturn` so the
+emission must complete before the response is released. The existing
+`ComplianceReadAuditingTest.appendsReadEvidenceAfterTheQueryAndBeforeReturningThePage`
+confirms that call order and event type, but supplies an empty query result and
+a fake emitter returning `Mono.empty()`. It does not write an audit row or
+exercise an authorized HTTP request, database commit or rollback.
+
+The production SQL query adapter is present. The remaining runtime dependencies
+in `TASK-AUD1-BLOCKER-002` still prevent the requested read-audit proof:
+
+- No authoritative tenant-capability binding or registered compliance route and
+  policy bean graph exists.
+- The approved reader role and membership amendment remain outstanding.
+- No compliance transaction boundary installs both the actor-derived database
+  scope and the caller-owned `TransactionalConnection` used by query and emitter.
+- `R2dbcAuditEmitter` has no production bean registration with its real providers.
+
+`@Transactional` on the handler alone does not supply those dependencies. An
+authorized read cannot yet be exercised through the operational compliance path,
+and a passing fake-emitter test is insufficient to certify persistent evidence
+under REQ-PRIV-004. This finding does not assert an observed production disclosure;
+it identifies missing implementation and verification prerequisites.
+
+Validation performed:
+
+```text
+./gradlew compileJava compileTestJava test \
+  --tests 'org.meldtech.platform.audit.slice.getComplianceAuditEvents.ComplianceReadAuditingTest' \
+  --console=plain
+```
+
+BUILD SUCCESSFUL. The one handler unit test passed with zero failures or skips;
+production and test compilation were up-to-date. No HTTP, database integration,
+full-suite or `clean build` verification was claimed for this run.
+
+## P6.8-P6.12 Execution Summary
+
+- Completed tasks: none. P6.8 dependency validation stopped execution.
+- Blocked task: P6.8, for the runtime dependencies listed above; no test failed.
+- Remaining tasks: P6.8 through P6.12. P6.9-P6.12 were not executed or modified.
+- Persisted deliverables: this dependency review, the P6.8 task annotation and
+  the blocker record's explicit P6.8 impact.
+- Resume prerequisites: resolve `TASK-AUD1-BLOCKER-002` through its documented
+  authority, approved-grant, transaction and production-wiring sequence. Then
+  prove an allowed read commits its own attributable audit row and an emission
+  failure releases no page, on the shared secured transaction.
+- Risk: handler-level call ordering does not establish committed read evidence;
+  the later signing, nullability, threat-model and secret-scan checks remain open.
+- Recommended next range after prerequisite resolution: P6.8 through P6.12.
+
+The execute-tasks dependency-stop rule was followed. No grants, approval records,
+production code or tests were changed; earlier task markers were preserved.
+
+## P6.9 Dependency review
+
+Reviewed 2026-10-09 for the requested P6.9-P6.12 range. Status: BLOCKED; neither
+required provider authorization attempt was executed or claimed successful.
+
+The current signing path ends at the `KmsSigningClient` interface. Its only
+implementations in the repository are anonymous fakes in `KmsAuditSignerTest`.
+There is no production provider adapter or provider-backed signing test under
+the application's workload identity. P3.10 explicitly records a provider-neutral
+provisioning contract; the KMS policy and service-account/deployment artifacts
+remain templates with unresolved environment/identity references. No configured
+provider test target and application identity binding was supplied for this run.
+This finding does not assert that no external KMS deployment exists.
+
+| Required attempt | Current evidence | Missing proof |
+| --- | --- | --- |
+| Sign a backdated checkpoint using application credentials | Template explicitly denies application principals; signer unit tests use fake metadata and signatures. | A provider authorization denial for the application workload against the configured signing key. |
+| Re-sign a seal using application credentials | The adapter's existing-evidence lookup can reject locally before signing. | A provider authorization denial under the application workload, independently of that local guard. |
+
+`refusesToResignAnExistingCheckpointOrSeal` exercises a local lookup returning
+true and expects `Existing audit evidence cannot be re-signed`. It does not
+contact KMS. `rejectsAKeyOutsideTheDedicatedWorkloadBoundary` rejects synthetic
+key metadata; it also does not prove cloud IAM enforcement. Neither test can
+substitute for the two P6.9 attempts.
+
+Validation performed:
+
+```text
+./gradlew compileJava compileTestJava test \
+  --tests 'org.meldtech.platform.audit.infra.KmsAuditSignerTest' --console=plain
+```
+
+BUILD SUCCESSFUL. All three existing signer unit tests passed, with zero failures
+or skips. Production and test compilation were up-to-date. No cloud sign request,
+key-policy change, private-key access or credential extraction was performed.
+
+## P6.9-P6.12 Execution Summary
+
+- Completed tasks: none; P6.9 remains open after dependency validation.
+- Blocked task: P6.9, missing provider integration and a configured workload-identity
+  test environment. No signer unit test failed.
+- Not executed: P6.10 through P6.12, per the strict dependency-stop rule.
+- Persisted deliverables: this dependency/evidence record and the P6.9 task
+  annotation. Existing changes and all earlier task markers were preserved.
+- Resume prerequisites: the audit infrastructure owner must supply the provider
+  adapter or provider-backed verification harness; Platform Ops/Security must
+  identify the provisioned test key and application workload identity with the
+  enforced policy. Use workload identity, not credentials copied into source.
+- Closure evidence: execute both synthetic signing attempts under the application
+  identity and retain sanitized operation, principal/key references, timestamps,
+  provider request IDs and authorization-denial outcomes. Independently verify
+  the key/target is valid so an unavailable endpoint, missing key or malformed
+  request cannot masquerade as the required permission refusal.
+- Risk: repository policy templates and local signer guards do not establish
+  deployed KMS authorization. Nullability, threat-model and secret-scan review
+  were not performed in this execution.
+- Recommended next range after provisioning/integration: P6.9 through P6.12.
+
+The full test suite, integration suite and `clean build` were not run for this
+dependency-review change. No production code, tests, grants or deployment policy
+was modified.
+
+## P6.10 Tenant nullability audit
+
+Reviewed 2026-10-09. Scope: all production Java emission sites and the audit-event
+SQL write path. `AuditEvent` has no tenant argument; tenant attribution comes from
+the separately supplied `ActorContext`. The complete shared-emitter call list is:
+
+| Call site | Actor source / action scope | Null tenant disposition |
+| --- | --- | --- |
+| `audit.application.AuditDispositionEvidenceEmitter.emit` | Caller actor; disposition of a tenant epoch | Rejected by emitter if absent |
+| `audit.application.AuditHoldService.suspendIfHeld` | Caller actor; tenant epoch hold suppression | Rejected by emitter if absent |
+| `audit.application.AuditHoldService.release` | Caller actor; tenant epoch hold release | Rejected by emitter if absent |
+| `audit.application.DefaultTenantAuditShardProvisioning.emitChange` | Caller actor; tenant shard-policy change | Rejected by emitter if absent |
+| `audit.slice.getComplianceAuditEvents.Handler.handle` | Request actor; tenant compliance read | Handler requires tenant before query; emitter also requires it |
+| `platform.infra.outbox.DefaultOutboxRedriveCommand.audit` | Redrive request actor; tenant outbox event | Rejected by emitter if absent |
+
+Enumerated emission sites explicitly supplying null or constructing a tenantless
+actor: **none**. Callers pass an actor variable; none constructs a platform actor.
+Searches included `.emit(`, `new AuditEvent(`, platform actor factories, direct
+`INSERT INTO audit.audit_event`, and tenant `bindNull`/null-fallback expressions.
+
+`R2dbcAuditEmitter` is the sole production implementation. Its empty-tenant check
+runs before retention resolution, chain selection and storage. `PreparedAuditRecord`
+also requires an actor tenant matching the non-null chain tenant, and the sole
+event INSERT in `R2dbcAuditAppendRepository` binds that chain tenant as a UUID.
+Its optional binding helper is not used for tenant_id.
+
+`ActorContext.platformWorkforce` and `platformSystem` deliberately represent
+tenantless actors, but have no production callers. Added two emitter regression
+cases proving both actor kinds fail with the tenant-context exception and cause
+zero interactions with the append store. Thus the current implementation cannot
+write a tenantless event, including for a legitimate platform action. The nullable
+database column/platform RLS policy does not establish support for such emission.
+
+Separate platform-scope evidence: `EmergencyOverridePolicy` records deployment
+override decisions through `EmergencyOverrideAuditTrail`, whose event has no
+tenant field. It is not an implementation of `AuditEmitter` and has no audit-store
+adapter; it does not create a nullable audit_event row. Deployment override is a
+platform action, not an exemption for tenant business actions.
+
+Limits: this audit establishes tenant nullability, not equality between each
+caller's target tenant and its actor tenant, nor production wiring of every call
+site. Those broader authorization/transaction claims are not certified here.
+
+Validation: `./gradlew spotlessJavaApply compileJava compileTestJava test
+--tests 'org.meldtech.platform.audit.infra.R2dbcAuditEmitterTest'
+spotlessCheck checkstyleTest` passed. All 16 emitter cases passed, zero skips,
+including both new tenantless-actor cases. P6.10 is complete for current sources.
+
+## P6.11 Threat-model conformance review
+
+Reviewed 2026-10-09 against the supplied plan's sibling `architecture.md`,
+sections 9.5 and 13.1-13.6, with the approved P2.5 table-level grant amendment.
+Reference correction: section 13.6 contains I/E, E and T rows, **no repudiation
+row**. The R rows are in sections 13.1, 13.2 and 13.4. The crosswalk below covers
+all three actual 13.6 rows plus those repudiation rows and the store's 9.5
+tamper-evidence obligations. No nonexistent 13.6 repudiation control is claimed.
+
+| Threat / source | Current mitigation and evidence | Carried work / owner |
+| --- | --- | --- |
+| Missing tenant predicate exposes another tenant (13.6 I/E) | Forced RLS and production query adapter; P6.7's real PostgreSQL predicate-free checks hide foreign rows. | Authorized HTTP path and executable isolation matrix remain blocked by TASK-AUD1-BLOCKER-002; FEAT-AUD-001, FEAT-IAM-003 and FEAT-PLAT-002. |
+| Platform-scope route reaches tenant data without platform authority (13.6 E) | Actor context distinguishes platform scope; P6.10 proves the current audit emitter rejects tenantless actors. This is not a platform-role authorization check. | Platform-scope emission and authoritative platform authorization remain for owning IAM/platform features; no operational exemption is certified here. |
+| Migration/operator script mutates another tenant (13.6 T) | P6.1-P6.4 establish runtime privilege denial, immutable event trigger and minimum anchor grants. | Migration/cluster owners retain administrative powers. Reviewed migration execution and break-glass controls are FEAT-PLAT-005/Platform Ops responsibilities; this feature cannot claim SQL administrators are constrained like application roles. |
+| Denial of exam start or proctor verification (13.1 R) | Schema requires actor identity, timestamp and correlation; canonical envelope/hash binds attribution. | FEAT-EXAM-003/004 and owning identity-verification slices must supply the required event catalogue, device/proctor attribution and real transaction evidence. No such business workflow is certified by the foundation. |
+| Dispute over answers and timing (13.2 R) | Explicit occurrence time, tenant chain and frozen codec provide the foundation; emitter uses caller-owned transaction access. | FEAT-DLV-002 and presentation-owning delivery features must demonstrate answer event coverage and reproducibility; P7.5/P7.7 transaction evidence and Phase-6 A6 load proof remain open. |
+| Dispute over result correction actor/reason (13.4 R) | Actor/correlation schema and retention placement include RESULT_CORRECTION_EVIDENCE; disposition executes an ordered verification protocol. | FEAT-CORR-001/003 must emit the full lifecycle with mandatory reason; FEAT-PRIV-001 owns actual retention policy/execution and A7 disposition proof. |
+| Rewrite, remove or substitute audit evidence (9.5 T) | Event grants/trigger resist runtime mutation; AuditHashing binds canonical bytes to predecessor; AuditRootChainValidator detects sequence/predecessor mismatch. Existing P6.1-P6.4 database evidence is retained. | Comprehensive tamper/rollback/disposition integration evidence remains in P7.5-P7.20. Hashes alone cannot stop a privileged attacker rewriting unsigned history; external signed anchors are required. |
+| Fork roots or manufacture historical signatures (9.5 ARC-AUD-005/007) | Sealer re-reads/re-derives after CAS loss; immutable anchor grants protect runtime writes; local signer rejects existing evidence. | Real CAS concurrency/kill-point tests and provider signing denial remain open (P7.11/P7.12, P6.9); audit infrastructure and Platform Ops/Security own provider wiring and workload identity. |
+| Hide a detected break or destroy proof during response (9.5 ARC-AUD-006) | AuditIntegrityFailureHandler sequences preservation, metric, P1, halt and error propagation; its interface has no repair operation. Unit test checks the sequence. | Production preservation/alert adapters, daily verification and response runbooks must be delivered and exercised by FEAT-AUD-001/FEAT-OPS-004. A fake preservation sink is not operational evidence. |
+
+The R8 source rule checks annotated handler methods for a direct kernel-emitter
+call; it is useful structural coverage, not proof that every runtime branch
+commits an audit record. Broad business and privileged-read coverage still needs
+the owning features' executable tests. P6.8 is explicitly blocked, not mitigated
+by the existence of a READ event name.
+
+Review result: the core attribution, runtime immutability and chain algorithms
+have implemented controls with bounded evidence; runtime authorization, signing,
+operations and several adversarial integration obligations remain carried as
+listed. The architecture's target residual ratings are not asserted as achieved.
+P6.11 completes the requested review and risk disposition, not production sign-off.
+
+Validation: focused runs of `AuditHashingTest`, `AuditRootChainValidatorTest`,
+`AuditIntegrityFailureHandlerTest`, `AuditEpochSealerTest` and
+`AuditDispositionExecutorTest` passed (10 cases, zero failures/skips). These are
+algorithm/orchestration tests with test doubles where applicable, not new KMS,
+production-alert or database-concurrency evidence. No production code changed.
+
+## P6.12 Secret scan and identity configuration review
+
+Reviewed 2026-10-09. Status: PARTIAL; secret scanning passed, signing workload
+identity resolution cannot yet be confirmed.
+
+Executed the repository's `./ci/secret-scan`, using pinned Gitleaks 8.30.1 and
+`config/gitleaks.toml`. Both `git --log-opts=--all` (155 commits) and the directory
+scan of the current working tree passed with no findings. Redaction was enabled.
+The generated `build/reports/secret-scan/summary.json` records history PASS and
+workingTree PASS; `history.json` and `working-tree.json` contain the scanner
+reports. Generated reports are not committed. This is a detection result, not a
+mathematical guarantee that arbitrary encoded secrets cannot exist.
+
+Reviewed scanner exclusions: generated build output, local caches/IDE metadata,
+trusted public keys and detached architecture signatures, plus a tightly scoped
+synthetic dataset directive. Main source and audit deployment/configuration files
+are not excluded. Public verification keys and synthetic test values are not
+deployed private credentials.
+
+Configuration findings:
+
+| Artifact | Finding |
+| --- | --- |
+| `config/security/secret-inventory.yaml` | Declares a non-exportable per-environment asymmetric KMS key, sealer identity, rotation and separation from PIN/token/notification keys; contains no private key or credential. |
+| `deploy/kms/audit-signing-key-policy.json.template` | Contains identity/key placeholders and an intended sealer-only Sign policy; it is provider-neutral, not evidence of an applied provider IAM policy. |
+| `deploy/kubernetes/audit-sealer-deployment.yaml.template` | Selects `cbt-audit-sealer` service account and external key-reference/algorithm placeholders; no embedded private key or credential. |
+| `deploy/kubernetes/audit-sealer-service-account.yaml.template` | Uses custom `cbt.meldtech.org/workload-identity` annotation with an unresolved placeholder and enables service-account token mounting. That alone does not establish cloud federation or identity resolution. |
+| `audit.infra.KmsSigningClient` | Interface only; no production provider implementation or credential-chain configuration. Existing implementations are test fakes. |
+
+No provider trust binding, annotation controller, audience/token-exchange setup,
+or runtime principal-resolution evidence for the audit sealer was found in the
+reviewed implementation. This does not assert that external infrastructure does
+not exist; it means the repository and supplied evidence cannot confirm the
+second P6.12 acceptance condition. No environment credentials or private keys
+were read or requested, and no cloud policy was changed.
+
+Resume prerequisite: Platform Ops/Security and the audit infrastructure owner
+must supply the provider-specific workload-identity binding and client using it,
+then demonstrate the resolved sealer principal and approved KMS key access in
+the target test environment without a static credential fallback. Retain only
+sanitized identity/key references and provider request evidence. This shares the
+provider integration gap already recorded at P6.9. P6.12 remains unchecked under
+the execute-tasks missing-dependency rule.
+
+## P6.10-P6.12 Execution Summary
+
+- Completed: P6.10 nullability audit and P6.11 threat-model review; each marker
+  was persisted immediately after its verification.
+- Partial/blocked: P6.12; secret scans are clean, actual workload-identity
+  resolution is not demonstrated.
+- Changes: two tenantless-actor regression cases in `R2dbcAuditEmitterTest`, this
+  evidence record and the three requested task entries. Production code and
+  unrelated existing changes were preserved.
+- Verification: 16 emitter tests and 10 threat-control tests passed, along with
+  compilation, formatting and test Checkstyle. Git-history and working-tree
+  secret scans passed. No new cloud or database integration claim is made.
+- Risks: no supported platform-scope audit persistence yet; application identity,
+  signed anchors, read-audit runtime integration and operational control gaps
+  remain carried in the preceding records. Completing a review does not close them.
+- Recommended next task: P6.12 after provider identity prerequisites are supplied;
+  P6.7-P6.9 remain independently open outside this execution range.
+
+Final verification: `./gradlew test --console=plain` passed for the full test task;
+`git diff --check` passed. The separate integration suite and `clean build` were
+not rerun for this review and two-case unit-test change.

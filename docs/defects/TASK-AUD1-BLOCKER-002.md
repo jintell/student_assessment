@@ -1,6 +1,6 @@
 # TASK-AUD1-BLOCKER-002: Compliance Read Runtime Authority
 
-Status: OPEN. Reviewed 2026-10-09. Blocks P4.29 runtime completion and P6.7.
+Status: OPEN. Reviewed 2026-10-09. Blocks P4.29 runtime completion, P6.7 and P6.8.
 
 ## Verified prerequisites
 
