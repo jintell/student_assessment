@@ -5,15 +5,15 @@ Tasks are verified and recorded sequentially. A6 and A7 remain Phase-6-gated.
 
 ## Execution summary
 
-- Completed: P7.1-P7.11; each marker persisted after validation.
+- Completed: P7.1-P7.14; each marker persisted after validation.
 - Resolved: P7.11's missing P4.18-P4.19 production persistence dependency.
-- Not started: P7.12-P7.14; they remain separate execution work.
+- Requested range P7.1-P7.14 is complete.
 - Deliverables: codec determinism, chain tamper and distribution tests; fixed
   root expectations; independent conformance fixtures; PostgreSQL rollback,
   contention and append-protocol tests; this evidence record and task markers.
 - Production seal persistence and its PostgreSQL concurrency test were added;
   migration files were not changed.
-- Resume: P7.12.
+- Next open task: P7.15.
 
 ## P7.1: canonical golden vectors
 
@@ -158,14 +158,74 @@ Validation: `./gradlew spotlessJavaApply integrationTest --tests
 --console=plain` passed. Provider KMS authorization and full-load A6/A7 evidence
 remain separate outstanding obligations.
 
+## P7.12: post-signature kill and restart
+
+`AuditEpochSealConcurrencyIntegrationTest` injects termination when the signed
+seal reaches the repository boundary, before the production CAS statement can
+run. The failed worker signed exactly once but persisted no seal: the tenant root
+remained at sequence zero with its zero hash and unset `sealed_at`.
+
+The test then constructs a fresh production repository and sealer for the same
+epoch. Restart re-reads sequence zero, re-derives, and requests a second signature
+instead of reusing process-local evidence. PostgreSQL contains exactly one seal at
+sequence 1, its predecessor is the zero root, its request ID is the second signing
+request, and the tenant head equals that epoch root. Thus there is no gap,
+duplicate, orphan or cached-signature replay.
+
+Validation: `./gradlew spotlessJavaApply integrationTest --tests
+'org.meldtech.platform.audit.infra.AuditEpochSealConcurrencyIntegrationTest'
+--rerun-tasks --console=plain` passed both root-sealing integration cases. This is
+the non-load kill-point limb of `ARC-VERIFY-031`; it does not discharge A6's
+Phase-6 load obligation.
+
+## P7.13: canonical close-order determinism
+
+`AuditEpochSealConcurrencyIntegrationTest` provisions the same six epochs for
+two fresh tenants, spanning three UTC periods and all four retention classes.
+Each run submits a different non-canonical permutation to the production
+`AuditEpochCloser`, which serializes the real PostgreSQL sealer in the approved
+period-first, retention-class-second order.
+
+Both persisted runs produce the identical epoch-to-`root_seq` mapping. The test
+asserts the complete canonical epoch order, dense sequences 1 through 6 and zero
+CAS retries, establishing restart/input-order determinism at the database level
+rather than only exercising the comparator.
+
+Validation: `./gradlew spotlessJavaApply integrationTest --tests
+'org.meldtech.platform.audit.infra.AuditEpochSealConcurrencyIntegrationTest'
+--rerun-tasks --console=plain` passed all three root-sealing integration cases.
+
+## P7.14: fail-closed verifier behaviour
+
+`AuditFullVerifier` now routes every retained-chain or tenant-root
+`AuditVerificationMismatch` through an `AuditVerificationFindingCapture` and the
+existing `AuditIntegrityFailureHandler`. The capture port supplies immutable
+snapshot, database-LSN and affected-identity metadata; handling then preserves
+the finding, records the high-severity metric, raises P1, halts sealing and
+disposition for the tenant, and re-propagates the original mismatch.
+
+`AuditFullVerifierTest` adds five distinct verifier cases: broken predecessor,
+missing root sequence, invalid signature, non-reproducing epoch root and sibling
+roots at one sequence. Every case asserts the complete ordered failure response,
+an emitted finding with snapshot evidence, tenant halt and terminal error. Each
+also compares the full input evidence before and after and verifies the
+preservation port exposes no repair or reconciliation operation.
+
+Validation: `./gradlew spotlessJavaApply test --tests
+'org.meldtech.platform.audit.application.AuditFullVerifierTest' --rerun-tasks
+--console=plain` passed six cases: the intact quarterly/post-restore control and
+all five required failures.
+
 ## Final verification
 
 - `compileJava compileTestJava`: passed.
-- Full `test`: 429 root-project tests and 66 migration-verification tests passed,
+- Full `test`: 434 root-project tests and 66 migration-verification tests passed,
   zero failures, errors or skips (495 total).
+- Targeted `AuditFullVerifierTest`: six passed, including all five fail-closed
+  verifier cases; zero failures or skips.
 - Targeted `integrationTest` for `AuditAppendIntegrationTest`,
-  `AuditStoreHardeningIntegrationTest` and the root-CAS concurrency case passed
-  with zero failures or skips.
+  `AuditStoreHardeningIntegrationTest`, root-CAS concurrency and post-signature
+  restart plus canonical multi-epoch reruns passed with zero failures or skips.
 - Full `conformanceTest`: 56 passed, zero failures, errors or skips. The
   `R2dbcComplianceAuditQueries` adapter now lives under the compliance slice's
   `infra` package, so its dependency direction satisfies R1. Its row-mapping and

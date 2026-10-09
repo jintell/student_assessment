@@ -4,14 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.meldtech.platform.audit.domain.EpochIdentity;
 import org.meldtech.platform.shared.kernel.audit.RetentionClass;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 class AuditDispositionExecutorTest {
@@ -38,15 +42,67 @@ class AuditDispositionExecutorTest {
                         "5", "progress-5");
     }
 
-    @Test
-    void abortsWithoutRunningAnyLaterStep() {
-        RecordingOperations operations = new RecordingOperations(3);
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    void abortsWithoutRunningAnyLaterStep(int failedStep) {
+        RecordingOperations operations = new RecordingOperations(failedStep);
 
         StepVerifier.create(new AuditDispositionExecutor(operations).execute(request()))
-                .expectErrorMessage("step 3 failed")
+                .expectErrorMessage("step " + failedStep + " failed")
                 .verify();
 
-        assertThat(operations.actions).containsExactly("1", "progress-1", "2", "progress-2", "3");
+        assertThat(operations.actions).containsExactlyElementsOf(prefixThrough(failedStep, false));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    void cannotSkipAnUncompletedRequiredStep(int waitingStep) {
+        Sinks.Empty<Void> gate = Sinks.empty();
+        RecordingOperations operations =
+                new RecordingOperations(-1, waitingStep, gate.asMono(), -1);
+
+        StepVerifier.create(new AuditDispositionExecutor(operations).execute(request()))
+                .then(
+                        () -> {
+                            assertThat(operations.actions)
+                                    .containsExactlyElementsOf(prefixThrough(waitingStep, false));
+                            assertThat(
+                                            gate.tryEmitError(
+                                                    new IllegalStateException(
+                                                            "required step not completed")))
+                                    .isEqualTo(Sinks.EmitResult.OK);
+                        })
+                .expectErrorMessage("required step not completed")
+                .verify();
+
+        assertThat(operations.actions).containsExactlyElementsOf(prefixThrough(waitingStep, false));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    void cannotAdvanceWithoutRecordingStepCompletion(int failedProgress) {
+        RecordingOperations operations =
+                new RecordingOperations(-1, -1, Mono.empty(), failedProgress);
+
+        StepVerifier.create(new AuditDispositionExecutor(operations).execute(request()))
+                .expectErrorMessage("progress " + failedProgress + " failed")
+                .verify();
+
+        assertThat(operations.actions)
+                .containsExactlyElementsOf(prefixThrough(failedProgress, true));
+    }
+
+    private static List<String> prefixThrough(int step, boolean includesProgress) {
+        List<String> expected = new ArrayList<>();
+        for (int number = 1; number < step; number++) {
+            expected.add(Integer.toString(number));
+            expected.add("progress-" + number);
+        }
+        expected.add(Integer.toString(step));
+        if (includesProgress) {
+            expected.add("progress-" + step);
+        }
+        return expected;
     }
 
     private static DispositionRequest request() {
@@ -64,10 +120,21 @@ class AuditDispositionExecutorTest {
     private static final class RecordingOperations implements AuditDispositionOperations {
 
         private final int failedStep;
+        private final int waitingStep;
+        private final Mono<Void> completion;
+        private final int failedProgress;
         private final List<String> actions = new CopyOnWriteArrayList<>();
 
         private RecordingOperations(int failedStep) {
+            this(failedStep, -1, Mono.empty(), -1);
+        }
+
+        private RecordingOperations(
+                int failedStep, int waitingStep, Mono<Void> completion, int failedProgress) {
             this.failedStep = failedStep;
+            this.waitingStep = waitingStep;
+            this.completion = completion;
+            this.failedProgress = failedProgress;
         }
 
         @Override
@@ -107,11 +174,16 @@ class AuditDispositionExecutorTest {
                         case RETAINED_EVIDENCE_VERIFIED -> 5;
                     };
             actions.add("progress-" + number);
-            return Mono.empty();
+            return number == failedProgress
+                    ? Mono.error(new IllegalStateException("progress " + number + " failed"))
+                    : Mono.empty();
         }
 
         private Mono<Void> step(int number) {
             actions.add(Integer.toString(number));
+            if (number == waitingStep) {
+                return completion;
+            }
             return number == failedStep
                     ? Mono.error(new IllegalStateException("step " + number + " failed"))
                     : Mono.empty();

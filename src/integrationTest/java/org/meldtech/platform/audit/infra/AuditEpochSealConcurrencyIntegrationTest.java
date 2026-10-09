@@ -7,6 +7,7 @@ import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.meldtech.platform.PostgreSqlTestContainer;
+import org.meldtech.platform.audit.application.AuditEpochCloser;
 import org.meldtech.platform.audit.application.AuditEpochSealRepository;
 import org.meldtech.platform.audit.application.AuditEpochSealer;
 import org.meldtech.platform.audit.application.AuditEvidenceSigner;
@@ -168,6 +170,85 @@ class AuditEpochSealConcurrencyIntegrationTest {
         assertLinearRootChain(tenantId);
     }
 
+    @Test
+    void restartAfterTerminationBetweenSigningAndCasResealsWithoutGapOrDuplicate()
+            throws SQLException {
+        TenantId tenantId = provisionTenant();
+        EpochIdentity epoch = new EpochIdentity(RetentionClass.RESULT_CORRECTION_EVIDENCE, PERIOD);
+        AtomicInteger signatureCount = new AtomicInteger();
+        AtomicInteger retryCount = new AtomicInteger();
+        CanonicalJsonCodec codec = new CanonicalJsonCodec();
+        var killedRepository =
+                new KillBeforeCommitRepository(
+                        new R2dbcAuditEpochSealRepository(connectionFactory), SIGNED_AT);
+
+        StepVerifier.create(
+                        sealer(killedRepository, signer(signatureCount), codec, retryCount)
+                                .seal(tenantId, epoch))
+                .expectErrorMessage("simulated termination after KMS signature")
+                .verify(TIMEOUT);
+
+        assertThat(signatureCount).hasValue(1);
+        assertThat(killedRepository.commitAttempts()).hasValue(1);
+        assertThat(retryCount).hasValue(0);
+        assertUnsealed(tenantId);
+
+        var restartedRepository =
+                new ObservedSealRepository(
+                        new R2dbcAuditEpochSealRepository(connectionFactory), SIGNED_AT);
+        StepVerifier.create(
+                        sealer(restartedRepository, signer(signatureCount), codec, retryCount)
+                                .seal(tenantId, epoch))
+                .expectNext(AuditEpochSealer.SealResult.SEALED)
+                .expectComplete()
+                .verify(TIMEOUT);
+
+        assertThat(signatureCount).hasValue(2);
+        assertThat(retryCount).hasValue(0);
+        assertThat(restartedRepository.attempts()).containsExactly(new SealAttempt(0L, true));
+        assertSingleSealAfterRestart(tenantId);
+    }
+
+    @Test
+    void canonicalMultiEpochCloseReproducesTheSameRootSequence() throws SQLException {
+        List<EpochIdentity> canonicalEpochs =
+                List.of(
+                        epoch(2026, 8, RetentionClass.GENERAL_AUDIT_EVENT),
+                        epoch(2026, 9, RetentionClass.RESULT_CORRECTION_EVIDENCE),
+                        epoch(2026, 9, RetentionClass.RESULT_PUBLICATION_EVIDENCE),
+                        epoch(2026, 9, RetentionClass.PIN_SECURITY_EVENT),
+                        epoch(2026, 9, RetentionClass.GENERAL_AUDIT_EVENT),
+                        epoch(2026, 10, RetentionClass.RESULT_CORRECTION_EVIDENCE));
+        List<EpochIdentity> firstInput =
+                List.of(
+                        canonicalEpochs.get(4),
+                        canonicalEpochs.get(1),
+                        canonicalEpochs.get(5),
+                        canonicalEpochs.get(0),
+                        canonicalEpochs.get(3),
+                        canonicalEpochs.get(2));
+        List<EpochIdentity> secondInput = canonicalEpochs.reversed();
+        TenantId firstTenant = provisionTenant(canonicalEpochs);
+        TenantId secondTenant = provisionTenant(canonicalEpochs);
+        AtomicInteger firstRetries = new AtomicInteger();
+        AtomicInteger secondRetries = new AtomicInteger();
+
+        assertCloseOrder(firstTenant, firstInput, canonicalEpochs, firstRetries);
+        assertCloseOrder(secondTenant, secondInput, canonicalEpochs, secondRetries);
+
+        List<EpochSequence> firstRun = epochSequences(firstTenant);
+        List<EpochSequence> secondRun = epochSequences(secondTenant);
+        assertThat(firstRun).isEqualTo(secondRun);
+        assertThat(firstRun)
+                .extracting(EpochSequence::rootSequence)
+                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+        assertThat(firstRun)
+                .extracting(EpochSequence::epoch)
+                .containsExactlyElementsOf(canonicalEpochs);
+        assertThat(firstRetries).hasValue(0);
+        assertThat(secondRetries).hasValue(0);
+    }
+
     private static AuditEpochSealer sealer(
             AuditEpochSealRepository repository,
             AuditEvidenceSigner signer,
@@ -182,36 +263,88 @@ class AuditEpochSealConcurrencyIntegrationTest {
                 2);
     }
 
+    private static AuditEvidenceSigner signer(AtomicInteger signatureCount) {
+        return message -> {
+            int signature = signatureCount.incrementAndGet();
+            return Mono.just(
+                    new AuditSignature(
+                            "integration-key-v1",
+                            "TEST_SHA256",
+                            new byte[] {(byte) signature},
+                            "sign-request-" + signature,
+                            SIGNED_AT));
+        };
+    }
+
+    private void assertCloseOrder(
+            TenantId tenantId,
+            List<EpochIdentity> input,
+            List<EpochIdentity> expected,
+            AtomicInteger retryCount) {
+        CanonicalJsonCodec codec = new CanonicalJsonCodec();
+        var repository =
+                new ObservedSealRepository(
+                        new R2dbcAuditEpochSealRepository(connectionFactory), SIGNED_AT);
+        AuditEpochCloser closer =
+                new AuditEpochCloser(
+                        sealer(repository, signer(new AtomicInteger()), codec, retryCount));
+
+        StepVerifier.create(closer.close(tenantId, input))
+                .assertNext(
+                        closed ->
+                                assertThat(closed)
+                                        .extracting(AuditEpochCloser.ClosedEpoch::epoch)
+                                        .containsExactlyElementsOf(expected))
+                .expectComplete()
+                .verify(TIMEOUT);
+    }
+
+    private static EpochIdentity epoch(int year, int month, RetentionClass retentionClass) {
+        return new EpochIdentity(retentionClass, YearMonth.of(year, month));
+    }
+
     private TenantId provisionTenant() throws SQLException {
+        return provisionTenant(
+                List.of(
+                        new EpochIdentity(RetentionClass.RESULT_CORRECTION_EVIDENCE, PERIOD),
+                        new EpochIdentity(RetentionClass.RESULT_PUBLICATION_EVIDENCE, PERIOD)));
+    }
+
+    private TenantId provisionTenant(List<EpochIdentity> epochs) throws SQLException {
         TenantId tenantId = TenantId.parse(UUID.randomUUID().toString());
         try (Connection connection = ownerConnection();
-                var statement = connection.createStatement()) {
-            statement.execute("SELECT audit.provision_audit_month('2026-09-01'::date)");
-            statement.execute("SELECT audit.provision_audit_root_head('" + tenantId + "'::uuid)");
-            for (RetentionClass retentionClass :
-                    List.of(
-                            RetentionClass.RESULT_CORRECTION_EVIDENCE,
-                            RetentionClass.RESULT_PUBLICATION_EVIDENCE)) {
-                statement.execute(
-                        "SELECT audit.provision_audit_epoch_heads('"
-                                + tenantId
-                                + "'::uuid, '"
-                                + retentionClass
-                                + "', '2026-09-01'::date, 2, 1::smallint)");
+                var month = connection.prepareStatement("SELECT audit.provision_audit_month(?)");
+                var root =
+                        connection.prepareStatement("SELECT audit.provision_audit_root_head(?)");
+                var heads =
+                        connection.prepareStatement(
+                                "SELECT audit.provision_audit_epoch_heads(?, ?, ?, ?, ?)")) {
+            for (YearMonth period :
+                    epochs.stream().map(EpochIdentity::period).distinct().toList()) {
+                month.setDate(1, Date.valueOf(period.atDay(1)));
+                month.execute();
+            }
+            root.setObject(1, UUID.fromString(tenantId.toString()));
+            root.execute();
+            for (EpochIdentity epoch : epochs) {
+                heads.setObject(1, UUID.fromString(tenantId.toString()));
+                heads.setString(2, epoch.retentionClass().name());
+                heads.setDate(3, Date.valueOf(epoch.period().atDay(1)));
+                heads.setInt(4, 2);
+                heads.setShort(5, (short) 1);
+                heads.execute();
             }
         }
         return tenantId;
     }
 
-    private void assertLinearRootChain(TenantId tenantId) throws SQLException {
-        List<RootRow> seals = new ArrayList<>();
+    private List<EpochSequence> epochSequences(TenantId tenantId) throws SQLException {
+        List<EpochSequence> sequences = new ArrayList<>();
         try (Connection connection = ownerConnection();
                 var statement =
                         connection.prepareStatement(
                                 """
-                                SELECT root_seq,
-                                       encode(previous_root_hash, 'hex'),
-                                       encode(epoch_root, 'hex')
+                                SELECT retention_class, period, root_seq
                                 FROM audit.audit_chain_seal
                                 WHERE tenant_id = ?
                                 ORDER BY root_seq
@@ -219,28 +352,90 @@ class AuditEpochSealConcurrencyIntegrationTest {
             statement.setObject(1, UUID.fromString(tenantId.toString()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {
-                    seals.add(new RootRow(rows.getLong(1), rows.getString(2), rows.getString(3)));
+                    sequences.add(
+                            new EpochSequence(
+                                    new EpochIdentity(
+                                            RetentionClass.valueOf(rows.getString(1)),
+                                            YearMonth.from(rows.getDate(2).toLocalDate())),
+                                    rows.getLong(3)));
                 }
             }
         }
+        return List.copyOf(sequences);
+    }
+
+    private void assertLinearRootChain(TenantId tenantId) throws SQLException {
+        List<RootRow> seals = seals(tenantId);
 
         assertThat(seals).extracting(RootRow::sequence).containsExactly(1L, 2L);
         assertThat(seals.getFirst().previousHash()).isEqualTo("00".repeat(32));
         assertThat(seals.get(1).previousHash()).isEqualTo(seals.getFirst().epochRoot());
+        assertThat(rootHead(tenantId))
+                .isEqualTo(new RootHeadRow(2L, seals.get(1).epochRoot(), true));
+    }
+
+    private void assertUnsealed(TenantId tenantId) throws SQLException {
+        assertThat(seals(tenantId)).isEmpty();
+        assertThat(rootHead(tenantId)).isEqualTo(new RootHeadRow(0L, "00".repeat(32), false));
+    }
+
+    private void assertSingleSealAfterRestart(TenantId tenantId) throws SQLException {
+        List<RootRow> seals = seals(tenantId);
+        assertThat(seals).hasSize(1);
+        RootRow seal = seals.getFirst();
+        assertThat(seal.sequence()).isEqualTo(1L);
+        assertThat(seal.previousHash()).isEqualTo("00".repeat(32));
+        assertThat(seal.signatureRequestId()).isEqualTo("sign-request-2");
+        assertThat(rootHead(tenantId)).isEqualTo(new RootHeadRow(1L, seal.epochRoot(), true));
+    }
+
+    private List<RootRow> seals(TenantId tenantId) throws SQLException {
+        List<RootRow> seals = new ArrayList<>();
         try (Connection connection = ownerConnection();
                 var statement =
                         connection.prepareStatement(
                                 """
-                                SELECT root_seq, encode(root_head_hash, 'hex')
+                                SELECT root_seq,
+                                       encode(previous_root_hash, 'hex'),
+                                       encode(epoch_root, 'hex'),
+                                       signature_request_id
+                                FROM audit.audit_chain_seal
+                                WHERE tenant_id = ?
+                                ORDER BY root_seq
+                                """)) {
+            statement.setObject(1, UUID.fromString(tenantId.toString()));
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    seals.add(
+                            new RootRow(
+                                    rows.getLong(1),
+                                    rows.getString(2),
+                                    rows.getString(3),
+                                    rows.getString(4)));
+                }
+            }
+        }
+        return List.copyOf(seals);
+    }
+
+    private RootHeadRow rootHead(TenantId tenantId) throws SQLException {
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                                SELECT root_seq,
+                                       encode(root_head_hash, 'hex'),
+                                       sealed_at IS NOT NULL
                                 FROM audit.audit_chain_root_head
                                 WHERE tenant_id = ?
                                 """)) {
             statement.setObject(1, UUID.fromString(tenantId.toString()));
             try (var rows = statement.executeQuery()) {
                 assertThat(rows.next()).isTrue();
-                assertThat(rows.getLong(1)).isEqualTo(2L);
-                assertThat(rows.getString(2)).isEqualTo(seals.get(1).epochRoot());
+                RootHeadRow rootHead =
+                        new RootHeadRow(rows.getLong(1), rows.getString(2), rows.getBoolean(3));
                 assertThat(rows.next()).isFalse();
+                return rootHead;
             }
         }
     }
@@ -249,7 +444,12 @@ class AuditEpochSealConcurrencyIntegrationTest {
         return DriverManager.getConnection(jdbcUrl, postgres.getUsername(), postgres.getPassword());
     }
 
-    private record RootRow(long sequence, String previousHash, String epochRoot) {}
+    private record RootRow(
+            long sequence, String previousHash, String epochRoot, String signatureRequestId) {}
+
+    private record RootHeadRow(long sequence, String hash, boolean sealed) {}
+
+    private record EpochSequence(EpochIdentity epoch, long rootSequence) {}
 
     private record SealAttempt(long observedSequence, boolean committed) {}
 
@@ -293,6 +493,46 @@ class AuditEpochSealConcurrencyIntegrationTest {
 
         private List<SealAttempt> attempts() {
             return List.copyOf(attempts);
+        }
+    }
+
+    private static final class KillBeforeCommitRepository implements AuditEpochSealRepository {
+
+        private final AuditEpochSealRepository delegate;
+        private final Instant signingTime;
+        private final AtomicInteger commitAttempts = new AtomicInteger();
+
+        private KillBeforeCommitRepository(AuditEpochSealRepository delegate, Instant signingTime) {
+            this.delegate = delegate;
+            this.signingTime = signingTime;
+        }
+
+        @Override
+        public Mono<AuditRootHead> readRootHead(TenantId tenantId) {
+            return delegate.readRootHead(tenantId);
+        }
+
+        @Override
+        public Mono<EpochSealMaterial> loadEpochMaterial(
+                TenantId tenantId, EpochIdentity epoch, AuditRootHead observedRootHead) {
+            return delegate.loadEpochMaterial(tenantId, epoch, observedRootHead);
+        }
+
+        @Override
+        public Mono<Instant> trustedSigningTime() {
+            return Mono.just(signingTime);
+        }
+
+        @Override
+        public Mono<Boolean> insertSealAndCompareAndSwap(
+                SignedEpochSeal seal, AuditRootHead observedRootHead) {
+            commitAttempts.incrementAndGet();
+            return Mono.error(
+                    new IllegalStateException("simulated termination after KMS signature"));
+        }
+
+        private AtomicInteger commitAttempts() {
+            return commitAttempts;
         }
     }
 }
