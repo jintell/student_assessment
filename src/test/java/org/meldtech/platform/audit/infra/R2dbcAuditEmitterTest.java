@@ -1,7 +1,10 @@
 package org.meldtech.platform.audit.infra;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -9,9 +12,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.meldtech.platform.audit.domain.AuditChainKey;
 import org.meldtech.platform.audit.domain.AuditHash;
+import org.meldtech.platform.audit.domain.AuditPayloadPolicy.SecretAuditFieldException;
 import org.meldtech.platform.audit.domain.AuditShardCountView;
 import org.meldtech.platform.audit.domain.CanonicalJsonCodec;
 import org.meldtech.platform.audit.domain.RetentionResolver;
@@ -28,6 +36,7 @@ import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -80,6 +89,82 @@ class R2dbcAuditEmitterTest {
                                                                 })))
                 .expectErrorMatches(error -> error == failure)
                 .verify();
+    }
+
+    static Stream<Arguments> secretPayloads() {
+        return Stream.of("pin", "otp", "token", "password")
+                .flatMap(
+                        field -> {
+                            StringValue value = new StringValue("synthetic-sensitive-value");
+                            ObjectValue direct = new ObjectValue(Map.of(field, value));
+                            String message =
+                                    new IllegalStateException(field + "=" + value.value())
+                                            .getMessage();
+                            return Stream.of(
+                                    Arguments.of(field, "top-level", direct),
+                                    Arguments.of(
+                                            field,
+                                            "nested",
+                                            new ObjectValue(Map.of("details", direct))),
+                                    Arguments.of(
+                                            field,
+                                            "exception-message",
+                                            new ObjectValue(
+                                                    Map.of(
+                                                            "exception_message",
+                                                            new StringValue(
+                                                                    Objects.requireNonNull(
+                                                                            message))))));
+                        });
+    }
+
+    @ParameterizedTest(name = "production rejects {0} in {1}")
+    @MethodSource("secretPayloads")
+    void productionProfileRejectsSecretPayloads(
+            String secret, String placement, ObjectValue payload) {
+        AuditAppendStore appendStore = mock(AuditAppendStore.class);
+        AuditEvent attempted =
+                new AuditEvent(
+                        "platform.OUTBOX_REDRIVE_COMPLETED.v1",
+                        event().entity(),
+                        event().retentionCandidates(),
+                        payload);
+        new ApplicationContextRunner()
+                .withInitializer(
+                        context -> context.getEnvironment().setActiveProfiles("production"))
+                .withBean(R2dbcAuditEmitter.class, () -> emitter(appendStore))
+                .run(
+                        context -> {
+                            assertThat(context.getEnvironment().getActiveProfiles())
+                                    .containsExactly("production");
+                            StepVerifier.create(
+                                            Mono.from(
+                                                            context.getBean(R2dbcAuditEmitter.class)
+                                                                    .emit(
+                                                                            attempted,
+                                                                            actor(),
+                                                                            OCCURRED_AT))
+                                                    .contextWrite(
+                                                            reactorContext ->
+                                                                    reactorContext.put(
+                                                                            TransactionalConnection
+                                                                                    .class,
+                                                                            (TransactionalConnection)
+                                                                                    sql -> {
+                                                                                        throw new AssertionError(
+                                                                                                "Unexpected SQL");
+                                                                                    })))
+                                    .expectErrorSatisfies(
+                                            failure ->
+                                                    assertThat(failure)
+                                                            .isInstanceOf(
+                                                                    SecretAuditFieldException.class)
+                                                            .hasMessageNotContaining(
+                                                                    "synthetic-sensitive-value")
+                                                            .hasNoCause())
+                                    .verify(Duration.ofSeconds(5));
+                            verifyNoInteractions(appendStore);
+                        });
     }
 
     private static R2dbcAuditEmitter emitter(AuditAppendStore store) {
