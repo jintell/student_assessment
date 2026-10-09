@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.meldtech.platform.conformance.fixtures.auditappend.InvalidAsyncAuditEmitter;
+import org.meldtech.platform.conformance.fixtures.auditappend.InvalidRequiresNewAuditEmitter;
+import org.meldtech.platform.conformance.fixtures.auditappend.InvalidSeparateConnectionAuditEmitter;
 import org.meldtech.platform.platform.api.AuditStatementKind;
 import org.meldtech.platform.platform.api.TransactionalConnection;
 import org.meldtech.platform.shared.kernel.audit.AuditEmitter;
@@ -48,18 +51,26 @@ class AuditAtomicAppendConformanceTests {
     }
 
     @Test
-    void rejectsRequiresNewAsyncAndSeparateConnectionEmission() {
-        JavaClasses fixture =
-                new ClassFileImporter()
-                        .importPackages("org.meldtech.platform.conformance.fixtures.auditappend");
+    void rejectsRequiresNewEmission() {
+        assertRejected(InvalidRequiresNewAuditEmitter.class, "REQUIRES_NEW");
+    }
 
+    @Test
+    void rejectsSeparateConnectionEmission() {
+        assertRejected(InvalidSeparateConnectionAuditEmitter.class, "caller-owned connection");
+    }
+
+    @Test
+    void rejectsAsyncEmission() {
+        assertRejected(InvalidAsyncAuditEmitter.class, "async/listener");
+    }
+
+    private static void assertRejected(Class<?> emitter, String reason) {
+        JavaClasses fixture = new ClassFileImporter().importClasses(emitter);
         AssertionError failure =
                 assertThrows(AssertionError.class, () -> assertSignedProtocol(fixture));
-
         assertTrue(String.valueOf(failure.getMessage()).contains("AUDIT-APPEND-PROTOCOL:"));
-        assertTrue(String.valueOf(failure.getMessage()).contains("REQUIRES_NEW"));
-        assertTrue(String.valueOf(failure.getMessage()).contains("async/listener"));
-        assertTrue(String.valueOf(failure.getMessage()).contains("caller-owned connection"));
+        assertTrue(String.valueOf(failure.getMessage()).contains(reason));
     }
 
     private static void assertSignedProtocol(JavaClasses classes) {
