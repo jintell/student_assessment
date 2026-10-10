@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestReporter;
 import org.meldtech.platform.audit.domain.AuditChainKey;
 import org.meldtech.platform.audit.domain.AuditChainRecord;
 import org.meldtech.platform.audit.domain.AuditHash;
@@ -57,6 +60,64 @@ class AuditDailyVerifierTest {
     }
 
     private static Fixture fixture() {
+        return fixture(0);
+    }
+
+    @Test
+    void retainedRecordGrowthDoesNotIncreaseDailyWalkCost(TestReporter reporter) {
+        List<Integer> recordReads = new ArrayList<>();
+        List<Integer> signatureChecks = new ArrayList<>();
+        for (long retainedRecords : new long[] {10, 1_000_000}) {
+            Fixture fixture = fixture(retainedRecords);
+            List<AuditSigningMessage> checked = new ArrayList<>();
+            AuditDailyVerifier verifier =
+                    new AuditDailyVerifier(
+                            fixture.evidence,
+                            (message, signature) -> {
+                                checked.add(message);
+                                assertThat(signature).isSameAs(fixture.evidence.seal.signature());
+                                return reactor.core.publisher.Mono.just(true);
+                            },
+                            fixture.rootDerivation,
+                            CODEC);
+
+            StepVerifier.create(verifier.verify())
+                    .expectNext(new AuditDailyVerifier.VerificationSummary(1, 1))
+                    .verifyComplete();
+
+            assertThat(checked)
+                    .extracting(message -> java.util.HexFormat.of().formatHex(message.bytes()))
+                    .containsExactlyInAnyOrder(
+                            java.util.HexFormat.of()
+                                    .formatHex(
+                                            fixture.evidence
+                                                    .open
+                                                    .checkpoints()
+                                                    .getFirst()
+                                                    .signingMessage()
+                                                    .bytes()),
+                            java.util.HexFormat.of()
+                                    .formatHex(
+                                            fixture.evidence
+                                                    .seal
+                                                    .evidence()
+                                                    .signingMessage(CODEC)
+                                                    .bytes()));
+            assertThat(fixture.evidence.rowsRead).isEqualTo(1);
+            recordReads.add(fixture.evidence.recordReads);
+            signatureChecks.add(checked.size());
+            reporter.publishEntry(
+                    Map.of(
+                            "retainedRecords", Long.toString(retainedRecords),
+                            "openRecordQueries", Integer.toString(fixture.evidence.recordReads),
+                            "openRecordsRead", Integer.toString(fixture.evidence.rowsRead),
+                            "signatureChecks", Integer.toString(checked.size())));
+        }
+        assertThat(recordReads).containsExactly(1, 1);
+        assertThat(signatureChecks).containsExactly(2, 2);
+    }
+
+    private static Fixture fixture(long retainedRecords) {
         EpochIdentity openEpoch =
                 new EpochIdentity(RetentionClass.GENERAL_AUDIT_EVENT, YearMonth.of(2026, 9));
         AuditChainKey key = new AuditChainKey(TENANT, openEpoch, 0, 1);
@@ -89,7 +150,11 @@ class AuditDailyVerifierTest {
                         (short) 1,
                         new AuditRootHead(0, hash(0)).hash(),
                         1,
-                        List.of(ShardSealMaterial.empty(0)));
+                        List.of(
+                                retainedRecords == 0
+                                        ? ShardSealMaterial.empty(0)
+                                        : ShardSealMaterial.populated(
+                                                0, retainedRecords, hash(42))));
         DerivedEpochRoot derived = derivation.derive(material);
         SignedEpochSeal seal =
                 new SignedEpochSeal(new UnsignedEpochSeal(material, derived, SIGNED_AT), signature);
@@ -116,6 +181,7 @@ class AuditDailyVerifierTest {
         private final AuditChainRecord record;
         private final SignedEpochSeal seal;
         private int recordReads;
+        private int rowsRead;
 
         private RecordingEvidence(
                 OpenAuditChain open, AuditChainRecord record, SignedEpochSeal seal) {
@@ -131,8 +197,9 @@ class AuditDailyVerifierTest {
 
         @Override
         public Flux<AuditChainRecord> records(OpenAuditChain chain) {
+            assertThat(chain).as("only the open chain may be read").isEqualTo(open);
             recordReads++;
-            return Flux.just(record);
+            return Flux.just(record).doOnNext(ignored -> rowsRead++);
         }
 
         @Override

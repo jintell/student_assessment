@@ -630,6 +630,105 @@ class AuditStoreHardeningIntegrationTest {
         }
     }
 
+    @Test
+    void fixturePartitionsAreHomogeneousAcrossClassesMonthsAndShards() throws SQLException {
+        int partitions = 0;
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                SELECT tableoid, count(DISTINCT retention_class), count(DISTINCT period),
+                       count(DISTINCT shard_id), count(*)
+                FROM audit.audit_event WHERE tenant_id = ? GROUP BY tableoid
+                """)) {
+            statement.setObject(1, AuditPostgreSqlFixture.TENANT_ID);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    assertThat(rows.getInt(2))
+                            .as("one retention class per physical partition")
+                            .isEqualTo(1);
+                    assertThat(rows.getInt(3)).as("one month per physical partition").isEqualTo(1);
+                    assertThat(rows.getInt(4)).isEqualTo(AuditPostgreSqlFixture.SHARD_COUNT);
+                    assertThat(rows.getLong(5)).isEqualTo(2);
+                    partitions++;
+                }
+            }
+        }
+        assertThat(partitions)
+                .isEqualTo(
+                        AuditPostgreSqlFixture.RETENTION_CLASSES.size()
+                                * AuditPostgreSqlFixture.PERIODS.size());
+    }
+
+    @Test
+    void everyAuditLeafPartitionCanBeDetachedAsAWhole() throws SQLException {
+        List<PartitionPair> leaves = new ArrayList<>();
+        try (Connection connection = ownerConnection();
+                var statement = connection.createStatement();
+                var rows =
+                        statement.executeQuery(
+                                """
+                        SELECT child.relname, parent.relname
+                        FROM pg_partition_tree('audit.audit_event') AS tree
+                        JOIN pg_class child ON child.oid = tree.relid
+                        JOIN pg_class parent ON parent.oid = tree.parentrelid
+                        WHERE tree.isleaf ORDER BY child.relname
+                        """)) {
+            while (rows.next()) {
+                leaves.add(new PartitionPair(rows.getString(1), rows.getString(2)));
+            }
+        }
+        assertThat(leaves.size()).isGreaterThanOrEqualTo(12);
+        int populatedLeaves = 0;
+        for (PartitionPair leaf : leaves) {
+            try (Connection connection = ownerConnection();
+                    var statement = connection.createStatement()) {
+                connection.setAutoCommit(false);
+                try {
+                    String qualifiedLeaf = "audit." + quoteIdentifier(leaf.child());
+                    long before = rowCount(connection, "audit.audit_event");
+                    long detachedCount = rowCount(connection, qualifiedLeaf);
+                    if (detachedCount > 0) {
+                        populatedLeaves++;
+                    }
+                    statement.execute(
+                            "ALTER TABLE audit."
+                                    + quoteIdentifier(leaf.parent())
+                                    + " DETACH PARTITION "
+                                    + qualifiedLeaf);
+                    assertThat(rowCount(connection, "audit.audit_event"))
+                            .isEqualTo(before - detachedCount);
+                    assertThat(rowCount(connection, qualifiedLeaf)).isEqualTo(detachedCount);
+                    try (var inherited =
+                            connection.prepareStatement(
+                                    """
+                            SELECT count(*) FROM pg_inherits WHERE inhrelid = ?::regclass
+                            """)) {
+                        inherited.setString(1, qualifiedLeaf);
+                        try (var rows = inherited.executeQuery()) {
+                            assertThat(rows.next()).isTrue();
+                            assertThat(rows.getInt(1)).isZero();
+                        }
+                    }
+                } finally {
+                    connection.rollback();
+                }
+            }
+            assertEvidenceSurvives();
+        }
+        assertThat(populatedLeaves).isEqualTo(12);
+    }
+
+    private static long rowCount(Connection connection, String qualifiedTable) throws SQLException {
+        try (var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*) FROM " + qualifiedTable)) {
+            assertThat(rows.next()).isTrue();
+            return rows.getLong(1);
+        }
+    }
+
+    private record PartitionPair(String child, String parent) {}
+
     private void assertEvidenceSurvives() throws SQLException {
         try (Connection connection = ownerConnection();
                 var statement = connection.createStatement();

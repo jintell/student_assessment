@@ -1,6 +1,7 @@
 package org.meldtech.platform.audit.application;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.meldtech.platform.audit.domain.AuditChainWalk;
@@ -8,6 +9,7 @@ import org.meldtech.platform.audit.domain.AuditHash;
 import org.meldtech.platform.audit.domain.AuditRootChainValidator;
 import org.meldtech.platform.audit.domain.AuditVerificationMismatch;
 import org.meldtech.platform.audit.domain.CanonicalJsonCodec;
+import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -17,16 +19,22 @@ public final class AuditFullVerifier {
     private final AuditSignatureVerifier signatures;
     private final AuditRootChainValidator rootChains;
     private final CanonicalJsonCodec codec;
+    private final AuditVerificationFindingCapture findingCapture;
+    private final AuditIntegrityFailureHandler failureHandler;
 
     public AuditFullVerifier(
             AuditFullVerificationEvidence evidence,
             AuditSignatureVerifier signatures,
             AuditRootChainValidator rootChains,
-            CanonicalJsonCodec codec) {
+            CanonicalJsonCodec codec,
+            AuditVerificationFindingCapture findingCapture,
+            AuditIntegrityFailureHandler failureHandler) {
         this.evidence = Objects.requireNonNull(evidence, "evidence");
         this.signatures = Objects.requireNonNull(signatures, "signatures");
         this.rootChains = Objects.requireNonNull(rootChains, "rootChains");
         this.codec = Objects.requireNonNull(codec, "codec");
+        this.findingCapture = Objects.requireNonNull(findingCapture, "findingCapture");
+        this.failureHandler = Objects.requireNonNull(failureHandler, "failureHandler");
     }
 
     public Mono<FullVerificationSummary> verify(Trigger trigger) {
@@ -79,17 +87,66 @@ public final class AuditFullVerifier {
                         checkpoint ->
                                 requireSignature(
                                         checkpoint.signingMessage(), checkpoint.signature()))
-                .then();
+                .then()
+                .onErrorResume(
+                        AuditVerificationMismatch.class,
+                        mismatch ->
+                                preserveAndHalt(
+                                        chain.key().tenantId(),
+                                        "RETAINED_CHAIN_MISMATCH",
+                                        List.of(chainIdentity(chain)),
+                                        mismatch));
     }
 
     private Mono<Void> verifyRootChain(TenantRootEvidence evidence) {
-        rootChains.validate(evidence.tenantId(), evidence.seals(), evidence.currentHead());
-        return Flux.fromIterable(evidence.seals())
-                .concatMap(
-                        seal ->
-                                requireSignature(
-                                        seal.evidence().signingMessage(codec), seal.signature()))
-                .then();
+        return Mono.defer(
+                        () -> {
+                            rootChains.validate(
+                                    evidence.tenantId(), evidence.seals(), evidence.currentHead());
+                            return Flux.fromIterable(evidence.seals())
+                                    .concatMap(
+                                            seal ->
+                                                    requireSignature(
+                                                            seal.evidence().signingMessage(codec),
+                                                            seal.signature()))
+                                    .then();
+                        })
+                .onErrorResume(
+                        AuditVerificationMismatch.class,
+                        mismatch ->
+                                preserveAndHalt(
+                                        evidence.tenantId(),
+                                        "ROOT_CHAIN_MISMATCH",
+                                        rootIdentities(evidence),
+                                        mismatch));
+    }
+
+    private Mono<Void> preserveAndHalt(
+            TenantId tenantId,
+            String category,
+            List<String> affectedIdentities,
+            AuditVerificationMismatch mismatch) {
+        return findingCapture
+                .capture(tenantId, category, affectedIdentities)
+                .flatMap(finding -> failureHandler.preserveAndHalt(finding, mismatch));
+    }
+
+    private static String chainIdentity(OpenAuditChain chain) {
+        var key = chain.key();
+        return key.epoch().retentionClass()
+                + ":"
+                + key.epoch().period()
+                + ":shard-"
+                + key.shardId();
+    }
+
+    private static List<String> rootIdentities(TenantRootEvidence evidence) {
+        List<String> identities =
+                evidence.seals().stream()
+                        .map(seal -> seal.evidence().evidenceId())
+                        .distinct()
+                        .toList();
+        return identities.isEmpty() ? List.of("tenant-root:" + evidence.tenantId()) : identities;
     }
 
     private Mono<Void> requireSignature(

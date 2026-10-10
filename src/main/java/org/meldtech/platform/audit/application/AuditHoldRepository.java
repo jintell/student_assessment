@@ -6,9 +6,10 @@ import reactor.core.publisher.Mono;
 
 public interface AuditHoldRepository {
 
-    /** Returns true only for the first suspension of this hold/policy state. */
+    /** Joins the active transaction and returns true only when the persisted hold set changes. */
     Mono<Boolean> suspend(
             DispositionRequest request, List<ActiveLegalHold> holds, Instant detectedAt);
 
+    /** Joins the active transaction and returns the original persisted retention clock. */
     Mono<ResumedDisposition> release(DispositionRequest request, Instant releasedAt);
 }

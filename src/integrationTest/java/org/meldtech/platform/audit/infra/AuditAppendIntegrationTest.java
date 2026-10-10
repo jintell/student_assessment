@@ -39,11 +39,14 @@ import org.meldtech.platform.platform.api.TransactionalCollaboration;
 import org.meldtech.platform.platform.api.TransactionalConnection;
 import org.meldtech.platform.platform.infra.persistence.AuditTransactionTestSupport;
 import org.meldtech.platform.shared.kernel.audit.AuditEvent;
+import org.meldtech.platform.shared.kernel.audit.CanonicalValue.IntegerValue;
 import org.meldtech.platform.shared.kernel.audit.CanonicalValue.ObjectValue;
+import org.meldtech.platform.shared.kernel.audit.CanonicalValue.StringValue;
 import org.meldtech.platform.shared.kernel.audit.EntityRef;
 import org.meldtech.platform.shared.kernel.audit.RetentionClass;
 import org.meldtech.platform.shared.kernel.audit.RetentionDecision;
 import org.meldtech.platform.shared.kernel.audit.RetentionHorizon;
+import org.meldtech.platform.shared.kernel.audit.RetentionPolicyView;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
@@ -60,6 +63,7 @@ import reactor.test.StepVerifier;
 class AuditAppendIntegrationTest {
     private static final Instant OCCURRED_AT = Instant.parse("2026-10-08T00:00:00Z");
     private static final Duration TIMEOUT = Duration.ofSeconds(20);
+    private static final Instant POLICY_CHANGE = Instant.parse("2026-10-09T00:00:00Z");
     private PostgreSQLContainer postgres;
     private String jdbcUrl;
     private TransactionalCollaboration transactions;
@@ -494,6 +498,202 @@ class AuditAppendIntegrationTest {
                                 .flatMap(Result::getRowsUpdated)
                                 .then());
     }
+
+    @Test
+    void longestHorizonDeterminesPhysicalPlacementAtEmission() throws SQLException {
+        TenantId tenant = provisionRetentionTenant();
+        UUID eventId = UUID.randomUUID();
+        AuditEvent event = retentionEvent("result.RESULT_PUBLISHED.v1", new ObjectValue(Map.of()));
+        StepVerifier.create(emitRetention(tenant, eventId, event, OCCURRED_AT)).verifyComplete();
+
+        StoredRetention stored = storedRetention(eventId);
+        assertThat(stored.retentionClass())
+                .isEqualTo(RetentionClass.RESULT_PUBLICATION_EVIDENCE.name());
+        assertThat(stored.retainedUntil()).isEqualTo(Instant.parse("2031-10-08T00:00:00Z"));
+        assertThat(stored.partition()).isEqualTo("audit.audit_event_p_result_publication_y2026m10");
+        assertThat(count("audit.audit_event", tenant)).isEqualTo(1);
+    }
+
+    @Test
+    void storedPlacementMatchesThePolicyVersionEffectiveAtOccurrence() throws SQLException {
+        TenantId tenant = provisionRetentionTenant();
+        AuditEvent event = retentionEvent("result.RESULT_PUBLISHED.v1", new ObjectValue(Map.of()));
+        List<Long> versions = new ArrayList<>();
+        for (Instant occurredAt : List.of(POLICY_CHANGE.minusNanos(1_000), POLICY_CHANGE)) {
+            UUID eventId = UUID.randomUUID();
+            StepVerifier.create(emitRetention(tenant, eventId, event, occurredAt)).verifyComplete();
+            StoredRetention stored = storedRetention(eventId);
+            var reevaluated = new RetentionResolver(retentionPolicies()).resolve(event, occurredAt);
+            assertThat(stored.retentionClass()).isEqualTo(reevaluated.retentionClass().name());
+            assertThat(stored.policyKey()).isEqualTo(reevaluated.policyKey());
+            assertThat(stored.policyVersion()).isEqualTo(reevaluated.policyVersion());
+            assertThat(stored.retainedUntil())
+                    .isEqualTo(reevaluated.horizon().retainedUntil().orElseThrow());
+            versions.add(stored.policyVersion());
+        }
+        assertThat(versions).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void reclassificationAppendsNewEvidenceWithoutUpdatingTheOriginal() throws SQLException {
+        TenantId tenant = provisionRetentionTenant();
+        UUID originalId = UUID.randomUUID();
+        AuditEvent original =
+                retentionEvent("result.RESULT_PUBLISHED.v1", new ObjectValue(Map.of()));
+        StepVerifier.create(emitRetention(tenant, originalId, original, OCCURRED_AT))
+                .verifyComplete();
+        String originalSnapshot = eventSnapshot(originalId);
+        UUID reclassifiedId = UUID.randomUUID();
+        AuditEvent reclassified =
+                retentionEvent(
+                        "privacy.RETENTION_RECLASSIFIED.v1",
+                        new ObjectValue(
+                                Map.of(
+                                        "original_event_id", new StringValue(originalId.toString()),
+                                        "prior_retention_class",
+                                                new StringValue(
+                                                        RetentionClass.RESULT_PUBLICATION_EVIDENCE
+                                                                .name()),
+                                        "retention_class",
+                                                new StringValue(
+                                                        RetentionClass.GENERAL_AUDIT_EVENT.name()),
+                                        "policy_key", new StringValue("result.evidence"),
+                                        "policy_version", new IntegerValue(2))));
+        StepVerifier.create(emitRetention(tenant, reclassifiedId, reclassified, POLICY_CHANGE))
+                .verifyComplete();
+
+        assertThat(count("audit.audit_event", tenant)).isEqualTo(2);
+        assertThat(eventSnapshot(originalId)).isEqualTo(originalSnapshot);
+        StoredRetention stored = storedRetention(reclassifiedId);
+        assertThat(stored.retentionClass()).isEqualTo(RetentionClass.GENERAL_AUDIT_EVENT.name());
+        assertThat(stored.policyVersion()).isEqualTo(2);
+        assertThat(stored.partition()).isEqualTo("audit.audit_event_p_general_y2026m10");
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                SELECT event_type, entity_id, payload->>'original_event_id', payload->>'policy_key'
+                FROM audit.audit_event WHERE audit_event_id = ?
+                """)) {
+            statement.setObject(1, reclassifiedId);
+            try (var rows = statement.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                assertThat(rows.getString(1)).isEqualTo("privacy.RETENTION_RECLASSIFIED.v1");
+                assertThat(rows.getString(2)).isEqualTo(original.entity().entityId());
+                assertThat(rows.getString(3)).isEqualTo(originalId.toString());
+                assertThat(rows.getString(4)).isEqualTo("result.evidence");
+                assertThat(rows.next()).isFalse();
+            }
+        }
+    }
+
+    private Mono<Void> emitRetention(
+            TenantId tenant, UUID eventId, AuditEvent event, Instant occurredAt) {
+        R2dbcAuditEmitter emitter =
+                new R2dbcAuditEmitter(
+                        new RetentionResolver(retentionPolicies()),
+                        (ignoredTenant, period) -> 1,
+                        () -> eventId,
+                        new CanonicalJsonCodec(),
+                        new R2dbcAuditAppendRepository());
+        return transactions.inExamEntryTransaction(
+                tenant, connection -> Mono.from(emitter.emit(event, actor(tenant), occurredAt)));
+    }
+
+    private static RetentionPolicyView retentionPolicies() {
+        return (time, type, entity, candidates) -> {
+            boolean current = !time.isBefore(POLICY_CHANGE);
+            return new RetentionDecision(
+                    "result.evidence",
+                    current ? 2 : 1,
+                    current ? POLICY_CHANGE : Instant.parse("2026-01-01T00:00:00Z"),
+                    current ? Optional.empty() : Optional.of(POLICY_CHANGE),
+                    Map.of(
+                            RetentionClass.RESULT_PUBLICATION_EVIDENCE,
+                            RetentionHorizon.until(Instant.parse("2031-10-08T00:00:00Z")),
+                            RetentionClass.GENERAL_AUDIT_EVENT,
+                            RetentionHorizon.until(
+                                    Instant.parse(
+                                            current
+                                                    ? "2032-10-08T00:00:00Z"
+                                                    : "2028-10-08T00:00:00Z"))),
+                    current
+                            ? RetentionClass.GENERAL_AUDIT_EVENT
+                            : RetentionClass.RESULT_PUBLICATION_EVIDENCE);
+        };
+    }
+
+    private static AuditEvent retentionEvent(String type, ObjectValue payload) {
+        return new AuditEvent(
+                type,
+                new EntityRef("result.result", "result-1"),
+                Set.of(
+                        RetentionClass.GENERAL_AUDIT_EVENT,
+                        RetentionClass.RESULT_PUBLICATION_EVIDENCE),
+                payload);
+    }
+
+    private TenantId provisionRetentionTenant() throws SQLException {
+        TenantId tenant = provisionTenant();
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                SELECT audit.provision_audit_epoch_heads(
+                    ?, 'RESULT_PUBLICATION_EVIDENCE', '2026-10-01', 1, 1::smallint)
+                """)) {
+            statement.setObject(1, UUID.fromString(tenant.toString()));
+            statement.execute();
+        }
+        return tenant;
+    }
+
+    private StoredRetention storedRetention(UUID eventId) throws SQLException {
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                SELECT retention_class, retention_policy_key, retention_policy_version,
+                       retention_until, tableoid::regclass::text
+                FROM audit.audit_event WHERE audit_event_id = ?
+                """)) {
+            statement.setObject(1, eventId);
+            try (var rows = statement.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                StoredRetention result =
+                        new StoredRetention(
+                                rows.getString(1),
+                                rows.getString(2),
+                                rows.getLong(3),
+                                rows.getTimestamp(4).toInstant(),
+                                rows.getString(5));
+                assertThat(rows.next()).isFalse();
+                return result;
+            }
+        }
+    }
+
+    private String eventSnapshot(UUID eventId) throws SQLException {
+        try (Connection connection = ownerConnection();
+                var statement =
+                        connection.prepareStatement(
+                                """
+                SELECT row_to_json(event)::text FROM audit.audit_event AS event WHERE audit_event_id = ?
+                """)) {
+            statement.setObject(1, eventId);
+            try (var rows = statement.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                return rows.getString(1);
+            }
+        }
+    }
+
+    private record StoredRetention(
+            String retentionClass,
+            String policyKey,
+            long policyVersion,
+            Instant retainedUntil,
+            String partition) {}
 
     private static R2dbcAuditEmitter emitter(UUID eventId) {
         return emitter(eventId, new R2dbcAuditAppendRepository());

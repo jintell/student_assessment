@@ -5,14 +5,15 @@ Tasks are verified and recorded sequentially. A6 and A7 remain Phase-6-gated.
 
 ## Execution summary
 
-- Completed: P7.1-P7.10; each marker persisted immediately after validation.
-- Blocked: P7.11, before implementation, on missing P4.18-P4.19 persistence.
-- Not started: P7.12-P7.14, preserving strict sequential execution.
+- Completed: P7.1-P7.14; each marker persisted after validation.
+- Resolved: P7.11's missing P4.18-P4.19 production persistence dependency.
+- Requested range P7.1-P7.14 is complete.
 - Deliverables: codec determinism, chain tamper and distribution tests; fixed
   root expectations; independent conformance fixtures; PostgreSQL rollback,
   contention and append-protocol tests; this evidence record and task markers.
-- Production code and migration files were not changed.
-- Resume: supply the missing seal persistence adapter, then P7.11-P7.14.
+- Production seal persistence and its PostgreSQL concurrency test were added;
+  migration files were not changed.
+- Next open task: P7.15.
 
 ## P7.1: canonical golden vectors
 
@@ -135,36 +136,96 @@ Validation: `./gradlew spotlessJavaApply test --tests
 'org.meldtech.platform.audit.domain.EpochRootDerivationTest' --console=plain`
 passed both tests.
 
-## P7.11 dependency review
+## P7.11: concurrent root CAS append
 
-`src/main/java/org/meldtech/platform/audit/application/AuditEpochSealRepository.java`
-declares `insertSealAndCompareAndSwap`, but has no production implementation.
-`AuditEpochSealer.commit` delegates the atomic persistence operation to this port.
-The only implementations are `RecordingSealRepository` and `RetryingSealRepository`
-inside `AuditEpochSealerTest`; they return synthetic outcomes. No production SQL
-inserts a seal and advances the tenant root head atomically. This leaves the
-P4.18-P4.19 dependency incomplete despite its existing completion markers, which
-are outside this execution range and were left untouched.
+`R2dbcAuditEpochSealRepository` closes the missing production dependency. It
+loads the persisted tenant root and complete shard topology, obtains PostgreSQL
+time, and uses one atomic data-modifying CTE to conditionally advance the exact
+observed `(root_seq, root_head_hash)` and insert the seal only for that winner.
+Zero changed rows is the explicit CAS-loss result consumed by the sealer retry
+path; partial head/seal state cannot commit.
 
-The requested concurrency proof needs the actual atomic commit/rollback path.
-A new in-memory fake would test invented persistence behavior and would not
-establish that a losing insert rolls back or that persisted roots cannot fork.
-The missing implementation therefore blocks P7.11; P7.12-P7.14 were not executed.
-This follows execute-tasks: "If dependencies are missing: Stop execution and
-report blockers." It is a dependency stop, not an approval request.
+`AuditEpochSealConcurrencyIntegrationTest` provisions two epochs for one tenant
+in migrated PostgreSQL and holds both first signing attempts at a barrier so they
+derive from the same predecessor. The observed outcomes are two successful
+commits and exactly one failed CAS, three signatures, and one telemetry retry.
+Persisted seals have dense sequences 1 and 2; sequence 1 starts at the zero root,
+sequence 2 names sequence 1's root exactly, and the single tenant head equals the
+sequence-2 root. These checks exclude a sibling or orphan root.
 
-Prerequisite: implement the production port's read/material/time operations and
-atomic seal INSERT plus root-head CAS, including loser rollback and retry inputs,
-under P4.18-P4.19. Then resume the requested range at P7.11. Actual provider KMS
-authorization and full-load A6/A7 evidence remain separate outstanding obligations.
+Validation: `./gradlew spotlessJavaApply integrationTest --tests
+'org.meldtech.platform.audit.infra.AuditEpochSealConcurrencyIntegrationTest'
+--console=plain` passed. Provider KMS authorization and full-load A6/A7 evidence
+remain separate outstanding obligations.
+
+## P7.12: post-signature kill and restart
+
+`AuditEpochSealConcurrencyIntegrationTest` injects termination when the signed
+seal reaches the repository boundary, before the production CAS statement can
+run. The failed worker signed exactly once but persisted no seal: the tenant root
+remained at sequence zero with its zero hash and unset `sealed_at`.
+
+The test then constructs a fresh production repository and sealer for the same
+epoch. Restart re-reads sequence zero, re-derives, and requests a second signature
+instead of reusing process-local evidence. PostgreSQL contains exactly one seal at
+sequence 1, its predecessor is the zero root, its request ID is the second signing
+request, and the tenant head equals that epoch root. Thus there is no gap,
+duplicate, orphan or cached-signature replay.
+
+Validation: `./gradlew spotlessJavaApply integrationTest --tests
+'org.meldtech.platform.audit.infra.AuditEpochSealConcurrencyIntegrationTest'
+--rerun-tasks --console=plain` passed both root-sealing integration cases. This is
+the non-load kill-point limb of `ARC-VERIFY-031`; it does not discharge A6's
+Phase-6 load obligation.
+
+## P7.13: canonical close-order determinism
+
+`AuditEpochSealConcurrencyIntegrationTest` provisions the same six epochs for
+two fresh tenants, spanning three UTC periods and all four retention classes.
+Each run submits a different non-canonical permutation to the production
+`AuditEpochCloser`, which serializes the real PostgreSQL sealer in the approved
+period-first, retention-class-second order.
+
+Both persisted runs produce the identical epoch-to-`root_seq` mapping. The test
+asserts the complete canonical epoch order, dense sequences 1 through 6 and zero
+CAS retries, establishing restart/input-order determinism at the database level
+rather than only exercising the comparator.
+
+Validation: `./gradlew spotlessJavaApply integrationTest --tests
+'org.meldtech.platform.audit.infra.AuditEpochSealConcurrencyIntegrationTest'
+--rerun-tasks --console=plain` passed all three root-sealing integration cases.
+
+## P7.14: fail-closed verifier behaviour
+
+`AuditFullVerifier` now routes every retained-chain or tenant-root
+`AuditVerificationMismatch` through an `AuditVerificationFindingCapture` and the
+existing `AuditIntegrityFailureHandler`. The capture port supplies immutable
+snapshot, database-LSN and affected-identity metadata; handling then preserves
+the finding, records the high-severity metric, raises P1, halts sealing and
+disposition for the tenant, and re-propagates the original mismatch.
+
+`AuditFullVerifierTest` adds five distinct verifier cases: broken predecessor,
+missing root sequence, invalid signature, non-reproducing epoch root and sibling
+roots at one sequence. Every case asserts the complete ordered failure response,
+an emitted finding with snapshot evidence, tenant halt and terminal error. Each
+also compares the full input evidence before and after and verifies the
+preservation port exposes no repair or reconciliation operation.
+
+Validation: `./gradlew spotlessJavaApply test --tests
+'org.meldtech.platform.audit.application.AuditFullVerifierTest' --rerun-tasks
+--console=plain` passed six cases: the intact quarterly/post-restore control and
+all five required failures.
 
 ## Final verification
 
 - `compileJava compileTestJava`: passed.
-- Full `test`: 429 root-project tests and 66 migration-verification tests passed,
+- Full `test`: 434 root-project tests and 66 migration-verification tests passed,
   zero failures, errors or skips (495 total).
-- Targeted `integrationTest` for `AuditAppendIntegrationTest` and
-  `AuditStoreHardeningIntegrationTest`: 526 cases passed, zero failures or skips.
+- Targeted `AuditFullVerifierTest`: six passed, including all five fail-closed
+  verifier cases; zero failures or skips.
+- Targeted `integrationTest` for `AuditAppendIntegrationTest`,
+  `AuditStoreHardeningIntegrationTest`, root-CAS concurrency and post-signature
+  restart plus canonical multi-epoch reruns passed with zero failures or skips.
 - Full `conformanceTest`: 56 passed, zero failures, errors or skips. The
   `R2dbcComplianceAuditQueries` adapter now lives under the compliance slice's
   `infra` package, so its dependency direction satisfies R1. Its row-mapping and
@@ -177,9 +238,9 @@ authorization and full-load A6/A7 evidence remain separate outstanding obligatio
   `checkstyleConformanceTest`: passed.
 - `git diff --check`: passed. No generated content was added to version control.
 
-The full build and pipeline are not claimed green: missing seal persistence and
-previously documented compliance/KMS dependencies remain. No task outside
-P7.1-P7.14 was marked complete by this run.
+The full build and pipeline are not claimed green; previously documented
+compliance/KMS dependencies remain. No task outside P7.1-P7.14 was marked
+complete by this run.
 
 ## Conformance failure closure
 
