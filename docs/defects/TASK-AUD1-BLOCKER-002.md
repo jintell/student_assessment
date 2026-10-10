@@ -1,6 +1,11 @@
 # TASK-AUD1-BLOCKER-002: Compliance Read Runtime Authority
 
-Status: OPEN. Reviewed 2026-10-09. Blocks P4.29 runtime completion, P6.7 and P6.8.
+Status: OPEN. Rechecked 2026-10-10. Blocks P4.29 runtime completion, P6.7 and P6.8.
+
+The recheck found no signed grant amendment, no `FEAT-IAM-003` capability
+authority, and no approved audit-reader transaction boundary. The existing
+three indexes, OpenAPI contract, query adapter and adapter tests remain valid,
+but they do not satisfy the production authorization and privilege boundary.
 
 ## Verified prerequisites
 

@@ -2,6 +2,7 @@ package org.meldtech.platform.audit.application;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +39,13 @@ public final class AuditHoldService {
             ActorContext actor,
             Instant detectedAt) {
         Objects.requireNonNull(request, "request");
-        List<ActiveLegalHold> holds = List.copyOf(activeHolds);
+        List<ActiveLegalHold> holds =
+                List.copyOf(activeHolds).stream()
+                        .distinct()
+                        .sorted(
+                                Comparator.comparing(ActiveLegalHold::holdReference)
+                                        .thenComparing(ActiveLegalHold::legalBasisReference))
+                        .toList();
         Objects.requireNonNull(actor, "actor");
         Objects.requireNonNull(detectedAt, "detectedAt");
         if (holds.isEmpty()) {
@@ -64,7 +71,11 @@ public final class AuditHoldService {
             List<ActiveLegalHold> remainingHolds,
             ActorContext actor,
             Instant releasedAt) {
-        if (!remainingHolds.isEmpty()) {
+        Objects.requireNonNull(request, "request");
+        List<ActiveLegalHold> holds = List.copyOf(remainingHolds);
+        Objects.requireNonNull(actor, "actor");
+        Objects.requireNonNull(releasedAt, "releasedAt");
+        if (!holds.isEmpty()) {
             return Mono.error(new IllegalStateException("all partition holds must be inactive"));
         }
         return repository

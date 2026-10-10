@@ -1,6 +1,7 @@
 package org.meldtech.platform.audit.domain;
 
 import java.util.Arrays;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.meldtech.platform.shared.kernel.audit.CanonicalValue;
@@ -11,6 +12,9 @@ import org.meldtech.platform.shared.kernel.audit.RetentionClass;
 import org.meldtech.platform.shared.kernel.security.SecretFieldPattern;
 
 public final class AuditPayloadPolicy {
+
+    private static final Set<String> PERMITTED_AUDIT_METADATA_PATHS =
+            Set.of("authorization_reference", "signature_reference.key_version");
 
     private static final Pattern NAMED_ASSIGNMENT =
             Pattern.compile("(?<![\\p{L}\\p{N}_.-])([\\p{L}_][\\p{L}\\p{N}_.-]*)[\"']?\\s*[:=]");
@@ -35,7 +39,8 @@ public final class AuditPayloadPolicy {
                             (field, child) -> {
                                 String path =
                                         parentPath.isEmpty() ? field : parentPath + "." + field;
-                                if (SecretFieldPattern.isSecretField(path)) {
+                                if (!PERMITTED_AUDIT_METADATA_PATHS.contains(path)
+                                        && SecretFieldPattern.isSecretField(path)) {
                                     throw new SecretAuditFieldException(path);
                                 }
                                 inspect(child, path);

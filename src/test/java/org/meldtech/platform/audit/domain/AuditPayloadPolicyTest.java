@@ -90,6 +90,34 @@ class AuditPayloadPolicyTest {
     }
 
     @Test
+    void permitsReviewedDispositionMetadata() {
+        ObjectValue payload =
+                new ObjectValue(
+                        Map.of(
+                                "authorization_reference",
+                                new StringValue("privacy-approval-032"),
+                                "signature_reference",
+                                new ObjectValue(
+                                        Map.of(
+                                                "key_version",
+                                                new StringValue("audit-signing-v3")))));
+
+        assertThatCode(() -> AuditPayloadPolicy.requireSecretFree(payload))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsLookalikesForReviewedDispositionMetadata() {
+        for (String field :
+                List.of("authorization_reference_copy", "signature_reference.key_version_copy")) {
+            ObjectValue payload = new ObjectValue(Map.of(field, new StringValue("forbidden")));
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> AuditPayloadPolicy.requireSecretFree(payload));
+        }
+    }
+
+    @Test
     void rejectsSecretNamesAtAnyDepth() {
         ObjectValue payload =
                 new ObjectValue(
