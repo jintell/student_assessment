@@ -60,7 +60,7 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
         assertThat(activeTicks).hasValue(1);
         releaseLeader.countDown();
         assertThat(leader.get(5, TimeUnit.SECONDS)).isTrue();
-        assertThat(activeTicks).hasValue(0);
+        awaitNoActiveTick(activeTicks);
     }
 
     @Test
