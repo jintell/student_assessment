@@ -11,8 +11,7 @@ import org.meldtech.migrationverify.core.StatementKind;
 
 public final class TouchedRelationCollector {
 
-    private static final Pattern TABLE_PRIVILEGE =
-            Pattern.compile("(?is)\\bON\\s+TABLE\\b");
+    private static final Pattern TABLE_PRIVILEGE = Pattern.compile("(?is)\\bON\\s+TABLE\\b");
 
     public Set<String> collect(Collection<MigrationAnalysis> analyses) {
         List<ParsedMigrationStatement> statements =
@@ -48,9 +47,9 @@ public final class TouchedRelationCollector {
                     DROP_CONSTRAINT,
                     DROP_DEFAULT,
                     DROP_TABLE,
-                    RENAME_COLUMN -> true;
-            case GRANT, REVOKE ->
-                    TABLE_PRIVILEGE.matcher(statement.normalizedForm()).find();
+                    RENAME_COLUMN ->
+                    true;
+            case GRANT, REVOKE -> TABLE_PRIVILEGE.matcher(statement.normalizedForm()).find();
             case OTHER -> statement.alterTable();
             case CREATE_TABLE,
                     CREATE_EXTENSION,
@@ -59,7 +58,8 @@ public final class TouchedRelationCollector {
                     COMMENT,
                     INVOKE_FUNCTION,
                     PROCEDURAL_BLOCK,
-                    DATA_MODIFICATION -> false;
+                    DATA_MODIFICATION ->
+                    false;
         };
     }
 }
