@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+record="${repo_root}/ci/dor/FEAT-PLAT-006/P0.5-plan-dependency-acknowledgement.json"
+signature="${repo_root}/ci/dor/FEAT-PLAT-006/P0.5-plan-dependency-acknowledgement.plan-owner.sig"
+default_plan_repository="${repo_root}/../student_assessment"
+plan_repository="${PLAN_REPOSITORY:-${default_plan_repository}}"
+plan_path="${plan_repository}/workspace/v3/be/plan/plan.md"
+trusted_key="${repo_root}/ci/trusted-api-consumer-representative.asc"
+
+fail() {
+    echo "RUNTIME PLAN DEPENDENCY ACKNOWLEDGEMENT: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq git; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+[[ -f "${record}" ]] || fail "Plan-owner acknowledgement is missing."
+[[ -f "${signature}" ]] || fail "Plan-owner signature is missing."
+[[ -f "${plan_path}" ]] || fail "Corrected plan is unavailable."
+[[ -f "${trusted_key}" ]] || fail "Trusted plan-owner public key is missing."
+
+jq -e '
+    .recordId == "ACK-FEAT-PLAT-006-P0.5"
+    and .feature == "FEAT-PLAT-006"
+    and .dependency == "P0.5"
+    and .defectId == "TASK-PLAT6-DEFECT-001"
+    and .status == "ACKNOWLEDGED"
+    and .plan.version == "1.0"
+    and .plan.documentPath == "workspace/v3/be/plan/plan.md"
+    and (.plan.correctedSections | sort == ["11.2", "9.3"])
+    and (.resolution.hardDependencies | sort == ["FEAT-PLAT-001", "FEAT-PLAT-002"])
+    and .resolution.sequencing == "FEAT-PLAT-002_BEFORE_FEAT-PLAT-006"
+    and .resolution.phase3MayBeginBeforePersistenceDependency == false
+    and .acknowledgement.role == "Plan Owner"
+    and .acknowledgement.identity == "Josleke"
+    and .acknowledgement.fingerprint == "5E99BB3AAAFD87094E378E61EADF5C3816562490"
+    and .acknowledgement.decision == "CORRECTION_ACCEPTED"
+    and .acknowledgement.signature == "P0.5-plan-dependency-acknowledgement.plan-owner.sig"
+    and (.acknowledgement.acknowledgedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+' "${record}" >/dev/null || fail "Plan-owner acknowledgement is malformed or incomplete."
+
+hash_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        return 1
+    fi
+}
+
+actual_sha256="$(hash_file "${plan_path}")" \
+    || fail "Unable to hash the corrected plan."
+expected_sha256="$(jq -r '.plan.documentSha256' "${record}")"
+[[ "${actual_sha256}" == "${expected_sha256}" ]] \
+    || fail "Corrected plan bytes differ from the acknowledged version."
+
+base_commit="$(jq -r '.plan.baseCommit' "${record}")"
+git -C "${plan_repository}" cat-file -e "${base_commit}^{commit}" 2>/dev/null \
+    || fail "Acknowledged plan base commit is unavailable."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+
+gpg --homedir "${gnupg_home}" --batch --quiet --import "${trusted_key}" >/dev/null 2>&1 \
+    || fail "Unable to import the trusted plan-owner key."
+status="$(
+    gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+        --verify "${signature}" "${record}" 2>/dev/null
+)" || fail "Plan-owner signature is invalid or untrusted."
+verified_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+declared_fingerprint="$(jq -r '.acknowledgement.fingerprint' "${record}")"
+[[ "${verified_fingerprint}" == "${declared_fingerprint}" ]] \
+    || fail "Plan-owner signature fingerprint does not match the record."
+
+echo "RUNTIME PLAN DEPENDENCY ACKNOWLEDGEMENT: PASS"
+echo "The Plan Owner accepted the corrected sections 9.3 and 11.2 dependency sequence."

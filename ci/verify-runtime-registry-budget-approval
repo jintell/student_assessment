@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+record="${repo_root}/ci/dor/FEAT-PLAT-006/P0.6-registry-budget-approval.json"
+ratification="${repo_root}/ci/architecture-ratification.json"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "RUNTIME REGISTRY AND BUDGET APPROVAL: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+for file in "${record}" "${ratification}" "${trusted_keys}"; do
+    [[ -f "${file}" ]] || fail "Required approval input is missing: ${file}"
+done
+
+jq -e '
+    .recordId == "DOR-FEAT-PLAT-006-P0.6"
+    and .feature == "FEAT-PLAT-006"
+    and .dependency == "P0.6"
+    and .status == "APPROVED"
+    and (.architecture.sections | sort == ["15.2", "17.1", "8.2", "9.2"])
+    and (.defects | length == 2)
+    and any(.defects[];
+        .id == "TASK-PLAT6-DEFECT-002"
+        and .classification == "ADDITIVE_PLATFORM_SCHEMA_TABLE"
+        and .registry.schema == "platform"
+        and .registry.table == "sweep_registry"
+        and .registry.owner == "app_migrator"
+        and .registry.migrationOwner == "FEAT-PLAT-006"
+        and .registry.tenantScoped == false
+        and .registry.catalogueRegistrationRequired == true
+        and (.registry.columns | sort == [
+            "created_at", "default_interval_ms", "enabled", "lock_key",
+            "owning_feature", "owning_module", "sweep_name", "system_actor",
+            "updated_at"
+        ]))
+    and any(.defects[];
+        .id == "TASK-PLAT6-DEFECT-003"
+        and .classification == "NO_CONNECTION_BUDGET_INCREASE"
+        and .connectionArithmetic.workerPool == 10
+        and .connectionArithmetic.gradingConnections == 4
+        and .connectionArithmetic.backgroundConnections == 6
+        and .connectionArithmetic.maximumLockHoldingConnections == 2
+        and .connectionArithmetic.remainingBackgroundConnections == 4
+        and .connectionArithmetic.permitAllocation.mergedSweepRunner == 1
+        and .connectionArithmetic.permitAllocation.outboxRelay == 1
+        and .connectionArithmetic.budgetIncrease == false)
+    and (.approvals | length == 2)
+    and any(.approvals[];
+        .role == "Architecture Owner"
+        and .identity == "Josiah Adetayo"
+        and .decision == "APPROVED"
+        and .signature == "P0.6-registry-budget-approval.architecture-owner.sig")
+    and any(.approvals[];
+        .role == "FEAT-PLAT-002 Owner (Engineering Lead)"
+        and .identity == "Francis Okechukwu"
+        and .decision == "APPROVED"
+        and .signature == "P0.6-registry-budget-approval.persistence-owner.sig")
+    and all(.approvals[]; .approvedAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+' "${record}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+jq -e --slurpfile ratification "${ratification}" '
+    .architecture.version == $ratification[0].baseline.architectureVersion
+    and .architecture.gitTag == $ratification[0].baseline.gitTag
+    and .architecture.gitCommit == $ratification[0].baseline.gitCommit
+    and .architecture.documentPath == $ratification[0].baseline.documentPath
+    and .architecture.blobSha256 == $ratification[0].baseline.blobSha256
+    and $ratification[0].status == "RATIFIED"
+' "${record}" >/dev/null || fail "Approval baseline differs from architecture ratification."
+
+verify_signature() {
+    local approval_role="$1"
+    local trusted_role="$2"
+    local signature_name="$3"
+    local signature="${repo_root}/ci/dor/FEAT-PLAT-006/${signature_name}"
+    local expected_fingerprint public_key_name declared_fingerprint gnupg_home status actual_fingerprint
+
+    [[ -f "${signature}" ]] || fail "Detached signature is missing: ${signature_name}"
+    expected_fingerprint="$(jq -r --arg role "${trusted_role}" '.[$role].fingerprint' "${trusted_keys}")"
+    public_key_name="$(jq -r --arg role "${trusted_role}" '.[$role].publicKey' "${trusted_keys}")"
+    declared_fingerprint="$(jq -r --arg role "${approval_role}" '.approvals[] | select(.role == $role) | .fingerprint' "${record}")"
+    [[ "${declared_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${approval_role} fingerprint is not the registered identity."
+
+    gnupg_home="$(mktemp -d)"
+    chmod 0700 "${gnupg_home}"
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key_name}" >/dev/null 2>&1 \
+        || fail "Unable to import the trusted key for ${approval_role}."
+    status="$({
+        gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+            --verify "${signature}" "${record}" 2>/dev/null
+    } || true)"
+    rm -rf -- "${gnupg_home}"
+    actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+        || fail "${approval_role} signature is invalid or uses the wrong key."
+}
+
+verify_signature \
+    "Architecture Owner" \
+    "Architecture Owner" \
+    "P0.6-registry-budget-approval.architecture-owner.sig"
+verify_signature \
+    "FEAT-PLAT-002 Owner (Engineering Lead)" \
+    "Engineering Lead" \
+    "P0.6-registry-budget-approval.persistence-owner.sig"
+
+echo "RUNTIME REGISTRY AND BUDGET APPROVAL: PASS"
+echo "The additive registry table and two-permit worker arithmetic are jointly approved."

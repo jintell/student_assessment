@@ -1,0 +1,78 @@
+{
+  "requestId": "PROVISION-FEAT-PLAT-006-P0.8",
+  "feature": "FEAT-PLAT-006",
+  "task": "P0.8",
+  "requestedAt": "2026-10-11T08:11:16+01:00",
+  "requestStatus": "ACKNOWLEDGED_FOR_PROVISIONING",
+  "fulfillmentStatus": "NOT_PROVISIONED",
+  "plan": {
+    "version": "1.0",
+    "section": "11.1",
+    "risk": "PLAN-RISK-002",
+    "startPhase": 0,
+    "nominalPhase": 6
+  },
+  "architecture": {
+    "version": "1.4",
+    "gitTag": "arch-v1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "documentPath": "workspace/v3/be/architecture.md",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da"
+  },
+  "requestOwner": {
+    "role": "Platform Ops",
+    "identity": "Josiah Adetayo",
+    "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+    "decision": "OWNERSHIP_ACKNOWLEDGED",
+    "acknowledgedAt": "2026-10-11T08:11:16+01:00",
+    "signature": "P0.8-platform-ops-provisioning-request.platform-ops.sig"
+  },
+  "requestedScope": {
+    "environment": {
+      "name": "staging",
+      "shape": "PRODUCTION_SHAPE",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "purpose": "Run deployed-manifest, workload-isolation and architecture-condition evidence against real infrastructure"
+    },
+    "workloadIdentities": {
+      "realProviderBackedIdentitiesRequired": true,
+      "identities": [
+        "cbt-api",
+        "cbt-worker",
+        "cbt-pindist"
+      ],
+      "distinctPerWorkload": true,
+      "thirdRole": "cbt-pindist",
+      "thirdRoleConsumer": "FEAT-PLAT-006"
+    },
+    "keyManagement": {
+      "providerBacked": true,
+      "retrievalKeyPolicyOwner": "FEAT-EXAM-002",
+      "requiredPolicyOutcome": "PIN-retrieval KEK decrypt denied to cbt-api and cbt-worker and permitted only to cbt-pindist",
+      "mockIdentityAccepted": false,
+      "credentialMaterialCommitted": false
+    }
+  },
+  "dependencies": {
+    "featureIdentityConsumer": "FEAT-PLAT-006",
+    "conditionOwner": "FEAT-EXAM-002",
+    "condition": "A4",
+    "verification": "ARC-VERIFY-025",
+    "requirement": "REQ-SEC-014"
+  },
+  "gates": {
+    "featureImplementationBlocked": false,
+    "blockedRuntimeTask": "P7.17",
+    "p7_17BlockedUntilProvisioned": true,
+    "a4BlockedUntilProvisioned": true,
+    "requestDischargesA4": false,
+    "requestProvesArcVerify025": false
+  },
+  "deliveryTarget": "Before FEAT-PLAT-006 P7.17 and FEAT-EXAM-002 ARC-VERIFY-025 execution",
+  "excludedOwnership": {
+    "kmsGrantAndDenialAttestation": "FEAT-EXAM-002",
+    "conditionA4Discharge": "Security and Platform Ops",
+    "threeAvailabilityZoneConditionA9Evidence": "FEAT-OPS-003",
+    "observabilityStack": "FEAT-OBS-001 and Platform Ops"
+  }
+}

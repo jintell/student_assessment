@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+record="${repo_root}/docs/evidence/FEAT-PLAT-006/P0.7-adr-012-conditional-decision.json"
+ratification="${repo_root}/ci/architecture-ratification.json"
+tasks="${repo_root}/tasks/foundation/runtime/tasks.md"
+
+fail() {
+    echo "RUNTIME CONDITIONAL DECISION: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+command -v jq >/dev/null 2>&1 || fail "Required command is unavailable: jq"
+
+for file in "${record}" "${ratification}" "${tasks}"; do
+    [[ -f "${file}" ]] || fail "Required input is missing: ${file}"
+done
+
+jq -e '
+    .recordId == "COND-FEAT-PLAT-006-P0.7"
+    and .feature == "FEAT-PLAT-006"
+    and .task == "P0.7"
+    and .decision.id == "ADR-012"
+    and .decision.status == "Accepted - conditional"
+    and .decision.gatingVerification == "ARC-VERIFY-033"
+    and .decision.ratificationCondition == "A8"
+    and .decision.conditionStatus == "OPEN"
+    and .decision.implementationPermitted == true
+    and .decision.mayBeCitedAsProven == false
+    and .ownership.verificationOwner == "FEAT-OPS-005"
+    and .ownership.deliveryPhase == 6
+    and (.ownership.conditionApprovers | sort == ["Engineering", "Platform Ops"])
+    and .singletonEvidenceHandover.producer == "FEAT-PLAT-006"
+    and .singletonEvidenceHandover.recipient == "FEAT-OPS-005"
+    and .singletonEvidenceHandover.status == "REGISTERED"
+    and .singletonEvidenceHandover.evidenceStatus == "PENDING_IMPLEMENTATION"
+    and .singletonEvidenceHandover.dischargesArcVerify033 == false
+    and .singletonEvidenceHandover.dischargesA8 == false
+    and .fullVerification.apiReplicas == 30
+    and .fullVerification.workerReplicas == 24
+    and .fullVerification.migrationJobRunning == true
+    and .fullVerification.status == "NOT_RUN"
+    and .fullVerification.dischargesA8OnlyWhenComplete == true
+' "${record}" >/dev/null || fail "Conditional-decision record is malformed or overclaims closure."
+
+jq -e --slurpfile ratification "${ratification}" '
+    .architecture.version == $ratification[0].baseline.architectureVersion
+    and .architecture.gitTag == $ratification[0].baseline.gitTag
+    and .architecture.gitCommit == $ratification[0].baseline.gitCommit
+    and .architecture.documentPath == $ratification[0].baseline.documentPath
+    and .architecture.blobSha256 == $ratification[0].baseline.blobSha256
+    and $ratification[0].status == "RATIFIED"
+    and any($ratification[0].decisions[];
+        .id == "ADR-012"
+        and .status == "Accepted - conditional"
+        and .gatingVerifications == ["ARC-VERIFY-033"]
+        and .gatingConditions == ["A8"])
+' "${record}" >/dev/null || fail "Record differs from the ratified ADR-012 condition."
+
+grep -Fq '`ARC-VERIFY-033` — both HPA ceilings driven simultaneously — and ratification condition **A8**' "${tasks}" \
+    || fail "A8 ownership boundary is missing from the task list."
+grep -Fq '| `FEAT-OPS-005`' "${tasks}" \
+    || fail "FEAT-OPS-005 ownership is missing from the task list."
+grep -Fq '**Not dischargeable by this feature, and recorded as such:**' "${tasks}" \
+    || fail "The task list does not preserve the A8 non-discharge statement."
+
+positive_claims="$({
+    awk '
+        /A8.*discharged|ARC-VERIFY-033.*(green|passed|complete)/ {
+            if ($0 !~ /nothing in this task list claims A8 discharged/ &&
+                $0 !~ /Not dischargeable by this feature/ &&
+                $0 !~ /not discharged here/) {
+                print
+            }
+        }
+    ' "${tasks}"
+} || true)"
+[[ -z "${positive_claims}" ]] || fail "Task list contains a positive A8-discharge claim: ${positive_claims}"
+
+echo "RUNTIME CONDITIONAL DECISION: PASS"
+echo "ADR-012 remains conditional; the singleton limb is registered for FEAT-OPS-005 and A8 remains open."

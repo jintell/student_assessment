@@ -1,0 +1,81 @@
+{
+  "recordId": "DOR-FEAT-PLAT-006-P0.6",
+  "feature": "FEAT-PLAT-006",
+  "dependency": "P0.6",
+  "status": "APPROVED",
+  "architecture": {
+    "version": "1.4",
+    "gitTag": "arch-v1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "documentPath": "workspace/v3/be/architecture.md",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da",
+    "sections": [
+      "8.2",
+      "9.2",
+      "15.2",
+      "17.1"
+    ]
+  },
+  "defects": [
+    {
+      "id": "TASK-PLAT6-DEFECT-002",
+      "resolution": "Add platform.sweep_registry as an additive platform-schema table owned by app_migrator and delivered by FEAT-PLAT-006",
+      "classification": "ADDITIVE_PLATFORM_SCHEMA_TABLE",
+      "registry": {
+        "schema": "platform",
+        "table": "sweep_registry",
+        "owner": "app_migrator",
+        "migrationOwner": "FEAT-PLAT-006",
+        "tenantScoped": false,
+        "catalogueRegistrationRequired": true,
+        "columns": [
+          "sweep_name",
+          "lock_key",
+          "owning_module",
+          "owning_feature",
+          "default_interval_ms",
+          "enabled",
+          "system_actor",
+          "created_at",
+          "updated_at"
+        ]
+      }
+    },
+    {
+      "id": "TASK-PLAT6-DEFECT-003",
+      "resolution": "Cap lock-holding concurrency at two permits per worker replica within the published six-connection background allocation",
+      "classification": "NO_CONNECTION_BUDGET_INCREASE",
+      "connectionArithmetic": {
+        "workerPool": 10,
+        "gradingConnections": 4,
+        "backgroundConnections": 6,
+        "maximumLockHoldingConnections": 2,
+        "remainingBackgroundConnections": 4,
+        "permitAllocation": {
+          "mergedSweepRunner": 1,
+          "outboxRelay": 1
+        },
+        "budgetIncrease": false
+      }
+    }
+  ],
+  "approvals": [
+    {
+      "role": "Architecture Owner",
+      "identity": "Josiah Adetayo",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-11T07:54:53+01:00",
+      "signature": "P0.6-registry-budget-approval.architecture-owner.sig"
+    },
+    {
+      "role": "FEAT-PLAT-002 Owner (Engineering Lead)",
+      "identity": "Francis Okechukwu",
+      "fingerprint": "FAD9BBAEE325B94064A7B30BE12A4FD9D0FC2124",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-11T07:54:53+01:00",
+      "signature": "P0.6-registry-budget-approval.persistence-owner.sig"
+    }
+  ],
+  "changePolicy": "Any wider registry scope, ownership change, third lock-holding permit, or increase to the published worker pool requires renewed Architecture Owner and FEAT-PLAT-002 owner approval."
+}

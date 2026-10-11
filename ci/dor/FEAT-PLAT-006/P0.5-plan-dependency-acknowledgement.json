@@ -1,0 +1,33 @@
+{
+  "recordId": "ACK-FEAT-PLAT-006-P0.5",
+  "feature": "FEAT-PLAT-006",
+  "dependency": "P0.5",
+  "defectId": "TASK-PLAT6-DEFECT-001",
+  "status": "ACKNOWLEDGED",
+  "plan": {
+    "version": "1.0",
+    "baseCommit": "44d994b97143eb0852d00bbb39adef6acffdf752",
+    "documentPath": "workspace/v3/be/plan/plan.md",
+    "documentSha256": "00b9ec573c61f0633caafcaf3c730c7af784d0b62c525249ef0b7a7e95587a90",
+    "correctedSections": ["9.3", "11.2"]
+  },
+  "resolution": {
+    "type": "PLAN_CORRECTION_ACCEPTED",
+    "hardDependencies": ["FEAT-PLAT-001", "FEAT-PLAT-002"],
+    "sequencing": "FEAT-PLAT-002_BEFORE_FEAT-PLAT-006",
+    "dependencyReason": [
+      "Workload login roles app_api, app_worker and app_pindist",
+      "The platform schema owned by app_migrator",
+      "Per-workload connection-pool budgets"
+    ],
+    "phase3MayBeginBeforePersistenceDependency": false
+  },
+  "acknowledgement": {
+    "role": "Plan Owner",
+    "identity": "Josleke",
+    "fingerprint": "5E99BB3AAAFD87094E378E61EADF5C3816562490",
+    "decision": "CORRECTION_ACCEPTED",
+    "acknowledgedAt": "2026-10-10T21:30:47+01:00",
+    "signature": "P0.5-plan-dependency-acknowledgement.plan-owner.sig"
+  }
+}
