@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "status": "DESIGN_BASELINE",
+  "role": "api",
+  "workload": "cbt-api",
+  "enabledCategories": ["slice-endpoint"],
+  "forbiddenCategories": ["pin-distribution-endpoint", "broker-consumer", "sweep"],
+  "businessRoutes": {
+    "policy": "all-declared-except-pin-distribution",
+    "forbidden": [{"method": "GET", "path": "/api/v1/exam-sessions/{id}/pin-distribution"}]
+  },
+  "entryPoints": [
+    {
+      "type": "org.meldtech.platform.platform.slice.getConformanceReference.Endpoint",
+      "kind": "slice-endpoint",
+      "routeId": "platform.getConformanceReference",
+      "method": "GET",
+      "path": "/api/v1/platform/conformance-reference"
+    }
+  ],
+  "management": {
+    "separatePort": true,
+    "ingressRouted": false,
+    "probePaths": ["/health/live", "/health/ready", "/health/startup"]
+  },
+  "scalingSignals": ["cpu", "exam-path-p95"]
+}
