@@ -23,3 +23,12 @@ paths = [
   '''(^|/)migration/volumetrics\.yaml$''',
   '''(^|/)migration-verify/src/main/java/org/meldtech/migrationverify/measure/DeterministicDatasetGenerator\.java$'''
 ]
+
+[[allowlists]]
+description = "Public ARC-VERIFY-025 identifier in the runtime provisioning evidence"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexes = ['''^ARC-VERIFY-025$''']
+paths = [
+  '''(^|/)docs/evidence/FEAT-PLAT-006/phase-0-gate-prerequisites\.md$'''
+]
