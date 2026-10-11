@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "status": "DESIGN_BASELINE",
+  "role": "worker",
+  "workload": "cbt-worker",
+  "enabledCategories": ["broker-consumer", "sweep"],
+  "forbiddenCategories": ["slice-endpoint", "pin-distribution-endpoint"],
+  "businessRoutes": {"policy": "none", "maximumCount": 0},
+  "entryPoints": [],
+  "management": {
+    "separatePort": true,
+    "ingressRouted": false,
+    "probePaths": ["/health/live", "/health/ready", "/health/startup"]
+  },
+  "intendedCapabilities": ["grading-consumers", "notification-dispatch", "schedulers", "outbox-relay"],
+  "scalingSignals": ["grading-queue-depth", "notification-queue-depth"],
+  "prewarming": "exam-calendar"
+}

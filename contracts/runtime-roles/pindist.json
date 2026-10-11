@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "status": "DESIGN_BASELINE",
+  "role": "pindist",
+  "workload": "cbt-pindist",
+  "enabledCategories": ["pin-distribution-endpoint"],
+  "forbiddenCategories": ["slice-endpoint", "broker-consumer", "sweep"],
+  "businessRoutes": {
+    "policy": "reserved-only",
+    "maximumCount": 1,
+    "allowed": [{"method": "GET", "path": "/api/v1/exam-sessions/{id}/pin-distribution"}],
+    "requiredWhenFeatureDelivered": "FEAT-EXAM-003"
+  },
+  "entryPoints": [],
+  "management": {
+    "separatePort": true,
+    "ingressRouted": false,
+    "probePaths": ["/health/live", "/health/ready", "/health/startup"]
+  },
+  "serviceAccount": "cbt-pindist",
+  "ownsDatabaseSchema": false,
+  "scalingSignals": [],
+  "replicas": 2,
+  "autoscaling": false
+}
