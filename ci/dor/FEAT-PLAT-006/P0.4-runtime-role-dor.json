@@ -1,0 +1,84 @@
+{
+  "recordId": "DOR-FEAT-PLAT-006-P0.4",
+  "feature": "FEAT-PLAT-006",
+  "dependency": "P0.4",
+  "status": "APPROVED",
+  "preparedOn": "2026-10-10",
+  "approvedOn": "2026-10-10",
+  "architecture": {
+    "version": "1.4",
+    "gitTag": "arch-v1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "documentPath": "workspace/v3/be/architecture.md",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da",
+    "sections": ["8.2", "17.1"]
+  },
+  "baselineVersionResolution": {
+    "defectId": "TASK-PLAT6-OBS-005",
+    "universalDorVersion": "1.3",
+    "phase0EntryVersion": "1.4",
+    "versionRead": "1.4",
+    "basis": "The universal DoR's v1.3 reference is stale. Platform Ops reviewed sections 8.2 and 17.1 from the current signed architecture v1.4 baseline at arch-v1.4, as required by the Phase 0 entry criteria."
+  },
+  "artifactContract": {
+    "containerImages": 1,
+    "sboms": 1,
+    "roleSelector": "SPRING_PROFILES_ACTIVE",
+    "sameCodeMigrationsAndConfigurationSurface": true,
+    "migrationJobIsRuntimeRole": false
+  },
+  "roleBeanMatrix": [
+    {
+      "role": "api",
+      "workload": "cbt-api",
+      "enabled": ["Workforce, candidate delivery, operator and provider-webhook slice endpoints"],
+      "excluded": ["Coordinator PIN-distribution slice", "Schedulers", "Broker consumers"],
+      "scalingSignals": ["CPU", "Exam-path p95"]
+    },
+    {
+      "role": "worker",
+      "workload": "cbt-worker",
+      "enabled": ["Grading consumers", "Notification dispatch", "Schedulers", "Outbox relay", "Health endpoints"],
+      "excluded": ["Business HTTP endpoints"],
+      "scalingSignals": ["Grading queue depth", "Notification queue depth"],
+      "prewarming": "Exam-calendar-driven capacity before scheduled closes"
+    },
+    {
+      "role": "pindist",
+      "workload": "cbt-pindist",
+      "enabled": ["Coordinator PIN-distribution read slice", "Health endpoints"],
+      "excluded": ["Other business endpoints", "Broker consumers", "Schedulers", "Own database schema"],
+      "businessRouteAsWrittenInSection8_2": "GET /exam-sessions/{id}/pin-distribution",
+      "replicas": 2,
+      "autoscaling": false
+    }
+  ],
+  "workloadIdentityModel": {
+    "pinDistributionServiceAccount": "cbt-pindist",
+    "distinctFromApiAndWorkerIdentities": true,
+    "pinRetrievalKekPrincipal": "Only the PIN-distribution workload identity",
+    "pinValidationPathCanUseRetrievalKek": false,
+    "runtimeFeatureResponsibility": "Supply the isolated workload identity mechanism and role restrictions",
+    "keyGrantOwner": "FEAT-EXAM-002",
+    "pinDistributionSliceOwner": "FEAT-EXAM-003",
+    "keyGrantOrRealIdentityProvisioningProvenByThisRecord": false
+  },
+  "reviewNotes": [
+    "This is a readiness agreement for intended behavior, not evidence that runtime isolation has been implemented.",
+    "The PIN-distribution role serves probes only until its owning feature supplies the reserved business slice.",
+    "Section 8.2 gives an unversioned route; the task list adopts section 10.2's /api/v1 template in P2.12. The agreement does not create a new route.",
+    "Health remains available for all roles. TASK-PLAT6-DEFECT-004's management-port interpretation is implemented and tested in later tasks.",
+    "Migration execution remains the separate cbt-migrate Job owned by FEAT-PLAT-005."
+  ],
+  "requiredApproverRoles": ["Platform Ops"],
+  "approvals": [
+    {
+      "role": "Platform Ops",
+      "identity": "Josiah Adetayo",
+      "fingerprint": "7D509463FEB9C8CF34E081C35789DBF7FE24E1DB",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-10T21:22:40+01:00",
+      "signature": "P0.4-runtime-role-dor.platform-ops.sig"
+    }
+  ]
+}

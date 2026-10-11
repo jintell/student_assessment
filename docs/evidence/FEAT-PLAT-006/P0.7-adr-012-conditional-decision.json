@@ -1,0 +1,74 @@
+{
+  "recordId": "COND-FEAT-PLAT-006-P0.7",
+  "feature": "FEAT-PLAT-006",
+  "task": "P0.7",
+  "recordedAt": "2026-10-11",
+  "architecture": {
+    "version": "1.4",
+    "gitTag": "arch-v1.4",
+    "gitCommit": "8ea8250ef7ef6877eaf2d89444d473f7a4933fbc",
+    "documentPath": "workspace/v3/be/architecture.md",
+    "blobSha256": "70497fdb08c93081f3f6d441a6c8e29dc0f758171e6d2bf30212fa6f55bb41da"
+  },
+  "decision": {
+    "id": "ADR-012",
+    "title": "Three runtime roles from one artifact",
+    "status": "Accepted - conditional",
+    "gatingVerification": "ARC-VERIFY-033",
+    "ratificationCondition": "A8",
+    "conditionStatus": "OPEN",
+    "implementationPermitted": true,
+    "mayBeCitedAsProven": false
+  },
+  "ownership": {
+    "verificationOwner": "FEAT-OPS-005",
+    "deliveryPhase": 6,
+    "conditionApprovers": [
+      "Platform Ops",
+      "Engineering"
+    ]
+  },
+  "singletonEvidenceHandover": {
+    "producer": "FEAT-PLAT-006",
+    "recipient": "FEAT-OPS-005",
+    "status": "REGISTERED",
+    "evidenceStatus": "PENDING_IMPLEMENTATION",
+    "limb": "Scheduler singletons remain exactly-one at 24 worker replicas while both HPA ceilings are driven simultaneously",
+    "producerTasks": [
+      "P4.4",
+      "P4.5",
+      "P4.6",
+      "P7.1",
+      "P7.2",
+      "P7.3",
+      "P7.4",
+      "P7.5",
+      "P7.6",
+      "P8.2",
+      "P8.5"
+    ],
+    "consumerObligation": "Run and retain the singleton assertion inside the complete ARC-VERIFY-033 CI 17 and staging scenario",
+    "dischargesArcVerify033": false,
+    "dischargesA8": false
+  },
+  "fullVerification": {
+    "apiReplicas": 30,
+    "workerReplicas": 24,
+    "migrationJobRunning": true,
+    "requiredOutcomes": [
+      "zero connection-acquire failures",
+      "zero 503 responses on exam routes",
+      "unstarved exam-path reserved pool",
+      "connection envelope retains headroom",
+      "scheduler singletons remain exactly-one",
+      "ARC-PERF-006 evaluates green against the deployed manifest"
+    ],
+    "status": "NOT_RUN",
+    "dischargesA8OnlyWhenComplete": true
+  },
+  "sources": [
+    "ci/architecture-ratification.json ADR-012",
+    "architecture.md sections 19.8, 21.0, ADR-012 and 24.3",
+    "plan.md FEAT-OPS-005 and condition register A8"
+  ]
+}

@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+request="${repo_root}/ci/provisioning/FEAT-PLAT-006/P0.8-platform-ops-provisioning-request.json"
+signature="${repo_root}/ci/provisioning/FEAT-PLAT-006/P0.8-platform-ops-provisioning-request.platform-ops.sig"
+ratification="${repo_root}/ci/architecture-ratification.json"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+tasks="${repo_root}/tasks/foundation/runtime/tasks.md"
+
+fail() {
+    echo "RUNTIME PROVISIONING REQUEST: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+for file in "${request}" "${signature}" "${ratification}" "${trusted_keys}" "${tasks}"; do
+    [[ -f "${file}" ]] || fail "Required provisioning input is missing: ${file}"
+done
+
+jq -e '
+    .requestId == "PROVISION-FEAT-PLAT-006-P0.8"
+    and .feature == "FEAT-PLAT-006"
+    and .task == "P0.8"
+    and (.requestedAt | test("^2026-10-11T"))
+    and .requestStatus == "ACKNOWLEDGED_FOR_PROVISIONING"
+    and .fulfillmentStatus == "NOT_PROVISIONED"
+    and .plan.section == "11.1"
+    and .plan.risk == "PLAN-RISK-002"
+    and .plan.startPhase == 0
+    and .plan.nominalPhase == 6
+    and .requestOwner.role == "Platform Ops"
+    and .requestOwner.identity == "Josiah Adetayo"
+    and .requestOwner.decision == "OWNERSHIP_ACKNOWLEDGED"
+    and .requestOwner.signature == "P0.8-platform-ops-provisioning-request.platform-ops.sig"
+    and .requestedScope.environment.name == "staging"
+    and .requestedScope.environment.shape == "PRODUCTION_SHAPE"
+    and .requestedScope.environment.dataClassification == "SYNTHETIC_ONLY"
+    and .requestedScope.workloadIdentities.realProviderBackedIdentitiesRequired == true
+    and (.requestedScope.workloadIdentities.identities | sort == ["cbt-api", "cbt-pindist", "cbt-worker"])
+    and .requestedScope.workloadIdentities.distinctPerWorkload == true
+    and .requestedScope.workloadIdentities.thirdRole == "cbt-pindist"
+    and .requestedScope.workloadIdentities.thirdRoleConsumer == "FEAT-PLAT-006"
+    and .requestedScope.keyManagement.providerBacked == true
+    and .requestedScope.keyManagement.retrievalKeyPolicyOwner == "FEAT-EXAM-002"
+    and .requestedScope.keyManagement.mockIdentityAccepted == false
+    and .requestedScope.keyManagement.credentialMaterialCommitted == false
+    and .dependencies.featureIdentityConsumer == "FEAT-PLAT-006"
+    and .dependencies.conditionOwner == "FEAT-EXAM-002"
+    and .dependencies.condition == "A4"
+    and .dependencies.verification == "ARC-VERIFY-025"
+    and .dependencies.requirement == "REQ-SEC-014"
+    and .gates.featureImplementationBlocked == false
+    and .gates.blockedRuntimeTask == "P7.17"
+    and .gates.p7_17BlockedUntilProvisioned == true
+    and .gates.a4BlockedUntilProvisioned == true
+    and .gates.requestDischargesA4 == false
+    and .gates.requestProvesArcVerify025 == false
+' "${request}" >/dev/null || fail "Provisioning request is malformed or overclaims fulfillment."
+
+jq -e --slurpfile ratification "${ratification}" '
+    .architecture.version == $ratification[0].baseline.architectureVersion
+    and .architecture.gitTag == $ratification[0].baseline.gitTag
+    and .architecture.gitCommit == $ratification[0].baseline.gitCommit
+    and .architecture.documentPath == $ratification[0].baseline.documentPath
+    and .architecture.blobSha256 == $ratification[0].baseline.blobSha256
+    and $ratification[0].status == "RATIFIED"
+' "${request}" >/dev/null || fail "Request baseline differs from architecture ratification."
+
+expected_fingerprint="$(jq -r '."Architecture Owner".fingerprint' "${trusted_keys}")"
+public_key_name="$(jq -r '."Architecture Owner".publicKey' "${trusted_keys}")"
+declared_fingerprint="$(jq -r '.requestOwner.fingerprint' "${request}")"
+[[ "${declared_fingerprint}" == "${expected_fingerprint}" ]] \
+    || fail "Platform Ops owner is not the registered trusted identity."
+
+gnupg_home="$(mktemp -d)"
+cleanup() {
+    rm -rf -- "${gnupg_home}"
+}
+trap cleanup EXIT
+chmod 0700 "${gnupg_home}"
+gpg --homedir "${gnupg_home}" --batch --quiet \
+    --import "${repo_root}/ci/${public_key_name}" >/dev/null 2>&1 \
+    || fail "Unable to import the trusted Platform Ops key."
+status="$({
+    gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+        --verify "${signature}" "${request}" 2>/dev/null
+} || true)"
+actual_fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+[[ "${actual_fingerprint}" == "${expected_fingerprint}" ]] \
+    || fail "Platform Ops ownership signature is invalid or uses the wrong key."
+
+grep -Fq 'Acceptance: the request is dated and owned; this feature does not block on it but `P7.17` does.' "${tasks}" \
+    || fail "The P7.17-only blocking boundary is absent from the runtime task list."
+
+echo "RUNTIME PROVISIONING REQUEST: PASS"
+echo "Platform Ops owns the Phase 0 request; implementation remains unblocked while P7.17 and A4 await real staging identities."
