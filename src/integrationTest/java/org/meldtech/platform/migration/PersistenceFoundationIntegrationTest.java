@@ -71,6 +71,149 @@ class PersistenceFoundationIntegrationTest {
     }
 
     @Test
+    void sweepRegistryHasApprovedOwnershipAndConstraints() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                SELECT count(*) FROM pg_catalog.pg_tables
+                WHERE schemaname = 'platform' AND tablename = 'sweep_registry'
+                  AND tableowner = 'app_migrator' AND NOT rowsecurity
+                """))
+                .isEqualTo(1);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = 'platform' AND table_name = 'sweep_registry'
+                """))
+                .isEqualTo(9);
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = 'platform' AND table_name = 'sweep_registry'
+                  AND column_name = 'tenant_id'
+                """))
+                .isZero();
+
+        try (Connection connection = clusterOwnerConnection();
+                Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute(
+                        """
+                        INSERT INTO platform.sweep_registry
+                            (sweep_name, lock_key, owning_module, owning_feature,
+                             default_interval_ms, system_actor)
+                        VALUES ('registry-constraint-test', 101, 'platform', 'FEAT-PLAT-006',
+                                1000, 'OUTBOX_RELAY')
+                        """);
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                """
+                        SELECT enabled, created_at = updated_at AS timestamps_match
+                        FROM platform.sweep_registry WHERE sweep_name = 'registry-constraint-test'
+                        """)) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getBoolean("enabled")).isFalse();
+                    assertThat(rows.getBoolean("timestamps_match")).isTrue();
+                }
+                assertRegistryConstraintRejects(
+                        connection,
+                        """
+                        INSERT INTO platform.sweep_registry
+                            (sweep_name, lock_key, owning_module, owning_feature,
+                             default_interval_ms, system_actor)
+                        VALUES ('duplicate-key-test', 101, 'platform', 'FEAT-PLAT-006',
+                                1000, 'OUTBOX_RELAY')
+                        """,
+                        "23505");
+                assertRegistryConstraintRejects(
+                        connection,
+                        "UPDATE platform.sweep_registry SET default_interval_ms = 0 "
+                                + "WHERE sweep_name = 'registry-constraint-test'",
+                        "23514");
+                assertRegistryConstraintRejects(
+                        connection,
+                        "UPDATE platform.sweep_registry SET sweep_name = 'Invalid_Name' "
+                                + "WHERE sweep_name = 'registry-constraint-test'",
+                        "23514");
+                assertRegistryConstraintRejects(
+                        connection,
+                        "UPDATE platform.sweep_registry SET owning_feature = 'invalid' "
+                                + "WHERE sweep_name = 'registry-constraint-test'",
+                        "23514");
+                assertRegistryConstraintRejects(
+                        connection,
+                        "UPDATE platform.sweep_registry SET updated_at = created_at - interval '1 second' "
+                                + "WHERE sweep_name = 'registry-constraint-test'",
+                        "23514");
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    @Test
+    void sweepRegistrySeedReservesExactDisabledIdentitiesAndIsRerunnable() throws Exception {
+        String expected =
+                """
+                auto-submit|8663753269692232313|delivery|FEAT-DLV-004|10000|false|AUTO_SUBMIT_SWEEPER
+                idp-reconciliation|-4891396382355818010|iam|FEAT-IAM-005|60000|false|IDP_RECONCILER
+                outbox-relay|-2484966499978243116|outbox|FEAT-PLAT-004|200|false|OUTBOX_RELAY
+                pin-material-destruction|-2916676166989647429|examaccess|FEAT-EXAM-002|60000|false|RETENTION_ENGINE
+                retention|-4505843845379211855|audit|FEAT-PRIV-001|60000|false|RETENTION_ENGINE
+                stale-claim-reclaim|-6495990722266513791|grading|FEAT-GRD-002|30000|false|GRADING_WORKER
+                """;
+
+        assertThat(sweepRegistryRows()).isEqualTo(expected);
+        executeAsClusterOwner(readResource("db/migration/platform/V10__seed_sweep_registry.sql"));
+        assertThat(sweepRegistryRows()).isEqualTo(expected);
+    }
+
+    private String sweepRegistryRows() throws SQLException {
+        try (Connection connection = clusterOwnerConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rows =
+                        statement.executeQuery(
+                                """
+                                SELECT sweep_name, lock_key, owning_module, owning_feature,
+                                       default_interval_ms, enabled, system_actor
+                                FROM platform.sweep_registry
+                                ORDER BY sweep_name
+                                """)) {
+            var result = new StringBuilder();
+            while (rows.next()) {
+                result.append(
+                        "%s|%d|%s|%s|%d|%s|%s%n"
+                                .formatted(
+                                        rows.getString("sweep_name"),
+                                        rows.getLong("lock_key"),
+                                        rows.getString("owning_module"),
+                                        rows.getString("owning_feature"),
+                                        rows.getLong("default_interval_ms"),
+                                        rows.getBoolean("enabled"),
+                                        rows.getString("system_actor")));
+            }
+            return result.toString();
+        }
+    }
+
+    private static void assertRegistryConstraintRejects(
+            Connection connection, String sql, String sqlState) throws SQLException {
+        var savepoint = connection.setSavepoint();
+        try (Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute(sql))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(error -> ((SQLException) error).getSQLState())
+                    .isEqualTo(sqlState);
+        } finally {
+            connection.rollback(savepoint);
+            connection.releaseSavepoint(savepoint);
+        }
+    }
+
+    @Test
     void forcedRlsRestrictsUnfilteredQueriesAndRejectsMissingContext() throws SQLException {
         executeAsClusterOwner(
                 """

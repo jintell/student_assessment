@@ -11,7 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.meldtech.platform.platform.infra.observability.DatabaseQueryTelemetry;
 import org.meldtech.platform.platform.infra.observability.TracingConnectionFactory;
 import org.meldtech.platform.shared.kernel.time.Clock;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.r2dbc.core.DatabaseClient;
 
 class WorkloadConnectionPoolConfigurationTest {
 
@@ -48,8 +51,22 @@ class WorkloadConnectionPoolConfigurationTest {
     }
 
     @Test
-    void workerProfileCreatesTenConnectionPool() {
-        contextRunner("worker", 10)
+    void workerDefaultDatabaseClientUsesBackgroundPoolInsteadOfTheReservedPools() {
+        workerContextRunner()
+                .withConfiguration(AutoConfigurations.of(R2dbcAutoConfiguration.class))
+                .run(
+                        context -> {
+                            assertThat(context).hasNotFailed().hasSingleBean(DatabaseClient.class);
+                            assertThat(context.getBean(DatabaseClient.class).getConnectionFactory())
+                                    .isSameAs(context.getBean("workerConnectionFactory"));
+                            assertThat(context.getBean(ConnectionFactory.class))
+                                    .isSameAs(context.getBean("workerConnectionFactory"));
+                        });
+    }
+
+    @Test
+    void workerProfilePartitionsTenConnectionsIntoThreeIndependentPools() {
+        workerContextRunner()
                 .run(
                         context -> {
                             assertThat(context).hasBean("workerConnectionFactory");
@@ -58,8 +75,61 @@ class WorkloadConnectionPoolConfigurationTest {
                                                     context.getBean(
                                                             "workerConnectionFactory",
                                                             ConnectionFactory.class)))
-                                    .isEqualTo(10);
+                                    .isEqualTo(4);
+                            ConnectionPool background =
+                                    pool(
+                                            context.getBean(
+                                                    "workerConnectionFactory",
+                                                    ConnectionFactory.class));
+                            ConnectionPool grading =
+                                    pool(
+                                            context.getBean(
+                                                    "gradingConnectionFactory",
+                                                    ConnectionFactory.class));
+                            ConnectionPool locks =
+                                    pool(
+                                            context.getBean(
+                                                    "sweepLockConnectionFactory",
+                                                    ConnectionFactory.class));
+                            assertThat(background).isNotSameAs(grading).isNotSameAs(locks);
+                            assertThat(grading).isNotSameAs(locks);
+                            assertThat(grading.getMetrics().orElseThrow().getMaxAllocatedSize())
+                                    .isEqualTo(4);
+                            assertThat(locks.getMetrics().orElseThrow().getMaxAllocatedSize())
+                                    .isEqualTo(2);
                         });
+    }
+
+    @Test
+    void rejectsAnExtraLockConnectionOrAnUnpartitionedWorkerPool() {
+        for (String override :
+                new String[] {
+                    poolProperty("sweep-lock", "max-size", "3"),
+                    poolProperty("worker", "max-size", "10"),
+                    poolProperty("grading", "max-size", "5"),
+                    poolProperty("sweep-lock", "username", "app_api"),
+                    poolProperty(
+                            "sweep-lock", "url", "r2dbc:pool:postgresql://localhost/cbt_platform")
+                }) {
+            workerContextRunner()
+                    .withPropertyValues(override)
+                    .run(context -> assertThat(context).hasFailed());
+        }
+    }
+
+    private ApplicationContextRunner workerContextRunner() {
+        ApplicationContextRunner runner = contextRunner("worker", 4);
+        for (String name : new String[] {"grading", "sweep-lock"}) {
+            runner =
+                    runner.withPropertyValues(
+                            poolProperty(name, "username", "app_worker"),
+                            poolProperty(name, "password", EXTERNAL_TEST_PASSWORD),
+                            poolProperty(name, "url", DATABASE_URL),
+                            poolProperty(name, "initial-size", "0"),
+                            poolProperty(name, "max-size", name.equals("grading") ? "4" : "2"),
+                            poolProperty(name, "max-idle-time", "30m"));
+        }
+        return runner;
     }
 
     @Test
@@ -100,10 +170,13 @@ class WorkloadConnectionPoolConfigurationTest {
     }
 
     private int maxSize(ConnectionFactory connectionFactory) {
+        return pool(connectionFactory).getMetrics().orElseThrow().getMaxAllocatedSize();
+    }
+
+    private ConnectionPool pool(ConnectionFactory connectionFactory) {
         assertThat(connectionFactory).isInstanceOf(TracingConnectionFactory.class);
         ConnectionFactory secured = ((TracingConnectionFactory) connectionFactory).delegate();
         assertThat(secured).isInstanceOf(SecurityContextInitializer.class);
-        ConnectionPool pool = (ConnectionPool) ((SecurityContextInitializer) secured).delegate();
-        return pool.getMetrics().orElseThrow().getMaxAllocatedSize();
+        return (ConnectionPool) ((SecurityContextInitializer) secured).delegate();
     }
 }

@@ -184,6 +184,8 @@
     {"grantee": "app_outbox_maintenance", "objectType": "FUNCTION", "schema": "outbox", "object": "detach_expired_partition(name)", "privileges": ["EXECUTE"]},
     {"grantee": "app_outbox_relay", "objectType": "SCHEMA", "schema": "outbox", "privileges": ["USAGE"]},
     {"grantee": "app_outbox_relay", "objectType": "TABLE", "schema": "outbox", "object": "outbox_event", "privileges": ["SELECT", "UPDATE"]},
+    {"grantee": "app_worker", "objectType": "SCHEMA", "schema": "platform", "privileges": ["USAGE"]},
+    {"grantee": "app_worker", "objectType": "TABLE", "schema": "platform", "object": "sweep_registry", "privileges": ["SELECT"]},
     {"grantee": "app_txn_examentry", "objectType": "TABLE", "schema": "examaccess", "object": "exam_access_pin", "privileges": ["INSERT", "SELECT", "UPDATE"]},
     {"grantee": "app_txn_examentry", "objectType": "TABLE", "schema": "examaccess", "object": "pin_validation_guard", "privileges": ["INSERT", "SELECT", "UPDATE"]},
     {"grantee": "app_txn_examentry", "objectType": "TABLE", "schema": "examaccess", "object": "candidate_principal", "privileges": ["INSERT", "SELECT", "UPDATE"]},
@@ -218,7 +220,6 @@
   ],
   "denials": [
     {"kind": "NO_DIRECT_OBJECT_GRANTS", "role": "app_api"},
-    {"kind": "NO_DIRECT_OBJECT_GRANTS", "role": "app_worker"},
     {"kind": "NO_DIRECT_OBJECT_GRANTS", "role": "app_pindist"},
     {"kind": "NO_PRIVILEGES_IN_SCHEMA", "role": "app_txn_examentry", "schema": "delivery", "privileges": ["DELETE", "UPDATE"]},
     {"kind": "NO_PRIVILEGES_IN_SCHEMA", "role": "app_txn_examentry", "schema": "audit", "privileges": ["DELETE"]},

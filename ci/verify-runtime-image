@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: ci/verify-runtime-image <build-output-directory>" >&2
+    exit 1
+fi
+output="$1"
+
+blob() {
+    local digest="$1" file actual
+    [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+    file="${output}/oci/blobs/sha256/${digest#sha256:}"
+    actual="$(shasum -a 256 "${file}")"
+    [[ "${actual%% *}" == "${digest#sha256:}" ]] || return 1
+    printf '%s\n' "${file}"
+}
+
+digest="$(jq -er '.["containerimage.digest"]' "${output}/metadata.json")"
+index="$(blob "${digest}")"
+jq -e --arg digest "${digest}" \
+    '.manifests | length == 1 and .[0].digest == $digest' \
+    "${output}/oci/index.json" >/dev/null
+# An attestation is metadata, not a second runnable role image.
+jq -e '.manifests | length == 2' "${index}" >/dev/null
+runtime_digest="$(jq -er '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] | select(length == 1) | .[0].digest' "${index}")"
+attestation_digest="$(jq -er --arg runtime "${runtime_digest}" \
+    '[.manifests[] | select(.annotations["vnd.docker.reference.type"] == "attestation-manifest" and .annotations["vnd.docker.reference.digest"] == $runtime)] | select(length == 1) | .[0].digest' "${index}")"
+runtime="$(blob "${runtime_digest}")"
+config="$(blob "$(jq -er '.config.digest' "${runtime}")")"
+jq -e '.config.User == "10001:10001" and
+    .config.Entrypoint == ["java", "-jar", "/application/application.jar"] and
+    ((.config.Cmd // []) | length == 0) and
+    ([.config.Env[]? | select(test("^(SPRING_PROFILES_ACTIVE|SPRING_APPLICATION_JSON|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS)="))] | length == 0)' \
+    "${config}" >/dev/null
+attestation="$(blob "${attestation_digest}")"
+statement_digest="$(jq -er '.layers | select(length == 1) | .[0] | select(.mediaType == "application/vnd.in-toto+json") | .digest' "${attestation}")"
+statement="$(blob "${statement_digest}")"
+jq -e --arg runtime "${runtime_digest#sha256:}" '
+    .predicateType == "https://spdx.dev/Document" and
+    (.subject | length > 0 and all(.[]; .digest.sha256 == $runtime)) and
+    .predicate.SPDXID == "SPDXRef-DOCUMENT" and
+    (.predicate.spdxVersion | startswith("SPDX-")) and
+    (.predicate.packages | length > 0) and
+    any(.predicate.packages[]; .name == "spring-boot")' "${statement}" >/dev/null
+jq '.predicate' "${statement}" > "${output}/sbom.spdx.json"
+sbom_hash="$(shasum -a 256 "${output}/sbom.spdx.json")"
+jq -n --arg digest "${digest}" --arg runtime "${runtime_digest}" \
+    --arg sbomHash "${sbom_hash%% *}" \
+    '{imageDigest: $digest, runtimeManifestDigest: $runtime,
+      platform: "linux/amd64", sbom: "sbom.spdx.json", sbomSha256: $sbomHash,
+      roles: {api: $digest, worker: $digest, pindist: $digest}}' > "${output}/image.json"
+echo "Verified one runtime image and one SPDX SBOM: ${digest}"

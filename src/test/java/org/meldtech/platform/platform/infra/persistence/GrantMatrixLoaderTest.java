@@ -20,7 +20,21 @@ class GrantMatrixLoaderTest {
                 .extracting(GrantMatrix.RoleGrant::name)
                 .contains("app_txn_examentry");
         assertThat(matrix.objectGrants())
-                .noneMatch(grant -> grant.grantee().matches("app_(api|worker|pindist)"));
+                .filteredOn(grant -> grant.grantee().matches("app_(api|worker|pindist)"))
+                .extracting(
+                        grant ->
+                                grant.grantee()
+                                        + ":"
+                                        + grant.objectType()
+                                        + ":"
+                                        + grant.schema()
+                                        + ":"
+                                        + grant.object()
+                                        + ":"
+                                        + grant.privileges())
+                .containsExactly(
+                        "app_worker:SCHEMA:platform:null:[USAGE]",
+                        "app_worker:TABLE:platform:sweep_registry:[SELECT]");
         assertThat(matrix.defaultPrivileges()).hasSize(2);
     }
 

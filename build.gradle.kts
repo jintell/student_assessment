@@ -72,6 +72,38 @@ val compatibilityProbeJar =
         dependsOn(tasks.named(compatibilityProbeSourceSet.classesTaskName))
     }
 
+val runtimeImageContractTest =
+    tasks.register<Exec>("runtimeImageContractTest") {
+        description = "Checks the single-image/SBOM verifier with positive and negative fixtures."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("bash", "ci/test-runtime-image")
+    }
+
+val runtimeImage =
+    tasks.register<Exec>("runtimeImage") {
+        description = "Builds one role-neutral OCI image and its attached SPDX SBOM."
+        group = LifecycleBasePlugin.BUILD_GROUP
+        val bootJar = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar")
+        dependsOn(bootJar, runtimeImageContractTest)
+        doFirst {
+            commandLine(
+                "bash",
+                "ci/build-runtime-image",
+                bootJar
+                    .get()
+                    .archiveFile
+                    .get()
+                    .asFile.absolutePath,
+            )
+        }
+    }
+
+// Keep the standard entry point, but do not maintain a second image recipe.
+tasks.named("bootBuildImage") {
+    dependsOn(runtimeImage)
+    onlyIf { false }
+}
+
 dependencies {
     errorprone("com.google.errorprone:error_prone_core:2.42.0")
     errorprone("com.uber.nullaway:nullaway:0.12.10")
@@ -649,6 +681,12 @@ tasks.register<Exec>("verifyClosedDdlAllowlistApproval") {
     commandLine("ci/verify-closed-ddl-allowlist-approval")
 }
 
+tasks.register<Exec>("verifyStaticReferenceSeedApproval") {
+    description = "Verifies the signed bounded static-reference seed approval."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    commandLine("ci/verify-static-reference-seed-approval")
+}
+
 tasks.register<Exec>("verifyDatasetProvenanceApproval") {
     description = "Verifies the signed synthetic dataset-provenance approval."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
@@ -675,6 +713,7 @@ tasks.register("ciStage12") {
     dependsOn(
         "verifyLockThresholdApproval",
         "verifyClosedDdlAllowlistApproval",
+        "verifyStaticReferenceSeedApproval",
         "verifyDatasetProvenanceApproval",
         ":migration-verify:check",
         ":migration-verify:generateStage12Dataset",

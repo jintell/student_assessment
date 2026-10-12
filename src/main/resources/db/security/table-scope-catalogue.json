@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "nonTenantScopedPlatformTables": [
+    {
+      "table": "migration_fixture",
+      "owningFeature": "FEAT-PLAT-005",
+      "reason": "Synthetic migration-pipeline fixture with no tenant or business data"
+    },
+    {
+      "table": "platform_config",
+      "owningFeature": "FEAT-PLAT-004",
+      "reason": "Platform-wide runtime configuration keyed independently of tenants"
+    },
+    {
+      "table": "sweep_registry",
+      "owningFeature": "FEAT-PLAT-006",
+      "reason": "Platform-wide scheduler identity and lock-key registry"
+    }
+  ]
+}

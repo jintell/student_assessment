@@ -1,0 +1,121 @@
+schemaVersion: 1
+image:
+  reference: ${CBT_PLATFORM_IMAGE_DIGEST}
+  pullPolicy: IfNotPresent
+common:
+  env:
+    SERVER_SHUTDOWN: graceful
+    SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: 5s
+  terminationGracePeriodSeconds: 60
+  lifecycle:
+    preStop:
+      exec:
+        command: [/bin/sh, -ec, "touch /run/cbt/draining; sleep 30"]
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+  volumes:
+    - name: drain-state
+      emptyDir:
+        medium: Memory
+        sizeLimit: 1Mi
+  volumeMounts:
+    - name: drain-state
+      mountPath: /run/cbt
+  shutdownBudgetSeconds:
+    preStop: 30
+    waitingPhases: 4
+    perPhase: 5
+    otherCleanupTotal: 5
+    margin: 5
+workloads:
+  api:
+    name: cbt-api
+    serviceAccountName: cbt-api
+    env:
+      SPRING_PROFILES_ACTIVE: api
+      CBT_OBSERVABILITY_ROLE: api
+      JAVA_TOOL_OPTIONS: -Xmx2048m -XX:MaxDirectMemorySize=256m
+    replicas: 12
+    resources:
+      requests: {cpu: "2", memory: 3Gi}
+      limits: {cpu: "4", memory: 4Gi}
+    service:
+      sessionAffinity: None
+      ingress: true
+      port: 8080
+    database:
+      login: app_api
+      total: 14
+      pools: {api: 6, exam-path: 8}
+    hpa:
+      enabled: true
+      minReplicas: 6
+      maxReplicas: 30
+      signals:
+        - type: Resource
+          name: cpu
+          targetAverageUtilization: ${CBT_API_HPA_CPU_TARGET_PERCENT}
+        - type: Pods
+          name: exam_path_p95_seconds
+          targetAverageValue: ${CBT_API_HPA_EXAM_PATH_P95_TARGET_SECONDS}
+  worker:
+    name: cbt-worker
+    serviceAccountName: cbt-platform-worker
+    env:
+      SPRING_PROFILES_ACTIVE: worker
+      CBT_OBSERVABILITY_ROLE: worker
+      JAVA_TOOL_OPTIONS: -Xmx1536m -XX:MaxDirectMemorySize=256m
+    replicas: 6
+    prewarmedReplicas: 10
+    resources:
+      requests: {cpu: "4", memory: 2Gi}
+      limits: {cpu: "4", memory: 3Gi}
+    service:
+      sessionAffinity: None
+      ingress: false
+    database:
+      login: app_worker
+      total: 10
+      pools: {grading: 4, worker: 4, sweep-lock: 2}
+    grading:
+      concurrency: 4
+      prefetch: 5
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 24
+      signals:
+        - type: External
+          name: grading_queue_depth
+          targetAverageValue: ${CBT_WORKER_HPA_QUEUE_DEPTH_TARGET}
+  pindist:
+    name: cbt-pindist
+    serviceAccountName: cbt-pindist
+    workloadIdentity:
+      reference: ${CBT_PINDIST_WORKLOAD_IDENTITY}
+      subject: system:serviceaccount:${CBT_APPLICATION_NAMESPACE}:cbt-pindist
+    networkPolicy:
+      template: deploy/kubernetes/pindist-network-policy.yaml.template
+      ingressNamespace: ${CBT_INGRESS_NAMESPACE}
+      ingressControllerName: ${CBT_INGRESS_CONTROLLER_NAME}
+    env:
+      SPRING_PROFILES_ACTIVE: pindist
+      CBT_OBSERVABILITY_ROLE: pindist
+      JAVA_TOOL_OPTIONS: -Xmx512m -XX:MaxDirectMemorySize=128m
+    replicas: 2
+    resources:
+      requests: {cpu: "1", memory: 1Gi}
+      limits: {cpu: "1", memory: 1Gi}
+    service:
+      sessionAffinity: None
+      ingress: true
+      port: 8080
+    database:
+      login: app_pindist
+      total: 5
+      pools: {pindist: 5}
+    hpa:
+      enabled: false

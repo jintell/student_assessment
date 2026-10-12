@@ -39,6 +39,16 @@ tables:
       obsolete_value: "token:cardinality=100"
       referenced_fixture_id: "reference:platform.migration_fixture.fixture_id:null-frequency=0.25"
     distribution: "uniform"
+  - name: platform.sweep_registry
+    expectedToExist: false
+    rowCount: "0"
+    primaryKey:
+      columns: [sweep_name]
+      strategy: sequence
+    parents: []
+    generationOrder: 30
+    columns: {}
+    distribution: "new-control-table:empty-before-expand;six-reserved-sweeps-seeded-in-P3.2"
   - name: delivery.attempt
     expectedToExist: false
     rowCount: "0"

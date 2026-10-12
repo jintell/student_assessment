@@ -39,6 +39,7 @@ module named in the script header.
 | `EXPAND` | `ALTER TABLE ... ADD COLUMN` | Exactly one column; nullable or constant default; no inline unique, primary-key, foreign-key, or validated check | Keeps the addition compatible and gives each lock a single attributable operation. |
 | `EXPAND` | `ALTER TABLE ... ADD CONSTRAINT ... NOT VALID` | Exactly one check or foreign-key constraint on a module-owned table | Defers the existing-row scan so the add step does not hold a long blocking lock. |
 | `EXPAND` | `CREATE [UNIQUE] INDEX CONCURRENTLY` | Explicit module-owned index and table; header declares `transactional false` | Keeps writes available while the index is built. |
+| `EXPAND` | Approved bounded static reference seed | Exact `FEAT-PLAT-006` six-row `platform.sweep_registry` seed; literal values; `ON CONFLICT (sweep_name) DO NOTHING` | Reserves reviewed scheduler identities without admitting general migration DML or resetting later owner changes. |
 | `MIGRATE` | `ALTER TABLE ... VALIDATE CONSTRAINT` | Existing named constraint; one operation | Separates the row scan from constraint creation and makes its lock measurable. |
 | `MIGRATE` | `ALTER TABLE ... ALTER COLUMN ... SET DEFAULT` | Constant default; one module-owned column | Avoids volatile expressions and unexpected rewrites while dual-write code is active. |
 | `CONTRACT` | `ALTER TABLE ... DROP COLUMN` | One explicitly named obsolete column | Limits removal to an observed, separately released contraction. |
@@ -50,6 +51,10 @@ module named in the script header.
 `COMMENT ON` is admitted only immediately after an allowed create/add shape and
 only for the object that shape created. It is metadata attached to an already
 approved operation, not an independent escape from the allowlist.
+
+The static reference seed exception is defined by
+`ADR-019-static-reference-seed-amendment.md` and enforced structurally by the
+SQL parser. A changed value or shape is classified as forbidden DML.
 
 ## Changing the Policy
 

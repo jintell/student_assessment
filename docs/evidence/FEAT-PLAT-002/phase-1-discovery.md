@@ -49,7 +49,7 @@ The twelve module roles are `app_tenancy`, `app_iam`, `app_academic`,
 | Each `app_<module>` role above | `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on its own schema only; `INSERT` on `outbox.outbox_event`; `INSERT` on `audit.audit_event` |
 | `app_txn_examentry` | The explicit minimum privileges in P1.3; `INSERT` on `outbox.outbox_event`; `INSERT` on `audit.audit_event`; no `UPDATE` or `DELETE` on `audit.*` |
 | `app_api` | No direct object grants of any kind; role membership only, limited to the module and composite roles this workload may assume |
-| `app_worker` | No direct object grants of any kind; role membership only, limited to the module and composite roles this workload may assume |
+| `app_worker` | Role membership only at this phase; later amended by `FEAT-PLAT-006` P3.4 with only `USAGE` on `platform` and `SELECT` on `platform.sweep_registry` |
 | `app_pindist` | No direct object grants of any kind; role membership only, limited to the module and composite roles this workload may assume |
 | `app_migrator` | Sole DDL-capable role, used only by the migration entrypoint |
 | `app_readonly_ops` | `SELECT` on non-PII-bearing diagnostic views on the read replica |
@@ -59,6 +59,9 @@ function, or other object grant. Before a transaction assumes an allowed role,
 its statements therefore fail for want of privilege. The durable outbox table
 name is `outbox.outbox_event`, resolving `TASK-PLAT2-DEFECT-002` in favour of
 the section 9.2 ownership and grant matrices.
+
+`FEAT-PLAT-006` P3.4 later approved the single direct-grant exception recorded
+above; `app_api` and `app_pindist` retain the original absolute denial.
 
 ## P1.3 Exam-Entry Composite Role
 

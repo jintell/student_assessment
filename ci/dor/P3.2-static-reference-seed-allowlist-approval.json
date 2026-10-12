@@ -1,0 +1,36 @@
+{
+  "recordId": "APPROVAL-FEAT-PLAT-006-P3.2",
+  "architectureDecision": "ADR-019",
+  "status": "APPROVED",
+  "amendment": {
+    "document": "docs/decisions/ADR-019-static-reference-seed-amendment.md",
+    "sha256": "4d64ec56dceb86ecc201f959ff3abc5e0460ac362274929ef201c4aaf231bbe7"
+  },
+  "migration": {
+    "document": "src/main/resources/db/migration/platform/V10__seed_sweep_registry.sql",
+    "sha256": "d2547883b6c6da4919b377215db4f559e2851c6ac6d066125e27462da6dcf739"
+  },
+  "scope": {
+    "phase": "EXPAND",
+    "relation": "platform.sweep_registry",
+    "rowCount": 6,
+    "literalValuesOnly": true,
+    "allProductionRowsDisabled": true,
+    "conflictAction": "ON CONFLICT (sweep_name) DO NOTHING",
+    "generalDataModificationAllowed": false
+  },
+  "approvals": [
+    {
+      "role": "Platform Ops",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-11T18:00:00Z",
+      "signature": "P3.2-static-reference-seed.platform-ops.sig"
+    },
+    {
+      "role": "Engineering Lead",
+      "decision": "APPROVED",
+      "approvedAt": "2026-10-11T18:05:00Z",
+      "signature": "P3.2-static-reference-seed.engineering-lead.sig"
+    }
+  ]
+}

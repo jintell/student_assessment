@@ -89,3 +89,19 @@ Before submitting the migration:
 
 Platform-scope work does not exempt a tenant table from RLS. It uses the closed
 platform-operation protocol and an explicitly authorised transaction context.
+
+## Non-Tenant Platform Catalogue
+
+The executable catalogue at
+`src/main/resources/db/security/table-scope-catalogue.json` records every
+ordinary `platform` table that legitimately has no `tenant_id`. Each entry
+names its owning feature and reviewed reason. The PostgreSQL catalogue gate
+fails when a platform table without `tenant_id` is absent from that catalogue,
+when a catalogued table gains `tenant_id`, or when a catalogue entry names a
+table that does not exist.
+
+`platform.sweep_registry` is catalogued as a platform-wide scheduler identity
+and lock-key registry owned by `FEAT-PLAT-006`. It contains no tenant data and
+does not receive a tenant RLS policy. This classification does not authorize a
+caller or create a tenant bypass; grants and the closed platform-operation
+protocol remain separate controls.

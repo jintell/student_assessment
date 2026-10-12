@@ -56,10 +56,12 @@ login role in this table. The API reservation is implemented as separate six-
 and eight-connection pools, not as a soft limit inside one pool.
 
 `grant-matrix.json` is the closed authorization source. Its membership rows
-contain only the sets above, and its `NO_DIRECT_OBJECT_GRANTS` denials cover all
-three login roles. PostgreSQL roles use `NOINHERIT`, so every access requires an
-explicit transaction-local assumption; an attempt to assume a role outside
-the login identity's membership is rejected by PostgreSQL.
+contain only the sets above. `app_api` and `app_pindist` retain
+`NO_DIRECT_OBJECT_GRANTS`; `FEAT-PLAT-006` P3.4 later added only schema `USAGE`
+and registry `SELECT` directly to `app_worker`. PostgreSQL roles use
+`NOINHERIT`, so business-module access still requires an explicit
+transaction-local assumption; an attempt to assume a role outside the login
+identity's membership is rejected by PostgreSQL.
 
 Evidence rerun on 2026-09-27:
 

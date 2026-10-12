@@ -23,6 +23,7 @@ public enum StatementKind {
     REVOKE,
     INVOKE_FUNCTION,
     PROCEDURAL_BLOCK,
+    STATIC_REFERENCE_SEED,
     DATA_MODIFICATION,
     OTHER
 }

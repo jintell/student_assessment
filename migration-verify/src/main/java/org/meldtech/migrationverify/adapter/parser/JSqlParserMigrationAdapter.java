@@ -317,9 +317,13 @@ public final class JSqlParserMigrationAdapter implements MigrationSqlParser {
         }
         Table modifiedTable = modifiedTable(statement);
         if (modifiedTable != null) {
+            StatementKind kind =
+                    statement instanceof Insert insert && ApprovedSweepRegistrySeed.matches(insert)
+                            ? StatementKind.STATIC_REFERENCE_SEED
+                            : StatementKind.DATA_MODIFICATION;
             return parsed(
                     ordinal,
-                    StatementKind.DATA_MODIFICATION,
+                    kind,
                     relation(modifiedTable),
                     modifiedTable.getName(),
                     statement,

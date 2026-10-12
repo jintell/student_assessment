@@ -29,10 +29,12 @@ role may update or delete an audit object.
 
 ## Pool Login Roles
 
-Pool login roles hold **no direct object grants of any kind**. They have no
-schema, table, sequence, function, or view privilege. They use `NOINHERIT` and
-may access an object only after a transaction explicitly assumes one of their
-granted roles.
+Pool login roles use `NOINHERIT` and ordinarily access objects only after a
+transaction explicitly assumes one of their granted roles. One closed
+exception supports the scheduler registry: `app_worker` has `USAGE` on the
+`platform` schema and `SELECT` on `platform.sweep_registry`. It has no other
+direct object privilege. `app_api` and `app_pindist` retain the absolute
+no-direct-object-grant denial.
 
 | Login role | Permitted memberships |
 |---|---|
@@ -41,7 +43,8 @@ granted roles.
 | `app_pindist` | `app_examaccess` only |
 
 A missing `SET LOCAL ROLE` therefore leaves the connection unable to execute
-application SQL. Adding a membership outside this table is a grant-matrix and
+business-module SQL; the worker can only read the scheduler registry directly.
+Adding a membership or direct grant outside this table is a grant-matrix and
 architecture change, not runtime configuration.
 
 ## Exam-Entry Composite Role
@@ -82,7 +85,8 @@ execution, or ownership.
 ## Verification
 
 The grant-matrix loader rejects unknown identifiers, invalid privileges,
-cycles, login-role object grants, and facts contradicting a denial. CI
+cycles, pool-login object grants outside the exact worker registry exception,
+and facts contradicting a denial. CI
 regenerates the repeatable grant migration and compares it byte-for-byte. The
 PostgreSQL integration gate then requires the live roles, memberships, object
 grants, default privileges, and denials to equal the normalized matrix with no
