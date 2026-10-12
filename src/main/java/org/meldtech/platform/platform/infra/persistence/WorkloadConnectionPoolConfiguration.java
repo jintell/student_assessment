@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 
 @Configuration(proxyBeanMethods = false)
@@ -61,6 +62,7 @@ class WorkloadConnectionPoolConfiguration {
 
     @Bean("workerConnectionFactory")
     @Profile("worker")
+    @Primary
     ConnectionFactory workerConnectionFactory(
             WorkloadDatabaseProperties properties,
             MeterRegistry meterRegistry,
@@ -69,7 +71,41 @@ class WorkloadConnectionPoolConfiguration {
             Clock clock) {
         return securedPool(
                 "worker",
-                properties.requiredPool("worker"),
+                properties.requiredWorkerPool("worker"),
+                meterRegistry,
+                openTelemetry,
+                queryTelemetry,
+                clock);
+    }
+
+    @Bean("gradingConnectionFactory")
+    @Profile("worker")
+    ConnectionFactory gradingConnectionFactory(
+            WorkloadDatabaseProperties properties,
+            MeterRegistry meterRegistry,
+            OpenTelemetry openTelemetry,
+            DatabaseQueryTelemetry queryTelemetry,
+            Clock clock) {
+        return securedPool(
+                "grading",
+                properties.requiredWorkerPool("grading"),
+                meterRegistry,
+                openTelemetry,
+                queryTelemetry,
+                clock);
+    }
+
+    @Bean("sweepLockConnectionFactory")
+    @Profile("worker")
+    ConnectionFactory sweepLockConnectionFactory(
+            WorkloadDatabaseProperties properties,
+            MeterRegistry meterRegistry,
+            OpenTelemetry openTelemetry,
+            DatabaseQueryTelemetry queryTelemetry,
+            Clock clock) {
+        return securedPool(
+                "sweep-lock",
+                properties.requiredWorkerPool("sweep-lock"),
                 meterRegistry,
                 openTelemetry,
                 queryTelemetry,

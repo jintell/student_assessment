@@ -19,6 +19,28 @@ record WorkloadDatabaseProperties(Map<String, PoolProperties> pools) {
         return pool;
     }
 
+    PoolProperties requiredWorkerPool(String name) {
+        Map<String, Integer> allocation = Map.of("worker", 4, "grading", 4, "sweep-lock", 2);
+        for (Map.Entry<String, Integer> entry : allocation.entrySet()) {
+            PoolProperties pool = requiredPool(entry.getKey());
+            if (pool.maxSize() != entry.getValue() || !pool.username().equals("app_worker")) {
+                throw new IllegalStateException(
+                        "Worker pool "
+                                + entry.getKey()
+                                + " must use app_worker and max-size "
+                                + entry.getValue()
+                                + " within the ten-connection worker budget");
+            }
+            if (pool.url().startsWith("r2dbc:pool:")) {
+                throw new IllegalStateException("Worker pool URLs must not create a nested pool");
+            }
+        }
+        if (!allocation.containsKey(name)) {
+            throw new IllegalArgumentException("Unknown worker pool: " + name);
+        }
+        return requiredPool(name);
+    }
+
     record PoolProperties(
             String url,
             String username,

@@ -58,6 +58,7 @@ public final class TouchedRelationCollector {
                     COMMENT,
                     INVOKE_FUNCTION,
                     PROCEDURAL_BLOCK,
+                    STATIC_REFERENCE_SEED,
                     DATA_MODIFICATION ->
                     false;
         };

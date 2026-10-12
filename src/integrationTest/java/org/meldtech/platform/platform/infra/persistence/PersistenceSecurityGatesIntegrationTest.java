@@ -51,6 +51,34 @@ class PersistenceSecurityGatesIntegrationTest {
             PostgreSqlCatalogGate.verifyForcedRls(
                     connection,
                     matrix.schemas().stream().map(GrantMatrix.SchemaGrant::name).toList());
+            PostgreSqlCatalogGate.verifyPlatformTableScopes(
+                    connection, TableScopeCatalogue.loadDefault());
+        }
+    }
+
+    @Test
+    void platformTableScopeGateRejectsAnUncataloguedNonTenantTable() throws SQLException {
+        try (Connection connection = clusterOwnerConnection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute(
+                        "CREATE TABLE platform.uncatalogued_scope_probe (probe_id uuid PRIMARY KEY)");
+
+                assertThatThrownBy(
+                                () ->
+                                        PostgreSqlCatalogGate.verifyPlatformTableScopes(
+                                                connection, TableScopeCatalogue.loadDefault()))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining(
+                                "TABLE_SCOPE_CATALOGUE: platform.uncatalogued_scope_probe")
+                        .hasMessageContaining("no reviewed non-tenant classification");
+            } finally {
+                connection.rollback();
+            }
+
+            PostgreSqlCatalogGate.verifyPlatformTableScopes(
+                    connection, TableScopeCatalogue.loadDefault());
         }
     }
 
@@ -135,6 +163,57 @@ class PersistenceSecurityGatesIntegrationTest {
         try (Connection connection = clusterOwnerConnection()) {
             GrantDiffGate.verify(connection, matrix);
         }
+    }
+
+    @Test
+    void sweepRegistryIsReadableOnlyByTheBackgroundWorkload() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                "SELECT count(*) FROM pg_catalog.pg_roles "
+                                        + "WHERE rolname = 'app_sweep_registry_reader'"))
+                .as("no dedicated registry-reader role")
+                .isZero();
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                SELECT count(*)
+                                FROM information_schema.role_table_grants
+                                WHERE table_schema = 'platform'
+                                  AND table_name = 'sweep_registry'
+                                  AND grantee IN ('app_api', 'app_worker', 'app_pindist')
+                                  AND privilege_type = 'SELECT'
+                                """))
+                .as("pool-login registry SELECT grants")
+                .isEqualTo(1);
+
+        assertThat(queryIntAsRole("app_worker", "SELECT count(*) FROM platform.sweep_registry"))
+                .isEqualTo(6);
+        assertThat(
+                        queryIntAsRole(
+                                "app_worker",
+                                "SELECT CASE WHEN pg_try_advisory_lock(70060034) THEN 1 ELSE 0 END"))
+                .as("advisory lock requires no object grant")
+                .isEqualTo(1);
+
+        for (String role : List.of("app_api", "app_pindist")) {
+            assertThatThrownBy(
+                            () ->
+                                    queryIntAsRole(
+                                            role, "SELECT count(*) FROM platform.sweep_registry"))
+                    .as("%s has no registry access", role)
+                    .isInstanceOf(SQLException.class)
+                    .extracting(error -> ((SQLException) error).getSQLState())
+                    .isEqualTo("42501");
+        }
+        assertThatThrownBy(
+                        () ->
+                                executeAsRole(
+                                        "app_worker",
+                                        "UPDATE platform.sweep_registry SET enabled = enabled"))
+                .as("worker registry mutation")
+                .isInstanceOf(SQLException.class)
+                .extracting(error -> ((SQLException) error).getSQLState())
+                .isEqualTo("42501");
     }
 
     @Test
@@ -600,6 +679,22 @@ class PersistenceSecurityGatesIntegrationTest {
                 var resultSet = statement.executeQuery(sql)) {
             resultSet.next();
             return resultSet.getInt(1);
+        }
+    }
+
+    private int queryIntAsRole(String role, String sql) throws SQLException {
+        try (Connection connection = clusterOwnerConnection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            try {
+                statement.execute("SET LOCAL ROLE " + role);
+                try (var resultSet = statement.executeQuery(sql)) {
+                    resultSet.next();
+                    return resultSet.getInt(1);
+                }
+            } finally {
+                connection.rollback();
+            }
         }
     }
 

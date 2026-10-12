@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(mktemp -d)"
+trap 'rm -rf "${root}"' EXIT
+
+write_blob() {
+    local hash
+    cat > "${fixture}/blob.tmp"
+    hash="$(shasum -a 256 "${fixture}/blob.tmp")"
+    hash="${hash%% *}"
+    mv "${fixture}/blob.tmp" "${fixture}/oci/blobs/sha256/${hash}"
+    printf 'sha256:%s\n' "${hash}"
+}
+
+for scenario in valid baked-profile second-image missing-sbom wrong-subject duplicate-sbom tampered-blob; do
+    fixture="${root}/${scenario}"
+    mkdir -p "${fixture}/oci/blobs/sha256"
+    config="$(jq -n --arg scenario "${scenario}" '{config: {
+        User: "10001:10001", Entrypoint: ["java", "-jar", "/application/application.jar"],
+        Env: (if $scenario == "baked-profile" then ["SPRING_PROFILES_ACTIVE=api"] else [] end)
+    }}' | write_blob)"
+    runtime="$(jq -n --arg config "${config}" '{config: {digest: $config}, layers: []}' | write_blob)"
+    statement="$(jq -n --arg runtime "${runtime#sha256:}" --arg scenario "${scenario}" '{
+        predicateType: "https://spdx.dev/Document",
+        subject: [{digest: {sha256: (if $scenario == "wrong-subject" then "wrong" else $runtime end)}}],
+        predicate: {SPDXID: "SPDXRef-DOCUMENT", spdxVersion: "SPDX-2.3", packages: [{name: "spring-boot"}]}
+    }' | write_blob)"
+    attestation="$(jq -n --arg statement "${statement}" --arg scenario "${scenario}" '{layers:
+        ([{digest: $statement, mediaType: "application/vnd.in-toto+json"}] |
+         if $scenario == "missing-sbom" then [] elif $scenario == "duplicate-sbom" then . + . else . end)
+    }' | write_blob)"
+    index="$(jq -n --arg runtime "${runtime}" --arg attestation "${attestation}" --arg scenario "${scenario}" '{manifests: [
+        {digest: $runtime, platform: {os: "linux", architecture: "amd64"}},
+        {digest: $attestation, platform: {os: "unknown", architecture: "unknown"}, annotations: {
+            "vnd.docker.reference.type": "attestation-manifest", "vnd.docker.reference.digest": $runtime}}
+    ]} | if $scenario == "second-image" then .manifests += [.manifests[0]] else . end' | write_blob)"
+    jq -n --arg digest "${index}" '{"containerimage.digest": $digest}' > "${fixture}/metadata.json"
+    jq -n --arg digest "${index}" '{manifests: [{digest: $digest}]}' > "${fixture}/oci/index.json"
+    if [[ "${scenario}" == tampered-blob ]]; then
+        printf ' ' >> "${fixture}/oci/blobs/sha256/${config#sha256:}"
+    fi
+    if bash "${repo_root}/ci/verify-runtime-image" "${fixture}" > "${fixture}/result.log" 2>&1; then
+        [[ "${scenario}" == valid ]] || { echo "Incorrectly accepted ${scenario}" >&2; exit 1; }
+        jq -e '.roles.api == .imageDigest and .roles.worker == .imageDigest and .roles.pindist == .imageDigest' \
+            "${fixture}/image.json" >/dev/null
+    else
+        [[ "${scenario}" != valid ]] || { cat "${fixture}/result.log" >&2; exit 1; }
+    fi
+done
+echo "Runtime image contract: valid fixture and six negative cases passed"

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+approval="${repo_root}/ci/dor/P3.2-static-reference-seed-allowlist-approval.json"
+trusted_keys="${repo_root}/ci/trusted-ratification-keys.json"
+
+fail() {
+    echo "STATIC REFERENCE SEED APPROVAL: FAIL" >&2
+    echo "$1" >&2
+    exit 1
+}
+
+for command in awk gpg jq shasum; do
+    command -v "${command}" >/dev/null 2>&1 || fail "Required command is unavailable: ${command}"
+done
+
+jq -e '
+    .recordId == "APPROVAL-FEAT-PLAT-006-P3.2"
+    and .architectureDecision == "ADR-019"
+    and .status == "APPROVED"
+    and .amendment.document == "docs/decisions/ADR-019-static-reference-seed-amendment.md"
+    and .migration.document == "src/main/resources/db/migration/platform/V10__seed_sweep_registry.sql"
+    and .scope.phase == "EXPAND"
+    and .scope.relation == "platform.sweep_registry"
+    and .scope.rowCount == 6
+    and .scope.literalValuesOnly == true
+    and .scope.allProductionRowsDisabled == true
+    and .scope.conflictAction == "ON CONFLICT (sweep_name) DO NOTHING"
+    and .scope.generalDataModificationAllowed == false
+    and ([.approvals[].role] | sort == ["Engineering Lead", "Platform Ops"])
+    and all(.approvals[]; .decision == "APPROVED")
+' "${approval}" >/dev/null || fail "Approval record is malformed or incomplete."
+
+verify_hash() {
+    local member="$1"
+    local document expected actual
+    document="$(jq -r ".${member}.document" "${approval}")"
+    expected="$(jq -r ".${member}.sha256" "${approval}")"
+    [[ -f "${repo_root}/${document}" ]] || fail "Approved ${member} is missing: ${document}"
+    actual="$(shasum -a 256 "${repo_root}/${document}" | awk '{print $1}')"
+    [[ "${actual}" == "${expected}" ]] || fail "Approved ${member} hash has changed."
+}
+
+verify_hash amendment
+verify_hash migration
+
+gnupg_home="$(mktemp -d)"
+trap 'rm -rf -- "${gnupg_home}"' EXIT
+chmod 0700 "${gnupg_home}"
+while IFS= read -r public_key; do
+    gpg --homedir "${gnupg_home}" --batch --quiet \
+        --import "${repo_root}/ci/${public_key}" >/dev/null 2>&1 \
+        || fail "Unable to import trusted approval key: ${public_key}"
+done < <(jq -r 'to_entries[].value.publicKey' "${trusted_keys}" | awk '!seen[$0]++')
+
+verify_signature() {
+    local role="$1"
+    local signature status fingerprint
+    signature="$(jq -r --arg role "${role}" '.approvals[] | select(.role == $role) | .signature' "${approval}")"
+    [[ -f "${repo_root}/ci/dor/${signature}" ]] || fail "${role} signature is missing."
+    status="$(gpg --homedir "${gnupg_home}" --batch --status-fd 1 \
+        --verify "${repo_root}/ci/dor/${signature}" "${approval}" 2>/dev/null)" \
+        || fail "${role} signature is invalid or untrusted."
+    fingerprint="$(awk '$2 == "VALIDSIG" {print $3; exit}' <<<"${status}")"
+    [[ -n "${fingerprint}" ]] || fail "${role} signature fingerprint is unavailable."
+    printf '%s\n' "${fingerprint}"
+}
+
+platform_ops_fingerprint="$(verify_signature "Platform Ops")"
+engineering_lead_fingerprint="$(verify_signature "Engineering Lead")"
+jq -e --arg fingerprint "${platform_ops_fingerprint}" \
+    'any(to_entries[]; .value.fingerprint == $fingerprint)' "${trusted_keys}" >/dev/null \
+    || fail "Platform Ops signature does not use a trusted key."
+[[ "${engineering_lead_fingerprint}" == "$(jq -r '."Engineering Lead".fingerprint' "${trusted_keys}")" ]] \
+    || fail "Engineering Lead signature does not use its designated key."
+[[ "${platform_ops_fingerprint}" != "${engineering_lead_fingerprint}" ]] \
+    || fail "Approvals must have distinct signers."
+
+echo "STATIC REFERENCE SEED APPROVAL: PASS"
+echo "The exact bounded seed and both detached signatures are verified."

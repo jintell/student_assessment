@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 || ! -f "$1" ]]; then
+    echo "Usage: ci/build-runtime-image <shared-boot-jar>; no role/build arguments accepted" >&2
+    exit 1
+fi
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+output="${repo_root}/build/runtime-image"
+mkdir -p "${output}"
+context="$(mktemp -d "${output}/context.XXXXXX")"
+trap 'rm -rf "${context}"' EXIT
+cp "$1" "${context}/application.jar"
+cp "${repo_root}/deploy/docker/Dockerfile.runtime" "${context}/Dockerfile"
+rm -f "${output}/image.json" "${output}/sbom.spdx.json"
+
+if ! docker buildx inspect cbt-runtime >/dev/null 2>&1; then
+    docker buildx create --name cbt-runtime --driver docker-container
+fi
+
+# One platform, one shared artifact, one final-stage SBOM; profiles are runtime-only.
+docker buildx build \
+    --builder cbt-runtime \
+    --platform linux/amd64 \
+    --tag cbt-platform:local \
+    --provenance=false \
+    --attest type=sbom,generator=docker.io/docker/buildkit-syft-scanner:stable-1@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9 \
+    --output "type=oci,dest=${output}/oci,tar=false" \
+    --metadata-file "${output}/metadata.json" \
+    --progress plain \
+    "${context}"
+bash "${repo_root}/ci/verify-runtime-image" "${output}"

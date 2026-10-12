@@ -74,14 +74,16 @@ Its top-level shape is:
 individual tables, sequences, functions, and diagnostic views. Privileges are
 also enumerated per object type. `defaultPrivileges` records the creating role,
 schema, object type, grantees, and privileges. `denials` makes security-critical
-negative obligations executable, including no direct object grants for pool
-login roles and no `UPDATE` or `DELETE` on `audit` objects.
+negative obligations executable, including no direct object grants for
+`app_api` and `app_pindist` and no `UPDATE` or `DELETE` on `audit` objects.
+`FEAT-PLAT-006` P3.4 defines the sole pool-login exception: `app_worker` has
+schema `USAGE` and registry `SELECT` for `platform.sweep_registry`.
 
 One parser and validator produce a normalized model. Validation rejects unknown
 schemas, roles, object types, privileges, duplicate facts, role-membership
-cycles, non-closed composite roles, login-role object grants, and grants that
-contradict a denial. Ordering is insignificant in source and deterministic in
-generated output.
+cycles, non-closed composite roles, pool-login object grants outside the exact
+worker registry exception, and grants that contradict a denial. Ordering is
+insignificant in source and deterministic in generated output.
 
 The normalized model has exactly two consumers:
 

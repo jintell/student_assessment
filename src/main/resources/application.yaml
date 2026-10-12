@@ -144,7 +144,21 @@ cbt:
         username: app_worker
         password: ${cbt.database.roles.app-worker.password}
         initial-size: 0
-        max-size: 10
+        max-size: 4
+        max-idle-time: 30m
+      grading:
+        url: ${CBT_DATABASE_URL}
+        username: app_worker
+        password: ${cbt.database.roles.app-worker.password}
+        initial-size: 0
+        max-size: 4
+        max-idle-time: 30m
+      sweep-lock:
+        url: ${CBT_DATABASE_URL}
+        username: app_worker
+        password: ${cbt.database.roles.app-worker.password}
+        initial-size: 0
+        max-size: 2
         max-idle-time: 30m
 ---
 spring:

@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cbt-pindist-ingress
+  namespace: ${CBT_APPLICATION_NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cbt-platform
+      app.kubernetes.io/component: pindist
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ${CBT_INGRESS_NAMESPACE}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ${CBT_INGRESS_CONTROLLER_NAME}
+              app.kubernetes.io/component: controller
+      ports:
+        - protocol: TCP
+          port: 8080

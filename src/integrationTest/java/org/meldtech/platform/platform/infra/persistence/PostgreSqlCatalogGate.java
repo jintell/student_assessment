@@ -81,6 +81,24 @@ final class PostgreSqlCatalogGate {
                    OR target_namespace.nspname = ANY (CAST(? AS text[])))
             ORDER BY source_schema, source_table, constraint_entry.conname
             """;
+    private static final String PLATFORM_TABLE_SCOPE_QUERY =
+            """
+            SELECT relation.relname AS table_name,
+                   EXISTS (
+                       SELECT 1
+                       FROM pg_catalog.pg_attribute AS attribute
+                       WHERE attribute.attrelid = relation.oid
+                         AND attribute.attname = 'tenant_id'
+                         AND attribute.attnum > 0
+                         AND NOT attribute.attisdropped
+                   ) AS tenant_scoped
+            FROM pg_catalog.pg_class AS relation
+            JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = 'platform'
+              AND relation.relkind IN ('r', 'p')
+              AND NOT relation.relispartition
+            ORDER BY relation.relname
+            """;
 
     private PostgreSqlCatalogGate() {}
 
@@ -133,6 +151,45 @@ final class PostgreSqlCatalogGate {
                         .filter(table -> !table.isCompliant())
                         .map(RlsTable::violation)
                         .toList();
+        if (!violations.isEmpty()) {
+            throw new IllegalStateException(String.join(System.lineSeparator(), violations));
+        }
+    }
+
+    static void verifyPlatformTableScopes(Connection connection, TableScopeCatalogue catalogue)
+            throws SQLException {
+        Map<String, Boolean> actualScopes = new LinkedHashMap<>();
+        try (var statement = connection.prepareStatement(PLATFORM_TABLE_SCOPE_QUERY);
+                ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) {
+                actualScopes.put(rows.getString("table_name"), rows.getBoolean("tenant_scoped"));
+            }
+        }
+
+        Set<String> declaredNonTenantTables = catalogue.tableNames();
+        List<String> violations = new ArrayList<>();
+        for (Map.Entry<String, Boolean> table : actualScopes.entrySet()) {
+            boolean declaredNonTenant = declaredNonTenantTables.contains(table.getKey());
+            if (table.getValue() && declaredNonTenant) {
+                violations.add(
+                        "TABLE_SCOPE_CATALOGUE: platform."
+                                + table.getKey()
+                                + " has tenant_id but is declared non-tenant-scoped");
+            } else if (!table.getValue() && !declaredNonTenant) {
+                violations.add(
+                        "TABLE_SCOPE_CATALOGUE: platform."
+                                + table.getKey()
+                                + " has no tenant_id and no reviewed non-tenant classification");
+            }
+        }
+        for (String declaredTable : declaredNonTenantTables) {
+            if (!actualScopes.containsKey(declaredTable)) {
+                violations.add(
+                        "TABLE_SCOPE_CATALOGUE: declared platform."
+                                + declaredTable
+                                + " does not exist");
+            }
+        }
         if (!violations.isEmpty()) {
             throw new IllegalStateException(String.join(System.lineSeparator(), violations));
         }

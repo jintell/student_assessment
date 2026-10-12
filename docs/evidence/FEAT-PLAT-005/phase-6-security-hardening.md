@@ -7,10 +7,10 @@ Status: PASS (2026-09-19)
 `app_migrator` is the only application role with `CREATEROLE`, the owner of all
 fifteen application schemas, and the only identity accepted by the
 `--migrate-only` entrypoint. It is `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
-`NOREPLICATION`, and `NOBYPASSRLS`. The serving login roles `app_api`,
-`app_worker`, and `app_pindist` have no direct object grants; their `api`,
-`worker`, and `pindist` profiles select only the matching login and expose no
-migrator credential or role-switch configuration.
+`NOREPLICATION`, and `NOBYPASSRLS`. The serving login roles expose no migrator
+credential or role-switch configuration. `app_api` and `app_pindist` have no
+direct object grants; `app_worker` has only the closed `FEAT-PLAT-006` P3.4
+exception for schema `USAGE` and registry `SELECT`.
 
 The control is enforced at three layers:
 

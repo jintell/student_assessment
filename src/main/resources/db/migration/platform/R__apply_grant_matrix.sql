@@ -1,5 +1,5 @@
 -- GENERATED from db/grants/grant-matrix.json; do not edit.
--- source-sha256: 87020c953fef58fbdcaee3e65262c3b5d07dd34ed91947f174b35da332b11913
+-- source-sha256: d62fbb3ce629b1c61a933df33204d611283bb4fda0b61837494d4f4c9a584078
 -- Grant refresh: ${grantRefresh}
 
 ALTER ROLE app_academic WITH NOLOGIN NOCREATEROLE NOINHERIT;
@@ -772,6 +772,16 @@ DO $$
 BEGIN
     IF to_regclass('tenancy.tenant') IS NOT NULL THEN
         EXECUTE 'GRANT SELECT ON TABLE tenancy.tenant TO app_txn_examentry';
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA platform TO app_worker;
+
+DO $$
+BEGIN
+    IF to_regclass('platform.sweep_registry') IS NOT NULL THEN
+        EXECUTE 'GRANT SELECT ON TABLE platform.sweep_registry TO app_worker';
     END IF;
 END
 $$;

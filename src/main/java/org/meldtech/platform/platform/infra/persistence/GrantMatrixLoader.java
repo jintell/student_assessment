@@ -16,6 +16,10 @@ final class GrantMatrixLoader {
     static final String RESOURCE = "db/grants/grant-matrix.json";
     private static final Set<String> POOL_LOGIN_ROLES =
             Set.of("app_api", "app_worker", "app_pindist");
+    private static final Set<String> PERMITTED_POOL_LOGIN_OBJECT_GRANTS =
+            Set.of(
+                    "app_worker:SCHEMA:platform:null:USAGE",
+                    "app_worker:TABLE:platform:sweep_registry:SELECT");
     private static final Set<String> COMPOSITE_ROLES = Set.of("app_txn_examentry");
 
     private final ObjectMapper objectMapper;
@@ -91,25 +95,16 @@ final class GrantMatrixLoader {
             require(
                     schemas.contains(grant.schema()),
                     "Unknown object-grant schema: " + grant.schema());
-            require(
-                    !POOL_LOGIN_ROLES.contains(grant.grantee()),
-                    "Pool login roles cannot hold direct object grants");
             requireObjectName(grant.objectType(), grant.object());
             require(!grant.privileges().isEmpty(), "Object grant privileges cannot be empty");
             for (GrantMatrix.Privilege privilege : grant.privileges()) {
                 validatePrivilege(grant.objectType(), privilege);
+                String objectFact = objectFact(grant, privilege);
                 require(
-                        objectFacts.add(
-                                grant.grantee()
-                                        + ":"
-                                        + grant.objectType()
-                                        + ":"
-                                        + grant.schema()
-                                        + ":"
-                                        + grant.object()
-                                        + ":"
-                                        + privilege),
-                        "Duplicate object-grant fact");
+                        !POOL_LOGIN_ROLES.contains(grant.grantee())
+                                || PERMITTED_POOL_LOGIN_OBJECT_GRANTS.contains(objectFact),
+                        "Pool login object grant is not permitted: " + objectFact);
+                require(objectFacts.add(objectFact), "Duplicate object-grant fact");
             }
         }
         validateDefaultPrivileges(matrix, schemas, roles);
@@ -211,9 +206,13 @@ final class GrantMatrixLoader {
                 }
             }
         }
+        Set<String> poolRolesWithoutDirectGrants = new HashSet<>(POOL_LOGIN_ROLES);
+        matrix.objectGrants().stream()
+                .map(GrantMatrix.ObjectGrant::grantee)
+                .forEach(poolRolesWithoutDirectGrants::remove);
         require(
-                poolDenials.equals(POOL_LOGIN_ROLES),
-                "Every pool login role must have an explicit denial");
+                poolDenials.equals(poolRolesWithoutDirectGrants),
+                "Every pool login role without a permitted direct grant must have an explicit denial");
     }
 
     private static void rejectMembershipCycles(List<GrantMatrix.RoleMembership> memberships) {
@@ -274,6 +273,19 @@ final class GrantMatrixLoader {
                             && privilege != GrantMatrix.Privilege.EXECUTE,
                     "Table privilege is invalid");
         }
+    }
+
+    private static String objectFact(
+            GrantMatrix.ObjectGrant grant, GrantMatrix.Privilege privilege) {
+        return grant.grantee()
+                + ":"
+                + grant.objectType()
+                + ":"
+                + grant.schema()
+                + ":"
+                + grant.object()
+                + ":"
+                + privilege;
     }
 
     private static Set<String> unique(List<String> values, String label) {

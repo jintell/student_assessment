@@ -111,7 +111,8 @@ public final class ClosedDdlAllowlist {
                         StatementKind.GRANT,
                         StatementKind.REVOKE,
                         StatementKind.INVOKE_FUNCTION,
-                        StatementKind.PROCEDURAL_BLOCK));
+                        StatementKind.PROCEDURAL_BLOCK,
+                        StatementKind.STATIC_REFERENCE_SEED));
         allowed.put(
                 MigrationPhase.MIGRATE,
                 EnumSet.of(StatementKind.VALIDATE_CONSTRAINT, StatementKind.SET_DEFAULT));
