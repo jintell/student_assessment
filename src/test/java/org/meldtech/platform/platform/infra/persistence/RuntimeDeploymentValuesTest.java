@@ -88,29 +88,59 @@ class RuntimeDeploymentValuesTest {
                                 "app.kubernetes.io/component", "pindist"));
         assertThat(spec.get("policyTypes")).isEqualTo(List.of("Ingress"));
         // A single peer with both selectors means AND, never namespace-wide OR pod-wide access.
-        assertThat(spec.get("ingress"))
-                .isEqualTo(
-                        List.of(
-                                Map.of(
-                                        "from",
-                                                List.of(
-                                                        Map.of(
-                                                                "namespaceSelector",
-                                                                        Map.of(
-                                                                                "matchLabels",
-                                                                                Map.of(
-                                                                                        "kubernetes.io/metadata.name",
-                                                                                        "${CBT_INGRESS_NAMESPACE}")),
-                                                                "podSelector",
-                                                                        Map.of(
-                                                                                "matchLabels",
-                                                                                Map.of(
-                                                                                        "app.kubernetes.io/name",
-                                                                                                "${CBT_INGRESS_CONTROLLER_NAME}",
-                                                                                        "app.kubernetes.io/component",
-                                                                                                "controller")))),
-                                        "ports",
-                                                List.of(Map.of("protocol", "TCP", "port", 8080)))));
+        Map<String, Object> namespaceSelector =
+                Map.of(
+                        "matchLabels",
+                        Map.of("kubernetes.io/metadata.name", "${CBT_INGRESS_NAMESPACE}"));
+
+        Map<String, Object> podSelector =
+                Map.of(
+                        "matchLabels",
+                        Map.of(
+                                "app.kubernetes.io/name", "${CBT_INGRESS_CONTROLLER_NAME}",
+                                "app.kubernetes.io/component", "controller"));
+
+        Map<String, Object> ingressPeer =
+                Map.of("namespaceSelector", namespaceSelector, "podSelector", podSelector);
+
+        Map<String, Object> ingressRule =
+                Map.of(
+                        "from", List.of(ingressPeer),
+                        "ports", List.of(Map.of("protocol", "TCP", "port", 8080)));
+
+        assertThat(spec.get("ingress")).isEqualTo(List.of(ingressRule));
+        //        assertThat(spec.get("ingress"))
+        //                .isEqualTo(
+        //                        List.of(
+        //                                Map.of(
+        //                                        "from",
+        //                                                List.of(
+        //                                                        Map.of(
+        //                                                                "namespaceSelector",
+        //                                                                        Map.of(
+        //
+        // "matchLabels",
+        //                                                                                Map.of(
+        //
+        // "kubernetes.io/metadata.name",
+        //
+        // "${CBT_INGRESS_NAMESPACE}")),
+        //                                                                "podSelector",
+        //                                                                        Map.of(
+        //
+        // "matchLabels",
+        //                                                                                Map.of(
+        //
+        // "app.kubernetes.io/name",
+        //
+        //      "${CBT_INGRESS_CONTROLLER_NAME}",
+        //
+        // "app.kubernetes.io/component",
+        //
+        //      "controller")))),
+        //                                        "ports",
+        //                                                List.of(Map.of("protocol", "TCP", "port",
+        // 8080)))));
     }
 
     @Test
