@@ -13,6 +13,7 @@ import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Statement;
 import io.r2dbc.spi.TransactionDefinition;
 import io.r2dbc.spi.ValidationDepth;
+import io.r2dbc.spi.Wrapped;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
@@ -60,7 +61,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
     static <T> Mono<T> withTenantScope(
             AssumableDatabaseRole role, TenantId tenantId, Publisher<T> work) {
         DatabaseSecurityContext securityContext =
-                new DatabaseSecurityContext(
+                DatabaseSecurityContext.forRole(
                         Objects.requireNonNull(role, "role"),
                         "SET LOCAL app.tenant_id = '" + tenantId + "'");
         return Mono.from(work)
@@ -86,12 +87,58 @@ final class SecurityContextInitializer implements ConnectionFactory {
                             "Actor is not permitted for platform operation " + operation));
         }
         DatabaseSecurityContext securityContext =
-                new DatabaseSecurityContext(
+                DatabaseSecurityContext.forRole(
                         Objects.requireNonNull(role, "role"),
                         "SET LOCAL app.platform_scope = '" + operation.settingValue() + "'");
         return Mono.from(work)
                 .contextWrite(
                         context -> context.put(DatabaseSecurityContext.class, securityContext));
+    }
+
+    static <T> Mono<T> withInternalPlatformScope(PlatformOperation operation, Publisher<T> work) {
+        Objects.requireNonNull(operation, "operation");
+        if (!operation.permitsInternalCoordination()) {
+            return Mono.error(
+                    new SecurityException(
+                            "Operation is not an internal coordination scope: " + operation));
+        }
+        DatabaseSecurityContext securityContext =
+                new DatabaseSecurityContext(
+                        "app_worker",
+                        "SET LOCAL search_path = pg_catalog, platform",
+                        "SET LOCAL app.platform_scope = '" + operation.settingValue() + "'");
+        return Mono.from(work)
+                .contextWrite(
+                        context -> context.put(DatabaseSecurityContext.class, securityContext));
+    }
+
+    static Mono<Void> beginInternalPlatformTransaction(
+            Connection connection, PlatformOperation operation) {
+        return withInternalPlatformScope(
+                operation, Mono.defer(() -> Mono.from(connection.beginTransaction())));
+    }
+
+    static <T> Mono<T> inInternalPlatformTransaction(
+            Connection connection, PlatformOperation operation, Publisher<T> work) {
+        Mono<T> transaction =
+                Mono.usingWhen(
+                        Mono.just(Objects.requireNonNull(connection, "connection")),
+                        securedConnection ->
+                                Mono.defer(() -> Mono.from(securedConnection.beginTransaction()))
+                                        .then(Mono.from(work)),
+                        securedConnection ->
+                                Mono.defer(() -> Mono.from(securedConnection.commitTransaction())),
+                        (securedConnection, failure) ->
+                                Mono.defer(() -> Mono.from(securedConnection.rollbackTransaction()))
+                                        .onErrorResume(
+                                                rollbackFailure -> {
+                                                    failure.addSuppressed(rollbackFailure);
+                                                    return Mono.empty();
+                                                }),
+                        securedConnection ->
+                                Mono.defer(() -> Mono.from(securedConnection.rollbackTransaction()))
+                                        .onErrorResume(ignored -> Mono.empty()));
+        return withInternalPlatformScope(operation, transaction);
     }
 
     <T> Mono<T> inTenantTransaction(
@@ -113,8 +160,13 @@ final class SecurityContextInitializer implements ConnectionFactory {
     }
 
     private <T> Mono<T> managedTransaction(Function<Connection, ? extends Publisher<T>> work) {
+        return managedTransaction(this, work);
+    }
+
+    static <T> Mono<T> managedTransaction(
+            ConnectionFactory connections, Function<Connection, ? extends Publisher<T>> work) {
         return Mono.usingWhen(
-                Mono.from(create()),
+                Mono.from(connections.create()),
                 connection ->
                         Mono.from(connection.beginTransaction())
                                 .then(Mono.defer(() -> Mono.from(work.apply(connection)))),
@@ -151,7 +203,7 @@ final class SecurityContextInitializer implements ConnectionFactory {
                 .then();
     }
 
-    private static final class SecurityContextConnection implements Connection {
+    private static final class SecurityContextConnection implements DiscardableConnection {
 
         private final Connection delegate;
         private final DatabaseContextMetrics metrics;
@@ -176,6 +228,11 @@ final class SecurityContextInitializer implements ConnectionFactory {
         @Override
         public Publisher<Void> close() {
             return Mono.defer(this::cleanup);
+        }
+
+        @Override
+        public Mono<Void> discard() {
+            return Mono.defer(this::discardLease);
         }
 
         @Override
@@ -269,7 +326,9 @@ final class SecurityContextInitializer implements ConnectionFactory {
                                     new IllegalStateException(
                                             "R9_CONTEXT_NOT_FIRST: transaction has no database security context"));
                         }
-                        if (!state.compareAndSet(State.CHECKED_OUT, State.TRANSACTION_OPEN)) {
+                        State current = state.get();
+                        if ((current != State.CHECKED_OUT && current != State.TRANSACTION_FINISHED)
+                                || !state.compareAndSet(current, State.TRANSACTION_OPEN)) {
                             return Mono.error(
                                     new IllegalStateException(
                                             "R10_ROLE_SWITCH: transaction context is already initialized"));
@@ -277,20 +336,19 @@ final class SecurityContextInitializer implements ConnectionFactory {
                         return Mono.from(beginTransaction)
                                 .then(
                                         internalStatement(
-                                                securityContext.role().roleName(),
+                                                securityContext.roleName(),
                                                 State.INSTALLING_ROLE,
-                                                "SET LOCAL ROLE "
-                                                        + securityContext.role().roleName()))
+                                                "SET LOCAL ROLE " + securityContext.roleName()))
                                 .then(
                                         internalStatement(
-                                                securityContext.role().roleName(),
+                                                securityContext.roleName(),
                                                 State.INSTALLING_TENANT,
                                                 securityContext.scopeStatement()))
                                 .then(
                                         internalStatement(
-                                                securityContext.role().roleName(),
+                                                securityContext.roleName(),
                                                 State.INSTALLING_SEARCH_PATH,
-                                                securityContext.role().searchPathStatement()))
+                                                securityContext.searchPathStatement()))
                                 .doOnSuccess(ignored -> state.set(State.READY));
                     });
         }
@@ -347,6 +405,37 @@ final class SecurityContextInitializer implements ConnectionFactory {
                                         }
                                         return failure == null ? Mono.empty() : Mono.error(failure);
                                     }));
+        }
+
+        private Mono<Void> discardLease() {
+            if (!cleanupStarted.compareAndSet(false, true)) {
+                return Mono.empty();
+            }
+            state.set(State.RELEASING);
+            AtomicReference<Throwable> cleanupFailure = new AtomicReference<>();
+            Connection physical = unwrap(delegate);
+            Mono<Void> closePhysical = attempt(physical.close(), cleanupFailure);
+            Mono<Void> releaseLease =
+                    physical == delegate ? Mono.empty() : attempt(delegate.close(), cleanupFailure);
+            return closePhysical
+                    .then(releaseLease)
+                    .then(
+                            Mono.defer(
+                                    () -> {
+                                        state.set(State.CLOSED);
+                                        Throwable failure = cleanupFailure.get();
+                                        return failure == null ? Mono.empty() : Mono.error(failure);
+                                    }));
+        }
+
+        private static Connection unwrap(Connection connection) {
+            Connection current = connection;
+            while (current instanceof Wrapped<?> wrapped
+                    && wrapped.unwrap() instanceof Connection unwrapped
+                    && unwrapped != current) {
+                current = unwrapped;
+            }
+            return current;
         }
 
         private static Mono<Void> attempt(
@@ -412,7 +501,15 @@ final class SecurityContextInitializer implements ConnectionFactory {
         }
     }
 
-    private record DatabaseSecurityContext(AssumableDatabaseRole role, String scopeStatement) {}
+    private record DatabaseSecurityContext(
+            String roleName, String searchPathStatement, String scopeStatement) {
+
+        private static DatabaseSecurityContext forRole(
+                AssumableDatabaseRole role, String scopeStatement) {
+            return new DatabaseSecurityContext(
+                    role.roleName(), role.searchPathStatement(), scopeStatement);
+        }
+    }
 
     private enum State {
         CHECKED_OUT,

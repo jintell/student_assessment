@@ -9,8 +9,11 @@ import org.meldtech.platform.shared.kernel.context.SystemActor;
 public enum PlatformOperation {
     PLATFORM_ADMINISTRATION("platform-administrator"),
     RETENTION_SWEEP(SystemActor.RETENTION_ENGINE),
+    AUTO_SUBMIT_SWEEP(SystemActor.AUTO_SUBMIT_SWEEPER),
+    STALE_CLAIM_RECLAIM(SystemActor.GRADING_WORKER),
     OUTBOX_RELAY(SystemActor.OUTBOX_RELAY),
-    RECONCILIATION(SystemActor.IDP_RECONCILER);
+    RECONCILIATION(SystemActor.IDP_RECONCILER),
+    SWEEP_REGISTRY_READ;
 
     private final Optional<String> workforceActorId;
     private final Optional<SystemActor> systemActor;
@@ -25,6 +28,11 @@ public enum PlatformOperation {
         this.systemActor = Optional.of(systemActor);
     }
 
+    PlatformOperation() {
+        this.workforceActorId = Optional.empty();
+        this.systemActor = Optional.empty();
+    }
+
     public boolean permits(ActorContext actor) {
         if (systemActor.isPresent()) {
             return actor.systemActorName().equals(systemActor);
@@ -35,5 +43,9 @@ public enum PlatformOperation {
 
     public String settingValue() {
         return name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    public boolean permitsInternalCoordination() {
+        return this == SWEEP_REGISTRY_READ;
     }
 }

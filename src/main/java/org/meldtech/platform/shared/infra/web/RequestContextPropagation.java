@@ -2,6 +2,7 @@ package org.meldtech.platform.shared.infra.web;
 
 import java.util.Objects;
 import java.util.Optional;
+import org.meldtech.platform.shared.api.ActorContextPropagation;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -9,7 +10,7 @@ import reactor.util.context.Context;
 import reactor.util.context.ContextView;
 
 @Component
-public final class RequestContextPropagation {
+public final class RequestContextPropagation implements ActorContextPropagation {
 
     public static final String CORRELATION_ID_KEY = "correlationId";
     public static final String ACTOR_TYPE_KEY = "actorType";
@@ -27,6 +28,7 @@ public final class RequestContextPropagation {
         return Optional.ofNullable(exchange.getAttribute(EXCHANGE_ATTRIBUTE));
     }
 
+    @Override
     public Context write(Context context, ActorContext actor) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(actor, "actor");

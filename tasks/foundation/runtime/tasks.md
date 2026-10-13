@@ -174,14 +174,25 @@ Execution status (2026-10-12): P3.1-P3.10 verified. The exact six-row seed is ac
 
 # Phase 4 – Backend Implementation
 
-1. [ ] Implement `RuntimeRole` and `@RoleScoped` in `platform.api` per `P2.1`. Deliverable: role-declaration types. Acceptance: importable by every module under R2; carries no dependency on any module.
-2. [ ] Implement role resolution and the single-role assertion: exactly one of the three profiles must be active, and any other combination fails the boot. Deliverable: role resolver. Acceptance: an unset profile and two profiles at once are both boot failures, not defaults.
-3. [ ] Implement the `SweepDefinition` port in `platform.api`: sweep name, declared system actor, and a batch operation that returns an outcome and is safely interruptible at its boundary. Deliverable: sweep port. Acceptance: a sweep body is expressible without importing anything from `platform.infra`.
-4. [ ] Implement the `SweepLock` port and the session-level `pg_try_advisory_lock` adapter, acquiring on the dedicated pool and releasing in a `finally`. Deliverable: default lock adapter. Acceptance: a loser returns immediately rather than waiting; a release failure is logged and the connection discarded rather than returned holding a lock.
-5. [ ] Implement the transaction-level `pg_try_advisory_xact_lock` adapter behind the same port. Deliverable: alternative lock adapter carrying the `T-15` seam. Acceptance: selectable by configuration; proved equivalent by `P7.4`; documented in `P10.6` as the PgBouncer adoption path.
-6. [ ] Implement the `SweepRunner` per `P2.6`: one interval source per enabled registry row, merged and `concatMap`-ed onto a single permit, with the relay on its own permit. Deliverable: runner. Acceptance: enabled on the background role only; a tick that overruns its interval delays the next tick rather than overlapping it.
-7. [ ] Implement the sweep security-context installer per `P2.14`. Deliverable: context installer. Acceptance: the role and the platform-scope marker are the transaction's first statements; a sweep that omits them cannot execute a statement.
-8. [ ] Implement the registry loader and its bounds validation: every registered sweep bean has a row, every row's interval is within bounds, and an out-of-range or missing value fails the boot. Deliverable: registry loader carrying `TASK-PLAT6-DEFECT-007`. Acceptance: this is the runtime limb of §17.5 — no clamping, no degraded mode, no override flag.
+Execution status (2026-10-13): P4.1-P4.8 are verified. The P4.8 typed Mockito
+matcher correction was present at entry and preserved. Compilation, focused
+loader tests, PostgreSQL integration, conformance, formatting and Checkstyle
+pass. P4.9 adds a draft all-row collision validator and startup tests, but
+production compilation fails because `RegistryValidationException` lacks
+`serialVersionUID` under `-Werror`. Execution stopped before its tests ran.
+P4.9-P4.26 remain unchecked; resume at P4.9 with the serialization declaration
+and focused reverification. P4.10-P4.26 were not executed.
+The previously recorded full-context observability gap was not retested.
+See [Phase 4 execution record](../../../docs/evidence/FEAT-PLAT-006/phase-4-backend-implementation.md).
+
+1. [*] Implement `RuntimeRole` and `@RoleScoped` in `platform.api` per `P2.1`. Deliverable: role-declaration types. Acceptance: importable by every module under R2; carries no dependency on any module.
+2. [*] Implement role resolution and the single-role assertion: exactly one of the three profiles must be active, and any other combination fails the boot. Deliverable: role resolver. Acceptance: an unset profile and two profiles at once are both boot failures, not defaults.
+3. [*] Implement the `SweepDefinition` port in `platform.api`: sweep name, declared system actor, and a batch operation that returns an outcome and is safely interruptible at its boundary. Deliverable: sweep port. Acceptance: a sweep body is expressible without importing anything from `platform.infra`.
+4. [*] Implement the `SweepLock` port and the session-level `pg_try_advisory_lock` adapter, acquiring on the dedicated pool and releasing in a `finally`. Deliverable: default lock adapter. Acceptance: a loser returns immediately rather than waiting; a release failure is logged and the connection discarded rather than returned holding a lock.
+5. [*] Implement the transaction-level `pg_try_advisory_xact_lock` adapter behind the same port. Deliverable: alternative lock adapter carrying the `T-15` seam. Acceptance: selectable by configuration; proved equivalent by `P7.4`; documented in `P10.6` as the PgBouncer adoption path.
+6. [*] Implement the `SweepRunner` per `P2.6`: one interval source per enabled registry row, merged and `concatMap`-ed onto a single permit, with the relay on its own permit. Deliverable: runner. Acceptance: enabled on the background role only; a tick that overruns its interval delays the next tick rather than overlapping it.
+7. [*] Implement the sweep security-context installer per `P2.14`. Deliverable: context installer. Acceptance: the role and the platform-scope marker are the transaction's first statements; a sweep that omits them cannot execute a statement.
+8. [*] Implement the registry loader and its bounds validation: every registered sweep bean has a row, every row's interval is within bounds, and an out-of-range or missing value fails the boot. Deliverable: registry loader carrying `TASK-PLAT6-DEFECT-007`. Acceptance: this is the runtime limb of §17.5 — no clamping, no degraded mode, no override flag.
 9. [ ] Implement the lock-key collision validator over the loaded registry. Deliverable: collision validator. Acceptance: two rows sharing a key fail the boot with both sweep names named in the message.
 10. [ ] Implement the per-role bean-manifest asserter, diffing the running context's bean set against the committed manifest for the active role. Deliverable: manifest asserter. Acceptance: an added bean fails as loudly as a removed one; this is `ADR-012`'s "bean-enablement discipline must be tested per role".
 11. [ ] Implement the `pindist` route allowlist assertion per `P2.12`. Deliverable: route validator. Acceptance: any business route beyond the single reserved template fails the boot; the reserved template resolves to nothing until `FEAT-EXAM-003` lands.

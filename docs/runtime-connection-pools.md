@@ -29,9 +29,33 @@ The later P8.5 task must include these pools when reporting `allocated`,
 `allocated_with_headroom`, `committed` and `headroom_remaining`; this document
 registers the inputs and does not claim the release-stage envelope check.
 
-The runner, lock adapters, registry context protocol and ordered shutdown
-remain Phase 4 work. A lock lease must be released or invalidated before its
+The runner and ordered shutdown remain Phase 4 work. A lock lease must be released or invalidated before its
 connection returns to the pool. The existing context reset is not an advisory
 lock release mechanism. Real-PostgreSQL allocation coverage is provided by
 `WorkerPoolIsolationIntegrationTest`; context reset and authorization remain
 covered by the persistence security suites.
+
+## Lock Adapter Selection
+
+`cbt.runtime.sweep-lock.mode` selects `session` (default) or `transaction` on
+the worker. Supply these optional properties through external application
+configuration or command-line arguments.
+Only one `SweepLock` bean is registered. API and pindist register neither.
+
+Set `cbt.runtime.sweep-lock.pooling-mode=transaction` when the database URL points to PgBouncer
+transaction pooling; it defaults to `direct`. Startup rejects unknown values
+and rejects session locks with transaction pooling. This is the T-15 adapter
+selection mechanism; P10.6 still owns the complete PgBouncer adoption guide.
+
+The transaction adapter holds one initialized lock-only transaction on the
+dedicated pool for the lifetime of its handle. It rolls back on release and
+never commits business data. Acquisition, ownership checks and each normal
+cleanup operation have two-second timeouts. Uncertain acquisition or cleanup
+discards the connection. Configure the database/pooler's idle transaction
+timeout above the maximum tick/check gap; the migration job's timeout is not
+a suitable worker default. Session and transaction modes share PostgreSQL's
+bigint advisory-lock namespace and the persisted registry key.
+
+The adapter supplies mutual exclusion while ownership is held, not a durable
+once-per-tick claim or a fencing token for a separate business transaction.
+The PgBouncer deployment itself is not covered by the direct PostgreSQL tests.
