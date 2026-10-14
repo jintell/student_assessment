@@ -47,6 +47,12 @@ problems:
     status: 401
     detail: Authentication is required to perform this operation.
     extensions: {}
+  CBT-PLAT-UNAVAILABLE:
+    type: https://errors.meld-tech.com/problems/unavailable
+    title: Service temporarily unavailable
+    status: 503
+    detail: The service cannot accept this request at this time. Try again later.
+    extensions: {}
   CBT-PLAT-VALIDATION:
     type: https://errors.meld-tech.com/problems/validation
     title: Validation failed

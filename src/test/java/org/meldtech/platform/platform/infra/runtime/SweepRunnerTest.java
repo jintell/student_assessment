@@ -4,15 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.platform.api.SweepBatchResult;
 import org.meldtech.platform.platform.api.SweepDefinition;
 import org.meldtech.platform.platform.api.SweepLock;
+import org.meldtech.platform.platform.api.SweepLockLostException;
 import org.meldtech.platform.platform.api.SweepMetadata;
 import org.meldtech.platform.platform.api.SweepStopSignal;
 import org.meldtech.platform.platform.infra.runtime.SweepRegistryLoader.RegisteredSweep;
@@ -23,13 +28,63 @@ import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.context.SystemActor;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 class SweepRunnerTest {
 
     private static final CorrelationId ID = new CorrelationId("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+
+    @Test
+    void runnerDistinguishesContentionFromLostOwnershipAndSuccessfulWork() {
+        var meters = new SimpleMeterRegistry();
+        var scheduler = VirtualTimeScheduler.create();
+        var attempt = new AtomicInteger();
+        SweepLock locks =
+                name ->
+                        switch (attempt.getAndIncrement()) {
+                            case 0 -> Mono.empty();
+                            case 1 ->
+                                    Mono.just(
+                                            handle(
+                                                    Mono.error(new SweepLockLostException()),
+                                                    Mono.empty()));
+                            default -> Mono.just(handle(Mono.empty(), Mono.empty()));
+                        };
+        var runner =
+                new SweepRunner(
+                        List::of,
+                        locks,
+                        () -> ID,
+                        new RequestContextPropagation(),
+                        scheduler,
+                        new SweepLockShutdown(Mono.empty()),
+                        new SweepTelemetry(meters, () -> Instant.ofEpochSecond(123)));
+        var sweep = sweep("reference", stop -> Mono.just(new SweepBatchResult(4, false)));
+        try {
+            runner.start();
+            for (int tick = 0; tick < 3; tick++) {
+                StepVerifier.create(runner.runTick(sweep)).verifyComplete();
+            }
+            for (String outcome :
+                    List.of("SUCCESS", "SKIPPED_LOCK_NOT_ACQUIRED", "SKIPPED_LOCK_LOST")) {
+                assertThat(
+                                meters.get("sweep.tick.outcome")
+                                        .tag("outcome", outcome)
+                                        .counter()
+                                        .count())
+                        .isEqualTo(1);
+            }
+            assertThat(meters.get("sweep.batch.size").summary().totalAmount()).isEqualTo(4);
+            assertThat(meters.get("sweep.last.success.timestamp").gauge().value()).isEqualTo(123);
+        } finally {
+            runner.stop();
+            meters.close();
+        }
+    }
 
     @Test
     void a250SecondTickRetainsOneSignalPerSweepAndDoesNotBlockRelay() {
@@ -85,7 +140,8 @@ class SweepRunnerTest {
                                                         }
                                                     }));
                                 });
-        var runner = runner(List.of(slow, fast, outbox), locks, clock);
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(slow, fast, outbox), locks, clock, shutdown);
         try {
             runner.start();
             clock.advanceTimeBy(Duration.ofSeconds(250));
@@ -98,8 +154,180 @@ class SweepRunnerTest {
             assertThat(maximum).hasValue(1);
         } finally {
             runner.stop();
+            clock.advanceTimeBy(Duration.ofSeconds(1));
+            shutdown.stop();
         }
         assertThat(active).hasValue(0);
+    }
+
+    @Test
+    void shutdownWaitsForCommitOrRollbackAndDiscardsPendingTicks() {
+        for (boolean rollback : List.of(false, true)) {
+            var clock = VirtualTimeScheduler.create();
+            var result = Sinks.<SweepBatchResult>one();
+            var stopSignal = new AtomicReference<SweepStopSignal>();
+            var batches = new AtomicInteger();
+            var events = new ArrayList<String>();
+            var sweep =
+                    sweep(
+                            "reference",
+                            signal -> {
+                                stopSignal.set(signal);
+                                batches.incrementAndGet();
+                                return Mono.usingWhen(
+                                        Mono.just("transaction"),
+                                        transaction -> result.asMono(),
+                                        transaction -> boundary(clock, events, "commit"),
+                                        (transaction, failure) ->
+                                                boundary(clock, events, "rollback"),
+                                        transaction -> boundary(clock, events, "cancel"));
+                            });
+            SweepLock locks =
+                    name ->
+                            Mono.just(
+                                    handle(
+                                            Mono.empty(),
+                                            Mono.fromRunnable(() -> events.add("release"))));
+            var shutdown = new SweepLockShutdown(Mono.empty());
+            var runner = runner(List.of(sweep), locks, clock, shutdown);
+            runner.start();
+            clock.advanceTimeBy(Duration.ofMillis(300));
+            assertThat(runner.pendingSignals()).isEqualTo(1);
+
+            runner.stop(() -> events.add("stopped"));
+            assertThat(runner.isRunning()).isFalse();
+            assertThat(runner.pendingSignals()).isZero();
+            SweepStopSignal capturedSignal = Objects.requireNonNull(stopSignal.get());
+            assertThat(capturedSignal.isStopRequested()).isTrue();
+            assertThat(events).isEmpty();
+            if (rollback) {
+                result.tryEmitError(new IllegalStateException("rollback requested"));
+            } else {
+                result.tryEmitValue(new SweepBatchResult(1, true));
+            }
+            clock.advanceTimeBy(Duration.ofMillis(499));
+            assertThat(events).isEmpty();
+            clock.advanceTimeBy(Duration.ofMillis(1));
+            if (rollback) {
+                assertThat(events).containsExactly("rollback", "stopped", "release");
+            } else {
+                assertThat(events).containsExactly("commit", "stopped");
+            }
+            shutdown.stop();
+            assertThat(events)
+                    .containsExactly(rollback ? "rollback" : "commit", "stopped", "release");
+            assertThat(batches).hasValue(1);
+            assertThat(clock.isDisposed()).isTrue();
+        }
+    }
+
+    @Test
+    void shutdownWaitsForRollbackWhenTheBatchTimesOut() {
+        var clock = VirtualTimeScheduler.create();
+        var events = new ArrayList<String>();
+        var sweep =
+                sweep(
+                        "reference",
+                        signal ->
+                                Mono.deferContextual(
+                                        context -> {
+                                            TransactionCleanup cleanup =
+                                                    context.get(TransactionCleanup.class);
+                                            return Mono.usingWhen(
+                                                    Mono.just("transaction")
+                                                            .doOnNext(
+                                                                    ignored -> cleanup.acquired()),
+                                                    transaction -> Mono.<SweepBatchResult>never(),
+                                                    transaction ->
+                                                            boundary(clock, events, "commit")
+                                                                    .doFinally(
+                                                                            ignored ->
+                                                                                    cleanup
+                                                                                            .released()),
+                                                    (transaction, failure) ->
+                                                            boundary(clock, events, "rollback")
+                                                                    .doFinally(
+                                                                            ignored ->
+                                                                                    cleanup
+                                                                                            .released()),
+                                                    transaction ->
+                                                            boundary(clock, events, "rollback")
+                                                                    .doFinally(
+                                                                            ignored ->
+                                                                                    cleanup
+                                                                                            .released()));
+                                        }));
+        SweepLock locks =
+                name ->
+                        Mono.just(
+                                handle(
+                                        Mono.empty(),
+                                        Mono.fromRunnable(() -> events.add("release"))));
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(sweep), locks, clock, shutdown);
+        try {
+            runner.start();
+            clock.advanceTimeBy(Duration.ofMillis(100));
+            runner.stop(() -> events.add("stopped"));
+
+            clock.advanceTimeBy(Duration.ofSeconds(4));
+            assertThat(events).isEmpty();
+            assertThat(clock.isDisposed()).isFalse();
+            clock.advanceTimeBy(Duration.ofMillis(500));
+            assertThat(events).containsExactly("rollback", "stopped", "release");
+            shutdown.stop();
+            assertThat(clock.isDisposed()).isTrue();
+        } finally {
+            clock.dispose();
+        }
+    }
+
+    @Test
+    void shutdownDuringAcquisitionReleasesWithoutStartingABatch() {
+        var clock = VirtualTimeScheduler.create();
+        var acquired = Sinks.<SweepLock.Handle>one();
+        var batches = new AtomicInteger();
+        var events = new ArrayList<String>();
+        var sweep =
+                sweep(
+                        "reference",
+                        signal -> {
+                            batches.incrementAndGet();
+                            return Mono.just(new SweepBatchResult(1, false));
+                        });
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(sweep), name -> acquired.asMono(), clock, shutdown);
+        runner.start();
+        clock.advanceTimeBy(Duration.ofMillis(100));
+        runner.stop(() -> events.add("stopped"));
+        assertThat(events).isEmpty();
+        acquired.tryEmitValue(handle(Mono.empty(), Mono.fromRunnable(() -> events.add("release"))));
+        assertThat(batches).hasValue(0);
+        assertThat(events).containsExactly("stopped");
+        shutdown.stop();
+        assertThat(events).containsExactly("stopped", "release");
+    }
+
+    @Test
+    void shutdownIsIdempotentAndRunsBeforeWebDrain() {
+        var clock = VirtualTimeScheduler.create();
+        var callbacks = new AtomicInteger();
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(), name -> Mono.empty(), clock, shutdown);
+        assertThat(runner.getPhase())
+                .isEqualTo(WebServerApplicationContext.GRACEFUL_SHUTDOWN_PHASE + 1);
+        runner.start();
+        runner.stop(callbacks::incrementAndGet);
+        runner.stop(callbacks::incrementAndGet);
+        shutdown.stop();
+        assertThat(callbacks).hasValue(2);
+        assertThat(clock.isDisposed()).isTrue();
+    }
+
+    private static Mono<Void> boundary(
+            VirtualTimeScheduler clock, List<String> events, String event) {
+        return Mono.delay(Duration.ofMillis(500), clock)
+                .then(Mono.fromRunnable(() -> events.add(event)));
     }
 
     @Test
@@ -115,7 +343,8 @@ class SweepRunnerTest {
                                             Mono.empty(),
                                             Mono.delay(Duration.ofMillis(500), clock).then());
                                 });
-        var runner = runner(List.of(sweep("stuck", stop -> Mono.never())), locks, clock);
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(sweep("stuck", stop -> Mono.never())), locks, clock, shutdown);
         try {
             runner.start();
             clock.advanceTimeBy(Duration.ofMillis(4200));
@@ -125,6 +354,7 @@ class SweepRunnerTest {
             assertThat(acquisitions).hasValue(2);
         } finally {
             runner.stop();
+            shutdown.stop();
         }
     }
 
@@ -153,7 +383,8 @@ class SweepRunnerTest {
                                                                 Mono.fromRunnable(
                                                                         releases
                                                                                 ::incrementAndGet))));
-        var runner = runner(List.of(), locks, clock);
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner = runner(List.of(), locks, clock, shutdown);
         var sweep =
                 sweep(
                         "reference",
@@ -225,6 +456,12 @@ class SweepRunnerTest {
                                         return Mono.empty();
                                     })
                     .withBean(CorrelationIdGenerator.class, () -> () -> ID)
+                    .withBean(SweepLockShutdown.class, () -> new SweepLockShutdown(Mono.empty()))
+                    .withBean(
+                            SweepTelemetry.class,
+                            () ->
+                                    new SweepTelemetry(
+                                            new SimpleMeterRegistry(), () -> Instant.EPOCH))
                     .run(
                             context -> {
                                 assertThat(context).hasNotFailed();
@@ -237,9 +474,18 @@ class SweepRunnerTest {
     }
 
     private static SweepRunner runner(
-            List<RegisteredSweep> sweeps, SweepLock locks, VirtualTimeScheduler scheduler) {
+            List<RegisteredSweep> sweeps,
+            SweepLock locks,
+            VirtualTimeScheduler scheduler,
+            SweepLockShutdown shutdown) {
         return new SweepRunner(
-                () -> sweeps, locks, () -> ID, new RequestContextPropagation(), scheduler);
+                () -> sweeps,
+                locks,
+                () -> ID,
+                new RequestContextPropagation(),
+                scheduler,
+                shutdown,
+                new SweepTelemetry(new SimpleMeterRegistry(), () -> Instant.EPOCH));
     }
 
     private static SweepLock.Handle handle(Mono<Void> held, Mono<Void> close) {

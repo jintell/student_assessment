@@ -7,6 +7,42 @@ spring:
       - optional:configtree:${CBT_REDIS_SECRETS_PATH:/run/secrets/redis/}
   flyway:
     enabled: false
+  web:
+    resources:
+      add-mappings: false
+  lifecycle:
+    timeout-per-shutdown-phase: 5s
+  reactor:
+    netty:
+      shutdown-quiet-period: 0s
+server:
+  shutdown: graceful
+  port: 8080
+management:
+  server:
+    port: 9091
+  endpoints:
+    enabled-by-default: false
+    web:
+      base-path: /
+      discovery:
+        enabled: false
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      enabled: true
+      show-details: never
+      show-components: never
+      group:
+        live:
+          include: livenessState,ping,runtimeMemory
+        ready:
+          include: readinessState,ping,runtimeDrain
+        startup:
+          include: livenessState,ping
 cbt:
   observability:
     resource:
@@ -136,6 +172,8 @@ spring:
         prefetch: 32
       simple:
         prefetch: 32
+server:
+  port: -1
 cbt:
   database:
     pools:
@@ -165,6 +203,9 @@ spring:
   config:
     activate:
       on-profile: pindist
+  web:
+    resources:
+      add-mappings: false
 cbt:
   database:
     pools:

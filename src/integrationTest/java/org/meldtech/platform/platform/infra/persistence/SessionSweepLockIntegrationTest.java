@@ -1,6 +1,8 @@
 package org.meldtech.platform.platform.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -22,6 +24,9 @@ import org.meldtech.platform.platform.api.SweepLock;
 import org.meldtech.platform.platform.api.SweepMetadata;
 import org.meldtech.platform.platform.infra.observability.DatabaseQueryTelemetry;
 import org.meldtech.platform.platform.infra.observability.TracingConnectionFactory;
+import org.meldtech.platform.platform.infra.runtime.RequestAdmission;
+import org.meldtech.platform.platform.infra.runtime.RuntimeRoutePolicy;
+import org.meldtech.platform.platform.infra.runtime.RuntimeRoutePolicy.Workload;
 import org.meldtech.platform.platform.infra.runtime.SessionSweepLock;
 import org.meldtech.platform.platform.infra.runtime.SweepRegistryLoader;
 import org.meldtech.platform.platform.infra.runtime.TransactionSweepLock;
@@ -166,6 +171,92 @@ class SessionSweepLockIntegrationTest {
                 .verify(TIMEOUT);
         assertThat(workerPool.getMetrics().orElseThrow().acquiredSize()).isZero();
         assertThat(physicalPool.getMetrics().orElseThrow().acquiredSize()).isZero();
+    }
+
+    @Test
+    void routeTimeoutsAreTransactionLocalAndCancelSlowStatements() {
+        ActorContext actor =
+                ActorContext.platformSystem(
+                        SystemActor.AUTO_SUBMIT_SWEEPER,
+                        new CorrelationId("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+                        new SourceIp("::1"));
+        var metadata =
+                new SweepMetadata(
+                        "auto-submit",
+                        "delivery",
+                        "FEAT-DLV-004",
+                        SystemActor.AUTO_SUBMIT_SWEEPER,
+                        Duration.ofSeconds(10),
+                        Duration.ofSeconds(10),
+                        Duration.ofSeconds(10),
+                        Duration.ofSeconds(4),
+                        Duration.ofSeconds(30));
+        Context execution = Context.of(ActorContext.class, actor, SweepMetadata.class, metadata);
+        for (var entry :
+                Map.of(Workload.EXAM, "500ms", Workload.ADMINISTRATIVE, "1s", Workload.REPORT, "2s")
+                        .entrySet()) {
+            RequestAdmission request = mock(RequestAdmission.class);
+            when(request.policy())
+                    .thenReturn(
+                            java.util.Optional.of(
+                                    new RuntimeRoutePolicy(
+                                            "timeout-test",
+                                            "GET",
+                                            "/timeout-test",
+                                            entry.getKey())));
+            StepVerifier.create(
+                            sweepTransactions
+                                    .inPlatformTransaction(
+                                            SweepDataModule.DELIVERY,
+                                            SessionSweepLockIntegrationTest::readStatementTimeout)
+                                    .contextWrite(execution.put(RequestAdmission.class, request)))
+                    .expectNext(entry.getValue())
+                    .verifyComplete();
+            if (entry.getKey() == Workload.EXAM) {
+                StepVerifier.create(
+                                sweepTransactions
+                                        .inPlatformTransaction(
+                                                SweepDataModule.DELIVERY,
+                                                connection ->
+                                                        Flux.from(
+                                                                        connection
+                                                                                .createStatement(
+                                                                                        "SELECT pg_catalog.pg_sleep(2)")
+                                                                                .execute())
+                                                                .concatMap(
+                                                                        io.r2dbc.spi.Result
+                                                                                ::getRowsUpdated)
+                                                                .then())
+                                        .contextWrite(
+                                                execution.put(RequestAdmission.class, request)))
+                        .expectErrorSatisfies(
+                                failure ->
+                                        assertThat(failure)
+                                                .isInstanceOfSatisfying(
+                                                        io.r2dbc.spi.R2dbcException.class,
+                                                        database ->
+                                                                assertThat(database.getSqlState())
+                                                                        .isEqualTo("57014")))
+                        .verify(TIMEOUT);
+            }
+        }
+        StepVerifier.create(
+                        sweepTransactions
+                                .inPlatformTransaction(
+                                        SweepDataModule.DELIVERY,
+                                        SessionSweepLockIntegrationTest::readStatementTimeout)
+                                .contextWrite(execution))
+                .expectNext("30s")
+                .verifyComplete();
+        assertThat(workerPool.getMetrics().orElseThrow().acquiredSize()).isZero();
+    }
+
+    private static reactor.core.publisher.Mono<String> readStatementTimeout(
+            org.meldtech.platform.platform.api.SweepConnection connection) {
+        String sql = "SELECT current_setting('statement_timeout') AS setting";
+        return Flux.from(connection.createStatement(sql).execute())
+                .concatMap(result -> result.map((row, ignored) -> row.get("setting", String.class)))
+                .single();
     }
 
     @Test

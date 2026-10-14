@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.meldtech.platform.platform.infra.runtime.RequestAdmission;
+import org.meldtech.platform.platform.infra.runtime.TransactionCleanup;
 import org.meldtech.platform.shared.api.PlatformOperation;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
@@ -165,14 +167,29 @@ final class SecurityContextInitializer implements ConnectionFactory {
 
     static <T> Mono<T> managedTransaction(
             ConnectionFactory connections, Function<Connection, ? extends Publisher<T>> work) {
+        return Mono.deferContextual(
+                context -> {
+                    TransactionCleanup cleanup =
+                            context.hasKey(TransactionCleanup.class)
+                                    ? context.get(TransactionCleanup.class)
+                                    : new TransactionCleanup();
+                    return managedTransaction(connections, work, cleanup);
+                });
+    }
+
+    private static <T> Mono<T> managedTransaction(
+            ConnectionFactory connections,
+            Function<Connection, ? extends Publisher<T>> work,
+            TransactionCleanup cleanup) {
         return Mono.usingWhen(
-                Mono.from(connections.create()),
+                Mono.from(connections.create()).doOnNext(ignored -> cleanup.acquired()),
                 connection ->
                         Mono.from(connection.beginTransaction())
                                 .then(Mono.defer(() -> Mono.from(work.apply(connection)))),
                 connection ->
                         Mono.from(connection.commitTransaction())
-                                .then(Mono.from(connection.close())),
+                                .then(Mono.from(connection.close()))
+                                .doFinally(ignored -> cleanup.released()),
                 (connection, failure) ->
                         Mono.from(connection.rollbackTransaction())
                                 .onErrorResume(
@@ -185,12 +202,14 @@ final class SecurityContextInitializer implements ConnectionFactory {
                                         cleanupFailure -> {
                                             failure.addSuppressed(cleanupFailure);
                                             return Mono.empty();
-                                        }),
+                                        })
+                                .doFinally(ignored -> cleanup.released()),
                 connection ->
                         Mono.from(connection.rollbackTransaction())
                                 .onErrorResume(ignored -> Mono.empty())
                                 .then(Mono.from(connection.close()))
-                                .onErrorResume(ignored -> Mono.empty()));
+                                .onErrorResume(ignored -> Mono.empty())
+                                .doFinally(ignored -> cleanup.released()));
     }
 
     static Publisher<Void> resetBeforeRelease(Connection connection) {
@@ -349,8 +368,22 @@ final class SecurityContextInitializer implements ConnectionFactory {
                                                 securityContext.roleName(),
                                                 State.INSTALLING_SEARCH_PATH,
                                                 securityContext.searchPathStatement()))
+                                .then(Mono.defer(() -> installStatementTimeout(contextView)))
                                 .doOnSuccess(ignored -> state.set(State.READY));
                     });
+        }
+
+        private Mono<Void> installStatementTimeout(reactor.util.context.ContextView context) {
+            if (!context.hasKey(RequestAdmission.class)) {
+                return Mono.empty();
+            }
+            RequestAdmission request = context.get(RequestAdmission.class);
+            long timeout = request.policy().orElseThrow().workload().statementTimeout().toMillis();
+            String sql = "SELECT pg_catalog.set_config('statement_timeout', $1, true)";
+            return Flux.from(
+                            delegate.createStatement(sql).bind(0, Long.toString(timeout)).execute())
+                    .flatMap(Result::getRowsUpdated)
+                    .then();
         }
 
         private Mono<Void> internalStatement(String role, State installingState, String sql) {

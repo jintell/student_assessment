@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "DESIGN_BASELINE",
+  "status": "VERIFIED_INVENTORY",
   "role": "pindist",
   "workload": "cbt-pindist",
   "enabledCategories": ["pin-distribution-endpoint"],

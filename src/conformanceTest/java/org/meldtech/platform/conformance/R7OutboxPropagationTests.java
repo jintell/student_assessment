@@ -18,6 +18,10 @@ import org.meldtech.platform.shared.api.AtomicCrossModuleFlow;
 import org.meldtech.platform.shared.api.CrossModuleCommandApi;
 import org.meldtech.platform.shared.api.SynchronousAtomicFlow;
 import org.meldtech.platform.shared.kernel.outbox.OutboxWriter;
+import org.springframework.amqp.core.AmqpTemplate;
+import org.springframework.amqp.core.MessageListenerContainer;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 class R7OutboxPropagationTests {
 
@@ -27,6 +31,10 @@ class R7OutboxPropagationTests {
                     "org.apache.kafka.clients.producer",
                     "org.springframework.amqp",
                     "org.springframework.kafka");
+
+    // These listener types expose no publishing API and are inspected by the runtime manifest gate.
+    private static final Set<String> LISTENER_METADATA_TYPES =
+            Set.of(MessageListenerContainer.class.getName(), RabbitListener.class.getName());
 
     @Test
     void adr023FlowEnumerationIsClosed() {
@@ -57,6 +65,29 @@ class R7OutboxPropagationTests {
         assertTrue(String.valueOf(failure.getMessage()).contains("R7 propagation violated:"));
     }
 
+    @Test
+    void permitsListenerMetadataInspection() {
+        assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(
+                new ClassFileImporter().importClasses(ListenerMetadataInspection.class));
+    }
+
+    @Test
+    void rejectsPublisherDependenciesAlongsideListenerMetadata() {
+        for (Class<?> publisher : List.of(CorePublisher.class, RabbitPublisher.class)) {
+            JavaClasses fixture = new ClassFileImporter().importClasses(publisher);
+            AssertionError failure =
+                    assertThrows(
+                            AssertionError.class,
+                            () ->
+                                    assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(
+                                            fixture));
+
+            String message = String.valueOf(failure.getMessage());
+            assertTrue(message.contains(publisher.getName()));
+            assertTrue(message.contains("publishes through broker package"));
+        }
+    }
+
     private static void assertCrossModulePropagationUsesOnlyReviewedPortsAndFlows(
             JavaClasses classes) {
         List<String> violations = new ArrayList<>();
@@ -75,6 +106,10 @@ class R7OutboxPropagationTests {
             return;
         }
         origin.getDirectDependenciesFromSelf().stream()
+                .filter(
+                        dependency ->
+                                !LISTENER_METADATA_TYPES.contains(
+                                        dependency.getTargetClass().getName()))
                 .map(dependency -> dependency.getTargetClass().getPackageName())
                 .filter(
                         targetPackage ->
@@ -135,5 +170,24 @@ class R7OutboxPropagationTests {
                 + " "
                 + detail
                 + "; use OutboxWriter or an ADR-023 enumerated atomic flow.";
+    }
+
+    static class ListenerMetadataInspection {
+        boolean isListener(Class<?> type) {
+            return MessageListenerContainer.class.isAssignableFrom(type)
+                    || type.isAnnotationPresent(RabbitListener.class);
+        }
+    }
+
+    static final class CorePublisher extends ListenerMetadataInspection {
+        void publish(AmqpTemplate template) {
+            template.convertAndSend("event");
+        }
+    }
+
+    static final class RabbitPublisher extends ListenerMetadataInspection {
+        void publish(RabbitTemplate template) {
+            template.convertAndSend("event");
+        }
     }
 }

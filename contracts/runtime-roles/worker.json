@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "DESIGN_BASELINE",
+  "status": "VERIFIED_INVENTORY",
   "role": "worker",
   "workload": "cbt-worker",
   "enabledCategories": ["broker-consumer", "sweep"],

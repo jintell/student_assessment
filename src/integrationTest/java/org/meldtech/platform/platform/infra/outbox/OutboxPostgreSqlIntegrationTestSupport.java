@@ -30,7 +30,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import reactor.core.publisher.Mono;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-abstract class OutboxPostgreSqlIntegrationTestSupport {
+public abstract class OutboxPostgreSqlIntegrationTestSupport {
 
     private static final Object MIGRATION_MONITOR = new Object();
     private static final String MIGRATOR_PASSWORD = UUID.randomUUID().toString();
@@ -39,6 +39,7 @@ abstract class OutboxPostgreSqlIntegrationTestSupport {
     protected PostgreSQLContainer postgres;
     protected DatabaseClient databaseClient;
     protected TransactionalOperator transactions;
+    protected ConnectionFactory connectionFactory;
 
     @BeforeAll
     final void prepareOutboxDatabase() throws Exception {
@@ -47,7 +48,7 @@ abstract class OutboxPostgreSqlIntegrationTestSupport {
         migrateOnce();
         createBusinessProbe();
 
-        ConnectionFactory connectionFactory =
+        connectionFactory =
                 ConnectionFactories.get(
                         ConnectionFactoryOptions.builder()
                                 .option(DRIVER, "postgresql")

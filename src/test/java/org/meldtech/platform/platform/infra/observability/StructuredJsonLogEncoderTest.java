@@ -15,6 +15,9 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.meldtech.platform.platform.api.RuntimeRole;
 import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.ActorType;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
@@ -94,6 +97,14 @@ class StructuredJsonLogEncoderTest {
         assertThat(minimal.propertyNames())
                 .containsExactlyInAnyOrderElementsOf(ALWAYS_PRESENT_FIELDS);
         assertThat(complete.propertyNames()).containsExactlyInAnyOrderElementsOf(DECLARED_FIELDS);
+    }
+
+    @ParameterizedTest
+    @EnumSource(RuntimeRole.class)
+    void processRoleOverridesCallerSuppliedEventRole(RuntimeRole role) {
+        var encoder = new StructuredJsonLogEncoder(TelemetryHealth.NOOP, role);
+        var document = new ObjectMapper().readTree(encoder.encode(minimalEvent()));
+        assertThat(document.path("role").stringValue()).isEqualTo(role.name());
     }
 
     @Test

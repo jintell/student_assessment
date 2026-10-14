@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.meldtech.platform.platform.infra.runtime.TransactionSweepLock;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -24,7 +25,10 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
     @Test
     void onlyOneReplicaRunsTheTickWhileTheAdvisoryLockIsHeld() throws Exception {
         RelaySingleton singleton =
-                new RelaySingleton(databaseClient, mock(OutboxTelemetry.class), Clock.systemUTC());
+                new RelaySingleton(
+                        new TransactionSweepLock(connectionFactory),
+                        mock(OutboxTelemetry.class),
+                        Clock.systemUTC());
         CountDownLatch leaderStarted = new CountDownLatch(1);
         CountDownLatch releaseLeader = new CountDownLatch(1);
         AtomicInteger activeTicks = new AtomicInteger();
@@ -33,7 +37,7 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
                 transactions
                         .transactional(
                                 singleton.runIfLeader(
-                                        "outbox-relay-contention",
+                                        "outbox-relay",
                                         () -> heldTick(activeTicks, leaderStarted, releaseLeader)))
                         .subscribeOn(Schedulers.boundedElastic())
                         .toFuture();
@@ -47,7 +51,7 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
                                                 transactions
                                                         .transactional(
                                                                 singleton.runIfLeader(
-                                                                        "outbox-relay-contention",
+                                                                        "outbox-relay",
                                                                         () ->
                                                                                 Mono.error(
                                                                                         new AssertionError(
@@ -65,9 +69,12 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
 
     @Test
     void losingTheDatabaseLockStopsTheTickBeforeAReplacementPublishes() throws Exception {
-        String sweepName = "outbox-relay-lock-loss";
+        String sweepName = "outbox-relay";
         RelaySingleton singleton =
-                new RelaySingleton(databaseClient, mock(OutboxTelemetry.class), Clock.systemUTC());
+                new RelaySingleton(
+                        new TransactionSweepLock(connectionFactory),
+                        mock(OutboxTelemetry.class),
+                        Clock.systemUTC());
         CountDownLatch firstTickStarted = new CountDownLatch(1);
         AtomicInteger activeTicks = new AtomicInteger();
         AtomicInteger replacementPublications = new AtomicInteger();
@@ -77,7 +84,7 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
                         .transactional(
                                 singleton.runIfLeader(
                                         sweepName,
-                                        () -> databaseSleepTick(activeTicks, firstTickStarted)))
+                                        () -> uncommittedTick(activeTicks, firstTickStarted)))
                         .subscribeOn(Schedulers.boundedElastic())
                         .toFuture();
         assertThat(firstTickStarted.await(5, TimeUnit.SECONDS)).isTrue();
@@ -87,6 +94,7 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
         assertThatThrownBy(() -> interruptedLeader.get(5, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class);
         awaitNoActiveTick(activeTicks);
+        assertThat(queryInt("SELECT count(*) FROM delivery.outbox_atomicity_probe")).isZero();
 
         Boolean replacementLed =
                 transactions
@@ -118,16 +126,24 @@ class RelaySingletonIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
                 .then();
     }
 
-    private Mono<Void> databaseSleepTick(AtomicInteger activeTicks, CountDownLatch started) {
+    private Mono<Void> uncommittedTick(AtomicInteger activeTicks, CountDownLatch started) {
         return Mono.defer(
                         () -> {
                             activeTicks.incrementAndGet();
-                            started.countDown();
                             return databaseClient
-                                    .sql("SELECT pg_sleep(30)")
+                                    .sql(
+                                            """
+                                            INSERT INTO delivery.outbox_atomicity_probe (tenant_id, probe_id)
+                                            VALUES (gen_random_uuid(), gen_random_uuid())
+                                            """)
                                     .fetch()
                                     .rowsUpdated()
-                                    .then();
+                                    .then(
+                                            Mono.defer(
+                                                    () -> {
+                                                        started.countDown();
+                                                        return Mono.<Void>never();
+                                                    }));
                         })
                 .doFinally(ignored -> activeTicks.decrementAndGet());
     }

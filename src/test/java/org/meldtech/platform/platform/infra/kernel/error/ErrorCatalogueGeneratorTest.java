@@ -27,6 +27,7 @@ class ErrorCatalogueGeneratorTest {
                                 "CBT-PLAT-FORBIDDEN",
                                 "CBT-PLAT-RATE-LIMITED",
                                 "CBT-PLAT-IDEMPOTENCY-UNAVAILABLE",
+                                "CBT-PLAT-UNAVAILABLE",
                                 "CBT-PLAT-INTERNAL"));
     }
 

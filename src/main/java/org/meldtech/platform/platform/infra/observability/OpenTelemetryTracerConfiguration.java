@@ -15,6 +15,7 @@ import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
+import org.meldtech.platform.platform.api.RuntimeRole;
 import org.meldtech.platform.shared.kernel.observability.RequestTelemetry;
 import org.meldtech.platform.shared.kernel.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -119,8 +120,9 @@ class OpenTelemetryTracerConfiguration {
     }
 
     @Bean
-    StructuredJsonLogEncoder structuredJsonLogEncoder(ObservabilityHealthMetrics healthMetrics) {
-        return new StructuredJsonLogEncoder(healthMetrics);
+    StructuredJsonLogEncoder structuredJsonLogEncoder(
+            ObservabilityHealthMetrics healthMetrics, RuntimeRole role) {
+        return new StructuredJsonLogEncoder(healthMetrics, role);
     }
 
     @Bean

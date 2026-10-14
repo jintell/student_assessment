@@ -174,15 +174,38 @@ Execution status (2026-10-12): P3.1-P3.10 verified. The exact six-row seed is ac
 
 # Phase 4 – Backend Implementation
 
-Execution status (2026-10-13): P4.1-P4.8 are verified. The P4.8 typed Mockito
-matcher correction was present at entry and preserved. Compilation, focused
-loader tests, PostgreSQL integration, conformance, formatting and Checkstyle
-pass. P4.9 adds a draft all-row collision validator and startup tests, but
-production compilation fails because `RegistryValidationException` lacks
-`serialVersionUID` under `-Werror`. Execution stopped before its tests ran.
-P4.9-P4.26 remain unchecked; resume at P4.9 with the serialization declaration
-and focused reverification. P4.10-P4.26 were not executed.
-The previously recorded full-context observability gap was not retested.
+Execution status (2026-10-14): P4.1-P4.13 are verified. The API-role gate
+rejects interval sources and broker consumers before construction. A method-local
+`UnusedMethod` suppression preserves reflective fixture coverage and global
+warnings-as-errors. Focused tests, conformance, formatting and Checkstyle passed.
+P4.14 is verified: managed transaction cleanup is tracked through cancellation,
+and the runner awaits rollback and connection close before completing drain.
+All 40 focused tests and 58 conformance tests passed, with compilation and
+Checkstyle. P4.15 is verified by listener-policy tests and a real RabbitMQ drain
+test covering acknowledgement and redelivery. P4.16 is verified: clean shutdown
+retains sweep handles until the final lock phase and disposes the dedicated pool
+after asynchronous release. Focused tests, PostgreSQL lock integration,
+conformance and style checks passed. P4.17 is verified with marker/SIGTERM
+readiness, admission and real Netty in-flight-response tests. P4.18 is verified:
+bounded exam and admin/report lanes retain their existing qualified pools and
+Reactor Context; admin saturation leaves exam capacity available. P4.19 is
+verified with matched-route WebFlux wiring, bounded class/route admission and
+cancellation coverage. P4.20 is verified on PostgreSQL: transaction-local class
+timeouts cancel slow SQL and restore the baseline; request deadlines await
+cleanup before releasing permits. P4.21-P4.23 are verified: bounded memory
+restart control, process-role telemetry, and bounded sweep metrics. P4.24 is
+verified by the stage-4 role-declaration rule and positive/negative fixtures.
+The full-context observability gap is fixed; all 631 root tests passed.
+P4.25 is verified: the blocking stage-4 rule contains interval sources and
+runtime lock SQL, with negative fixtures and fingerprinted historical database
+integrity migrations. P7.19's relay adoption landed with the gate; P7.1 verifies
+four runners across four ticks against PostgreSQL with both lock adapters.
+No applied migration was changed. P4.26 is verified: the test-only reference
+sweep exercises registry validation, secured PostgreSQL transactions, lock
+contention, graceful drain, timeout rollback and durable retry. All 618 integration
+tests pass; the reference and its wiring are absent from the Boot JAR.
+See the [canonical reference sweep](../../../docs/reference-sweep.md).
+See [containment and adoption closure](../../../docs/evidence/FEAT-PLAT-006/P4.25-containment-closure.md).
 See [Phase 4 execution record](../../../docs/evidence/FEAT-PLAT-006/phase-4-backend-implementation.md).
 
 1. [*] Implement `RuntimeRole` and `@RoleScoped` in `platform.api` per `P2.1`. Deliverable: role-declaration types. Acceptance: importable by every module under R2; carries no dependency on any module.
@@ -193,24 +216,24 @@ See [Phase 4 execution record](../../../docs/evidence/FEAT-PLAT-006/phase-4-back
 6. [*] Implement the `SweepRunner` per `P2.6`: one interval source per enabled registry row, merged and `concatMap`-ed onto a single permit, with the relay on its own permit. Deliverable: runner. Acceptance: enabled on the background role only; a tick that overruns its interval delays the next tick rather than overlapping it.
 7. [*] Implement the sweep security-context installer per `P2.14`. Deliverable: context installer. Acceptance: the role and the platform-scope marker are the transaction's first statements; a sweep that omits them cannot execute a statement.
 8. [*] Implement the registry loader and its bounds validation: every registered sweep bean has a row, every row's interval is within bounds, and an out-of-range or missing value fails the boot. Deliverable: registry loader carrying `TASK-PLAT6-DEFECT-007`. Acceptance: this is the runtime limb of §17.5 — no clamping, no degraded mode, no override flag.
-9. [ ] Implement the lock-key collision validator over the loaded registry. Deliverable: collision validator. Acceptance: two rows sharing a key fail the boot with both sweep names named in the message.
-10. [ ] Implement the per-role bean-manifest asserter, diffing the running context's bean set against the committed manifest for the active role. Deliverable: manifest asserter. Acceptance: an added bean fails as loudly as a removed one; this is `ADR-012`'s "bean-enablement discipline must be tested per role".
-11. [ ] Implement the `pindist` route allowlist assertion per `P2.12`. Deliverable: route validator. Acceptance: any business route beyond the single reserved template fails the boot; the reserved template resolves to nothing until `FEAT-EXAM-003` lands.
-12. [ ] Implement the background role's HTTP restriction: probes on the management port and no business route registered. Deliverable: role configuration plus its assertion. Acceptance: §8.2's "no HTTP except health endpoints" is enforced at boot, not by review.
-13. [ ] Implement the request role's exclusion of schedulers and broker consumers. Deliverable: role configuration plus its assertion. Acceptance: the `api` context contains no interval source and no consumer bean.
-14. [ ] Implement the shutdown phase that stops the sweep interval sources and lets the in-flight batch reach its transaction boundary. Deliverable: lifecycle bean. Acceptance: a batch either commits or rolls back cleanly; no attempt is lost, per `ARC-EXAM-013`'s interruptibility property.
-15. [ ] Implement the shutdown phase that stops broker prefetching and acknowledges in-flight messages. Deliverable: lifecycle bean. Acceptance: §17.6 step 7's drain-aware rolling update becomes a property of the process rather than of the deploy script.
-16. [ ] Implement the shutdown phase that releases lock connections last. Deliverable: lifecycle bean. Acceptance: the lock is released before the process exits, so the next replica acquires on its next tick rather than after the backend dies.
-17. [ ] Configure graceful web shutdown and the lifecycle timeout per `P3.9`. Deliverable: shutdown configuration. Acceptance: readiness reports not-ready before the drain begins; in-flight requests complete.
-18. [ ] Implement the `ARC-REL-003` bulkhead schedulers per `P2.9`. Deliverable: scheduler configuration. Acceptance: an administrative or report-shaped query cannot occupy the exam-path scheduler; the reserved exam-path pool is consumed, not redefined.
-19. [ ] Implement per-route concurrency limits by route class per `P2.10`. Deliverable: concurrency limiter. Acceptance: a limit breach sheds with the uniform error contract from `FEAT-PLAT-003`, leaking no internal detail.
-20. [ ] Implement statement timeouts per route class per `P2.10`. Deliverable: timeout configuration. Acceptance: applied per transaction, not globally; the exam-path class is the tightest and is stated.
-21. [ ] Implement the bounded-heap and restart-on-threshold control per `P2.11`. Deliverable: heap configuration. Acceptance: crossing the threshold restarts the replica rather than degrading the process, and the event is observable in `P9.2`.
-22. [ ] Emit the active role as a telemetry dimension on every log line, metric and span. Deliverable: role-identity instrumentation carrying `TASK-PLAT6-OBS-001`. Acceptance: the three roles are distinguishable in telemetry with one configuration, as `FEAT-OBS-001 tasks.md`'s role-parity review requires; the field and resource-attribute names are agreed with `FEAT-OBS-001` in `P1.9`.
-23. [ ] Instrument the sweep runner: tick outcome including skipped-because-lock-not-acquired and skipped-because-lock-lost, tick duration, last-success timestamp and batch size per sweep. Deliverable: sweep instrumentation. Acceptance: satisfies the card's "scheduler tick outcomes including skipped-because-lock-lost"; labels are bounded and carry no `tenant_id`.
-24. [ ] Implement the role-declaration conformance rule from `P2.15` and wire it into the stage 4 rule set. Deliverable: ArchUnit rule plus its negative test. Acceptance: an `Endpoint` with no declaration, and one with two, both fail the build.
-25. [ ] Implement the lock-and-interval containment rule from `P2.15`. Deliverable: ArchUnit rule plus its negative test. Acceptance: an advisory-lock call or an interval source outside `platform.infra` fails the build — the rule that keeps `TASK-PLAT4-DEFECT-004` closed once `P7.19` retires the relay's local acquisition.
-26. [ ] Implement one reference sweep used only by tests, exercising the registry, the lock, the context installer and the interruption path. Deliverable: test-only sweep. Acceptance: not enabled in any deployed profile; it is the canonical exemplar `P10.1`'s guide points every later sweep author at.
+9. [*] Implement the lock-key collision validator over the loaded registry. Deliverable: collision validator. Acceptance: two rows sharing a key fail the boot with both sweep names named in the message.
+10. [*] Implement the per-role bean-manifest asserter, diffing the running context's bean set against the committed manifest for the active role. Deliverable: manifest asserter. Acceptance: an added bean fails as loudly as a removed one; this is `ADR-012`'s "bean-enablement discipline must be tested per role".
+11. [*] Implement the `pindist` route allowlist assertion per `P2.12`. Deliverable: route validator. Acceptance: any business route beyond the single reserved template fails the boot; the reserved template resolves to nothing until `FEAT-EXAM-003` lands.
+12. [*] Implement the background role's HTTP restriction: probes on the management port and no business route registered. Deliverable: role configuration plus its assertion. Acceptance: §8.2's "no HTTP except health endpoints" is enforced at boot, not by review.
+13. [*] Implement the request role's exclusion of schedulers and broker consumers. Deliverable: role configuration plus its assertion. Acceptance: the `api` context contains no interval source and no consumer bean.
+14. [*] Implement the shutdown phase that stops the sweep interval sources and lets the in-flight batch reach its transaction boundary. Deliverable: lifecycle bean. Acceptance: a batch either commits or rolls back cleanly; no attempt is lost, per `ARC-EXAM-013`'s interruptibility property.
+15. [*] Implement the shutdown phase that stops broker prefetching and acknowledges in-flight messages. Deliverable: lifecycle bean. Acceptance: §17.6 step 7's drain-aware rolling update becomes a property of the process rather than of the deploy script.
+16. [*] Implement the shutdown phase that releases lock connections last. Deliverable: lifecycle bean. Acceptance: the lock is released before the process exits, so the next replica acquires on its next tick rather than after the backend dies.
+17. [*] Configure graceful web shutdown and the lifecycle timeout per `P3.9`. Deliverable: shutdown configuration. Acceptance: readiness reports not-ready before the drain begins; in-flight requests complete.
+18. [*] Implement the `ARC-REL-003` bulkhead schedulers per `P2.9`. Deliverable: scheduler configuration. Acceptance: an administrative or report-shaped query cannot occupy the exam-path scheduler; the reserved exam-path pool is consumed, not redefined.
+19. [*] Implement per-route concurrency limits by route class per `P2.10`. Deliverable: concurrency limiter. Acceptance: a limit breach sheds with the uniform error contract from `FEAT-PLAT-003`, leaking no internal detail.
+20. [*] Implement statement timeouts per route class per `P2.10`. Deliverable: timeout configuration. Acceptance: applied per transaction, not globally; the exam-path class is the tightest and is stated.
+21. [*] Implement the bounded-heap and restart-on-threshold control per `P2.11`. Deliverable: heap configuration. Acceptance: crossing the threshold restarts the replica rather than degrading the process, and the event is observable in `P9.2`.
+22. [*] Emit the active role as a telemetry dimension on every log line, metric and span. Deliverable: role-identity instrumentation carrying `TASK-PLAT6-OBS-001`. Acceptance: the three roles are distinguishable in telemetry with one configuration, as `FEAT-OBS-001 tasks.md`'s role-parity review requires; the field and resource-attribute names are agreed with `FEAT-OBS-001` in `P1.9`.
+23. [*] Instrument the sweep runner: tick outcome including skipped-because-lock-not-acquired and skipped-because-lock-lost, tick duration, last-success timestamp and batch size per sweep. Deliverable: sweep instrumentation. Acceptance: satisfies the card's "scheduler tick outcomes including skipped-because-lock-lost"; labels are bounded and carry no `tenant_id`.
+24. [*] Implement the role-declaration conformance rule from `P2.15` and wire it into the stage 4 rule set. Deliverable: ArchUnit rule plus its negative test. Acceptance: an `Endpoint` with no declaration, and one with two, both fail the build.
+25. [*] Implement the lock-and-interval containment rule from `P2.15`. Deliverable: ArchUnit rule plus its negative test. Acceptance: an advisory-lock call or an interval source outside `platform.infra` fails the build — the rule that keeps `TASK-PLAT4-DEFECT-004` closed once `P7.19` retires the relay's local acquisition.
+26. [*] Implement one reference sweep used only by tests, exercising the registry, the lock, the context installer and the interruption path. Deliverable: test-only sweep. Acceptance: not enabled in any deployed profile; it is the canonical exemplar `P10.1`'s guide points every later sweep author at.
 
 ---
 
@@ -239,7 +262,7 @@ absence from oversight.
 
 # Phase 7 – Testing and Quality Assurance
 
-1. [ ] Prove exactly-one-sweep: N concurrent runners contending for one sweep name against real PostgreSQL produce exactly one execution per tick. Deliverable: integration test (CI 8). Acceptance: the card's headline acceptance outcome; N ≥ 4; asserted over repeated ticks, not one.
+1. [*] Prove exactly-one-sweep: N concurrent runners contending for one sweep name against real PostgreSQL produce exactly one execution per tick. Deliverable: integration test (CI 8). Acceptance: the card's headline acceptance outcome; N ≥ 4; asserted over repeated ticks, not one.
 2. [ ] Prove a lock lost mid-tick stops that sweep rather than letting two proceed. Deliverable: integration test. Acceptance: the losing runner records `skipped-because-lock-lost` and abandons at its batch boundary.
 3. [ ] Prove a loser skips the tick without waiting. Deliverable: integration test. Acceptance: the loser returns within the tick budget; no runner blocks on another's lock, so try-semantics are real.
 4. [ ] Prove the two lock adapters are behaviourally equivalent for acquisition, contention and release. Deliverable: parameterised integration test. Acceptance: `P7.1`–`P7.3` pass against both, so the `T-15` PgBouncer switch is a configuration change.
@@ -257,7 +280,7 @@ absence from oversight.
 16. [ ] Prove the shutdown sequence completes inside the grace-period budget from `P3.9`. Deliverable: timing evidence. Acceptance: the measured total is stated against `terminationGracePeriodSeconds` 60 with margin.
 17. [ ] Assert session affinity is off in the deployed ingress and Service values for all three roles. Deliverable: manifest assertion (`ARC-VERIFY-007` static limb, CI 16). Depends on fulfillment of the `P0.8` Platform Ops provisioning request. Acceptance: the assertion reads the values actually deployed, not a template.
 18. [ ] Run the surrogate statelessness drill: kill a replica mid-request against `FEAT-PLAT-001 tasks.md`'s conformance-only reference slice and confirm the next request succeeds on another replica. Deliverable: drill evidence carrying `TASK-PLAT6-DEFECT-006`. Acceptance: records explicitly that this is **not** `ARC-VERIFY-007`, whose mid-exam scenario requires `FEAT-DLV-001` and a staging environment, and names the scheduled Phase 3/6 re-run.
-19. [ ] Close the `TASK-PLAT4-DEFECT-004` seam: replace `FEAT-PLAT-004`'s local `pg_advisory_xact_lock` acquisition with `SweepLock`, then re-run `FEAT-PLAT-004 tasks.md` `P7.6` and this feature's `P7.1`. Deliverable: adoption evidence. Depends on `FEAT-PLAT-004` delivery; counterpart of `FEAT-PLAT-004 tasks.md` `P4.6` and `P7.17`. Acceptance: one lock mechanism remains in the codebase, not two, and `P4.25` now prevents a second.
+19. [*] Close the `TASK-PLAT4-DEFECT-004` seam: replace `FEAT-PLAT-004`'s local `pg_advisory_xact_lock` acquisition with `SweepLock`, then re-run `FEAT-PLAT-004 tasks.md` `P7.6` and this feature's `P7.1`. Deliverable: adoption evidence. Depends on `FEAT-PLAT-004` delivery; counterpart of `FEAT-PLAT-004 tasks.md` `P4.6` and `P7.17`. Acceptance: one lock mechanism remains in the codebase, not two, and `P4.25` now prevents a second.
 20. [ ] Prove a sweep cannot execute a statement before installing its role and platform-scope marker. Deliverable: integration test. Acceptance: R9 holds for a context with no request; a bypass attempt fails rather than reading zero rows.
 21. [ ] Prove each sweep runs under its declared system actor. Deliverable: integration test. Acceptance: the actor is one of `ActorContext`'s enumerated system actors; an undeclared sweep fails at `P4.8`.
 22. [ ] Prove the connection budget holds when every enabled sweep ticks simultaneously. Deliverable: integration test carrying `TASK-PLAT6-DEFECT-003`. Acceptance: at most two lock-holding connections per replica; grading and dispatcher connections remain available.

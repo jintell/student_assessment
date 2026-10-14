@@ -3,6 +3,8 @@ package org.meldtech.platform.platform.infra.observability;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
+import org.meldtech.platform.platform.api.RuntimeRole;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
@@ -12,6 +14,7 @@ final class StructuredJsonLogEncoder {
 
     private final ObjectMapper objectMapper;
     private final RedactingJsonSerializer redactor;
+    private @Nullable RuntimeRole runtimeRole;
 
     StructuredJsonLogEncoder() {
         this(new ObjectMapper(), new RedactingJsonSerializer());
@@ -19,6 +22,11 @@ final class StructuredJsonLogEncoder {
 
     StructuredJsonLogEncoder(TelemetryHealth health) {
         this(new ObjectMapper(), new RedactingJsonSerializer(health));
+    }
+
+    StructuredJsonLogEncoder(TelemetryHealth health, RuntimeRole role) {
+        this(health);
+        this.runtimeRole = role;
     }
 
     StructuredJsonLogEncoder(ObjectMapper objectMapper, RedactingJsonSerializer redactor) {
@@ -39,7 +47,12 @@ final class StructuredJsonLogEncoder {
                 () -> objectMapper.valueToTree(event.correlationId().toString()));
         put(root, "traceId", () -> objectMapper.valueToTree(event.traceId()));
         put(root, "spanId", () -> objectMapper.valueToTree(event.spanId()));
-        put(root, "role", () -> objectMapper.valueToTree(event.role().name()));
+        put(
+                root,
+                "role",
+                () ->
+                        objectMapper.valueToTree(
+                                runtimeRole == null ? event.role().name() : runtimeRole.name()));
         put(root, "module", () -> objectMapper.valueToTree(event.module()));
         put(root, "slice", () -> objectMapper.valueToTree(event.slice()));
         event.actorType()

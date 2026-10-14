@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.meldtech.platform.platform.api.SweepConnection;
 import org.meldtech.platform.platform.api.SweepDataModule;
 import org.meldtech.platform.platform.api.SweepMetadata;
+import org.meldtech.platform.platform.infra.runtime.TransactionCleanup;
 import org.meldtech.platform.shared.api.ActorContextPropagation;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
@@ -29,6 +30,7 @@ import org.meldtech.platform.shared.kernel.context.SystemActor;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
@@ -37,6 +39,38 @@ class DefaultSweepTransactionsTest {
     private static final TenantId TENANT = TenantId.parse("10000000-0000-0000-0000-000000000001");
     private static final ActorContextPropagation CONTEXTS =
             (context, actor) -> context.put(ActorContext.class, actor);
+
+    @Test
+    void cancelledTransactionKeepsCleanupPendingUntilRollbackAndCloseFinish() {
+        var events = new ArrayList<String>();
+        var rollback = Sinks.<Void>empty();
+        var close = Sinks.<Void>empty();
+        Connection connection = mock(Connection.class);
+        ConnectionFactory factory = mock(ConnectionFactory.class);
+        doReturn(Mono.just(connection)).when(factory).create();
+        doReturn(Mono.empty()).when(connection).beginTransaction();
+        doReturn(rollback.asMono().doOnSuccess(ignored -> events.add("rollback")))
+                .when(connection)
+                .rollbackTransaction();
+        doReturn(close.asMono().doOnSuccess(ignored -> events.add("close")))
+                .when(connection)
+                .close();
+        var cleanup = new TransactionCleanup();
+        var transaction =
+                SecurityContextInitializer.managedTransaction(factory, ignored -> Mono.never())
+                        .contextWrite(context -> context.put(TransactionCleanup.class, cleanup))
+                        .subscribe();
+
+        transaction.dispose();
+        StepVerifier.create(cleanup.await())
+                .then(() -> assertThat(events).isEmpty())
+                .then(() -> rollback.tryEmitEmpty())
+                .then(() -> assertThat(events).containsExactly("rollback"))
+                .then(() -> close.tryEmitEmpty())
+                .verifyComplete();
+        assertThat(events).containsExactly("rollback", "close");
+        verify(connection, never()).commitTransaction();
+    }
 
     @Test
     void installsTheClosedRoleAndMarkerBeforeBusinessSql() {

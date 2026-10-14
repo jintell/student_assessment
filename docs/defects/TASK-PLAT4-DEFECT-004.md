@@ -1,6 +1,6 @@
 # TASK-PLAT4-DEFECT-004 Missing Scheduler-Singleton Dependency
 
-Status: **OPEN - RAISED TO PLAN OWNER; ADOPTION SEAM RECORDED**
+Status: **CLOSED - SHARED LOCK ADOPTED AND CONTAINMENT VERIFIED (2026-10-14)**
 
 Owner: Plan Owner
 
@@ -27,3 +27,17 @@ the local acquisition, and rerun both exactly-one-sweep suites.
 Add `FEAT-PLAT-006` to the `FEAT-PLAT-004` dependency row and preserve the
 parallel-track adoption sequence recorded in
 `docs/evidence/FEAT-PLAT-004/P0.6-feat-plat-006-adoption-seam.md`.
+
+## Implementation Closure
+
+`RelaySingleton` now consumes `SweepLock`; the local SQL and key derivation
+have been removed. Runtime P4.25's blocking stage-4 gate rejects another
+acquisition mechanism or interval source, including a helper in `platform.infra`.
+Existing database-integrity locks are preserved only under an immutable
+four-file migration fingerprint baseline.
+
+The real-PostgreSQL relay contention/lock-loss tests and four-runner repeated
+contention tests for both adapters passed. Runtime P7.19 and outbox P7.17 are
+complete. The upstream plan dependency amendment remains recorded above;
+this closure describes the implemented adoption, not an edit to that plan.
+See [closure evidence](../evidence/FEAT-PLAT-006/P4.25-containment-closure.md).

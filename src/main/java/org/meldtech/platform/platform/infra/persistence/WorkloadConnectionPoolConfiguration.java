@@ -13,6 +13,7 @@ import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.meldtech.platform.platform.api.TransactionalCollaboration;
 import org.meldtech.platform.platform.infra.observability.DatabaseQueryTelemetry;
 import org.meldtech.platform.platform.infra.observability.TracingConnectionFactory;
+import org.meldtech.platform.platform.infra.runtime.SweepLockShutdown;
 import org.meldtech.platform.shared.kernel.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -127,6 +128,19 @@ class WorkloadConnectionPoolConfiguration {
                 openTelemetry,
                 queryTelemetry,
                 clock);
+    }
+
+    @Bean
+    @Profile("worker")
+    SweepLockShutdown sweepLockShutdown(
+            @Qualifier("sweepLockConnectionFactory") ConnectionFactory connections) {
+        if (!(connections instanceof TracingConnectionFactory tracing)
+                || !(tracing.delegate() instanceof SecurityContextInitializer secured)
+                || !(secured.delegate() instanceof ConnectionPool pool)) {
+            throw new IllegalStateException(
+                    "Sweep lock pool must be managed and security initialized");
+        }
+        return new SweepLockShutdown(pool.disposeLater());
     }
 
     @Bean

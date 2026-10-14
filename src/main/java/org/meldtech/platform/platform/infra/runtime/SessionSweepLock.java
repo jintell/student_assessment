@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.platform.api.SweepLock;
+import org.meldtech.platform.platform.api.SweepLockLostException;
 import org.meldtech.platform.platform.infra.persistence.DatabaseSecurityScopes;
 import org.meldtech.platform.platform.infra.persistence.DiscardableConnection;
 import org.reactivestreams.Publisher;
@@ -217,10 +218,13 @@ public final class SessionSweepLock implements SweepLock {
                     .flatMap(
                             held ->
                                     held
-                                            ? Mono.empty()
-                                            : Mono.error(
-                                                    new IllegalStateException(
-                                                            "Sweep advisory lock is no longer held")));
+                                            ? Mono.<Void>empty()
+                                            : Mono.error(new SweepLockLostException()))
+                    .onErrorMap(
+                            failure ->
+                                    failure instanceof SweepLockLostException
+                                            ? failure
+                                            : new SweepLockLostException(failure));
         }
 
         private Mono<Void> releaseOnce() {

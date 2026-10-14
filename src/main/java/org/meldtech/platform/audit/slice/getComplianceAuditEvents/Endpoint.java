@@ -1,6 +1,7 @@
 package org.meldtech.platform.audit.slice.getComplianceAuditEvents;
 
 import java.util.Objects;
+import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.PolicyResolver;
@@ -19,6 +20,7 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+@RoleScoped("api")
 public final class Endpoint implements PolicyProtectedRoute {
 
     public static final String ROUTE_ID = "audit.getComplianceAuditEvents";

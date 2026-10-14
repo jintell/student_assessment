@@ -10,6 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.PostgreSqlTestContainer;
 import org.meldtech.platform.RedisTestContainer;
+import org.meldtech.platform.RuntimeTestEnvironment;
 import org.meldtech.platform.shared.api.IsolationOperation;
 import org.meldtech.platform.shared.api.IsolationScenarioProvider;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
@@ -20,12 +21,16 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Import(TenantIsolationMatrixGateTest.IsolationGateConfiguration.class)
 @SpringBootTest
-@ActiveProfiles("api")
+@ActiveProfiles({"api", "local"})
+@ContextConfiguration(initializers = RuntimeTestEnvironment.class)
+@TestPropertySource("classpath:runtime-test.properties")
 class TenantIsolationMatrixGateTest {
 
     private static final Path MATRIX_OUTPUT =

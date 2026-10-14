@@ -1,5 +1,6 @@
 package org.meldtech.platform.platform.slice.getConformanceReference;
 
+import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.shared.api.PolicyDecision;
 import org.meldtech.platform.shared.api.PolicyProtectedRoute;
 import org.meldtech.platform.shared.api.PolicyResolver;
@@ -23,6 +24,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 @Component
+@RoleScoped("api")
 final class Endpoint implements PolicyProtectedRoute {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Endpoint.class);

@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.platform.api.SweepLock;
+import org.meldtech.platform.platform.api.SweepLockLostException;
 import org.meldtech.platform.platform.infra.persistence.DatabaseSecurityScopes;
 import org.meldtech.platform.platform.infra.persistence.DiscardableConnection;
 import org.slf4j.Logger;
@@ -169,8 +170,12 @@ public final class TransactionSweepLock implements SweepLock {
                                                     held
                                                             ? Mono.<Void>empty()
                                                             : Mono.error(
-                                                                    new IllegalStateException(
-                                                                            "Sweep advisory lock is no longer held")))
+                                                                    new SweepLockLostException()))
+                                    .onErrorMap(
+                                            failure ->
+                                                    failure instanceof SweepLockLostException
+                                                            ? failure
+                                                            : new SweepLockLostException(failure))
                                     .onErrorResume(
                                             failure ->
                                                     discardConnection(connection)
