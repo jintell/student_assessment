@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.meldtech.platform.platform.infra.runtime.RuntimeUnavailableException;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
@@ -35,6 +36,21 @@ class ProblemDetailWebExceptionHandlerTest {
 
     private static final CorrelationId CORRELATION_ID =
             CorrelationId.parse("01J9Z9Q9J6Y7TQ4PXKJ4D0M3NV");
+
+    @Test
+    void runtimeDrainUsesTheSanitized503Contract() {
+        var mapper =
+                new KernelErrorConfiguration()
+                        .problemDetailMapper(ProblemDetailMetrics.NOOP, () -> CORRELATION_ID);
+        var handler = new ProblemDetailWebExceptionHandler(mapper, new ObjectMapper());
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/reference"));
+        handler.handle(exchange, new RuntimeUnavailableException()).block();
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exchange.getResponse().getStatusCode());
+        String body = Objects.requireNonNull(exchange.getResponse().getBodyAsString().block());
+        org.assertj.core.api.Assertions.assertThat(body)
+                .contains("CBT-PLAT-UNAVAILABLE")
+                .doesNotContain("RuntimeUnavailableException", "draining", "shutdown");
+    }
 
     @Test
     void writesSanitizedNonCacheableProblemDetails() {

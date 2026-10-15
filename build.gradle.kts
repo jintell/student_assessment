@@ -164,6 +164,8 @@ dependencies {
         "org.springframework.modulith:spring-modulith-starter-test",
     )
     add(conformanceTestSourceSet.implementationConfigurationName, "org.ow2.asm:asm:9.10.1")
+    add(conformanceTestSourceSet.implementationConfigurationName, "org.ow2.asm:asm-tree:9.10.1")
+    add(conformanceTestSourceSet.implementationConfigurationName, "org.ow2.asm:asm-analysis:9.10.1")
     add(kernelCompileClasspath.name, "org.reactivestreams:reactive-streams")
 }
 
@@ -225,6 +227,12 @@ sourceSets.main {
 
 tasks.processResources {
     dependsOn(generateErrorCatalogue)
+    from("contracts/runtime-roles") {
+        into("contracts/runtime-roles")
+    }
+    from("contracts/feature-delivery-status.yaml") {
+        into("contracts")
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -274,6 +282,7 @@ dependencyLocking {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgs("-XX:MaxDirectMemorySize=128m")
 }
 
 tasks.jacocoTestReport {

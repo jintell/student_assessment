@@ -1,0 +1,1 @@
+org.springframework.boot.EnvironmentPostProcessor=org.meldtech.platform.platform.infra.runtime.RuntimeRoleEnvironmentPostProcessor

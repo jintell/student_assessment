@@ -19,6 +19,7 @@ import net.sf.jsqlparser.statement.merge.Merge;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.update.Update;
 import org.jspecify.annotations.Nullable;
+import org.meldtech.platform.platform.infra.persistence.DiscardableConnection;
 import org.meldtech.platform.shared.kernel.time.Clock;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -62,7 +63,7 @@ public final class TracingConnectionFactory implements ConnectionFactory {
         return delegate;
     }
 
-    private static final class TracingConnection implements Connection {
+    private static final class TracingConnection implements DiscardableConnection {
 
         private final Connection delegate;
         private final PlatformTracer tracer;
@@ -104,6 +105,13 @@ public final class TracingConnectionFactory implements ConnectionFactory {
         @Override
         public org.reactivestreams.Publisher<Void> close() {
             return delegate.close();
+        }
+
+        @Override
+        public reactor.core.publisher.Mono<Void> discard() {
+            return delegate instanceof DiscardableConnection discardable
+                    ? discardable.discard()
+                    : reactor.core.publisher.Mono.from(delegate.close());
         }
 
         @Override

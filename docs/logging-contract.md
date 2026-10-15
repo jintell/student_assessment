@@ -62,6 +62,15 @@ and retention schedule from the immutable audit store.
 
 ## Compatibility and Verification
 
+Runtime bootstrap resolves the active profile after profile-group expansion and
+adds the uppercase `role` field before Boot initializes JSON logging. Local
+console lines include the same role in their level prefix. The application
+JSON encoder also takes this process identity, not caller-supplied identity.
+`cbt.observability.resource.role` must agree with that resolved role; disagreement
+fails startup. All three OTLP SDK providers retain `service.runtime.role` in
+lowercase. Micrometer series use the bounded common label `runtime_role` with
+the same lowercase value, leaving existing database `role` labels unchanged.
+
 Adding a field requires privacy and security review, an update to the
 allowlist and this contract, and conformance coverage. Renaming, removing, or
 changing the meaning of a field is a breaking change for log consumers.

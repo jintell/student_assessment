@@ -863,6 +863,28 @@ New cleanup/coordination code must continue to satisfy the existing R9 rule,
 which only permits transaction opens inside SecurityContextInitializer (and
 its tracing wrapper); adding lock adapters to a blanket exemption is forbidden.
 
+P4.25 implementation boundary clarification (2026-10-14): the existing audit
+provisioning and outbox partition transaction locks are database integrity
+operations, not competing sweep acquisitions. Preserve the four applied
+migrations identified in the Phase 4 blocker under exact path/SHA-256 checks.
+Changing or copying them, or introducing new advisory SQL in another resource,
+fails the gate. This is a closed historical baseline, not a migration-directory
+exemption. The separate JDBC migration-verifier application remains outside the
+runtime application scan.
+
+The executable rule also freezes the reviewed source of existing SQL-forwarding
+adapters and closed query builders that necessarily accept SQL parameters.
+Their call sites remain checked; advisory literals remain forbidden. Changes
+to those sources invalidate the review and require renewed inspection. New or
+unreviewed dynamic SQL is rejected. These checks are conformance-only and do
+not add a runtime bypass annotation or change database authorization.
+
+The exact periodic-source owner is `RuntimeTickSources`, with `sweep`, `memory`
+and `whileHeld` signatures pinned in the rule. The last source monitors relay
+lock ownership and cancels unfinished work on loss. The relay consumes
+`SweepLock`; its local key derivation and advisory SQL are removed in the same
+change that activates the gate.
+
 Verification: inspected existing R2/R6/R9/R10 rules and negative-fixture style;
 enumerated current advisory SQL and role-profile declarations. Each new rule
 has distinct positive/negative coverage and a production-scan obligation.

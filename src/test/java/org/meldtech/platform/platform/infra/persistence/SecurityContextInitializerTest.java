@@ -10,6 +10,7 @@ import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryMetadata;
 import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Statement;
+import io.r2dbc.spi.Wrapped;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -68,6 +69,68 @@ class SecurityContextInitializerTest {
     }
 
     @Test
+    void beginsARetainedCoordinationTransactionWithItsSecurityContextInstalled() {
+        List<String> events = new ArrayList<>();
+        Mono<Void> begin =
+                Mono.from(initializer(events).create())
+                        .flatMap(DatabaseSecurityScopes::beginSweepCoordinationTransaction);
+
+        assertThat(events).isEmpty();
+        StepVerifier.create(begin).verifyComplete();
+
+        assertThat(events)
+                .containsExactly(
+                        "BEGIN",
+                        "SET LOCAL ROLE app_worker",
+                        "SET LOCAL app.platform_scope = 'sweep_registry_read'",
+                        "SET LOCAL search_path = pg_catalog, platform");
+    }
+
+    @Test
+    void initializesEachTransactionOnARetainedConnection() {
+        List<String> events = new ArrayList<>();
+        SecurityContextInitializer initializer = initializer(events);
+
+        Mono<Void> transactions =
+                Mono.from(initializer.create())
+                        .flatMap(
+                                connection ->
+                                        SecurityContextInitializer.withTenantScope(
+                                                        AssumableDatabaseRole.DELIVERY,
+                                                        tenantId(),
+                                                        committedTransaction(connection))
+                                                .then(
+                                                        SecurityContextInitializer.withTenantScope(
+                                                                AssumableDatabaseRole.DELIVERY,
+                                                                tenantId(),
+                                                                committedTransaction(connection)))
+                                                .then(Mono.from(connection.close())));
+
+        StepVerifier.create(transactions).verifyComplete();
+
+        assertThat(events)
+                .containsExactly(
+                        "BEGIN",
+                        "SET LOCAL ROLE app_delivery",
+                        "SET LOCAL app.tenant_id = '10000000-0000-0000-0000-000000000001'",
+                        "SET LOCAL search_path = pg_catalog, delivery",
+                        "COMMIT",
+                        "BEGIN",
+                        "SET LOCAL ROLE app_delivery",
+                        "SET LOCAL app.tenant_id = '10000000-0000-0000-0000-000000000001'",
+                        "SET LOCAL search_path = pg_catalog, delivery",
+                        "COMMIT",
+                        "RESET ROLE",
+                        "RESET ALL",
+                        "CLOSE");
+    }
+
+    private Mono<Void> committedTransaction(Connection connection) {
+        return Mono.defer(() -> Mono.from(connection.beginTransaction()))
+                .then(Mono.defer(() -> Mono.from(connection.commitTransaction())));
+    }
+
+    @Test
     void defersApplicationWorkUntilContextInstallationCompletes() {
         List<String> events = new ArrayList<>();
 
@@ -107,6 +170,23 @@ class SecurityContextInitializerTest {
                                         .isInstanceOf(IllegalStateException.class)
                                         .hasMessageContaining("R9_CONTEXT_NOT_FIRST"))
                 .verifyComplete();
+    }
+
+    @Test
+    void discardClosesThePhysicalConnectionBeforeReleasingThePoolLease() {
+        List<String> events = new ArrayList<>();
+        Connection physical = closeOnlyConnection(events, "PHYSICAL_CLOSE");
+        Connection pooled = wrappedConnection(physical, events);
+        SecurityContextInitializer initializer =
+                new SecurityContextInitializer(factory(pooled, () -> "test-database"));
+
+        StepVerifier.create(
+                        Mono.from(initializer.create())
+                                .cast(DiscardableConnection.class)
+                                .flatMap(DiscardableConnection::discard))
+                .verifyComplete();
+
+        assertThat(events).containsExactly("PHYSICAL_CLOSE", "LEASE_CLOSE");
     }
 
     @Test
@@ -398,6 +478,43 @@ class SecurityContextInitializerTest {
                         (proxy, method, arguments) -> {
                             if (method.getName().equals("toString")) {
                                 return "connection";
+                            }
+                            throw new UnsupportedOperationException(method.getName());
+                        });
+    }
+
+    private Connection wrappedConnection(Connection physical, List<String> events) {
+        return (Connection)
+                Proxy.newProxyInstance(
+                        getClass().getClassLoader(),
+                        new Class<?>[] {Connection.class, Wrapped.class},
+                        (proxy, method, arguments) -> {
+                            if (method.getName().equals("unwrap")) {
+                                return physical;
+                            }
+                            if (method.getName().equals("close")) {
+                                events.add("LEASE_CLOSE");
+                                return Mono.empty();
+                            }
+                            if (method.getName().equals("toString")) {
+                                return "pooled-connection";
+                            }
+                            throw new UnsupportedOperationException(method.getName());
+                        });
+    }
+
+    private Connection closeOnlyConnection(List<String> events, String closeEvent) {
+        return (Connection)
+                Proxy.newProxyInstance(
+                        getClass().getClassLoader(),
+                        new Class<?>[] {Connection.class},
+                        (proxy, method, arguments) -> {
+                            if (method.getName().equals("close")) {
+                                events.add(closeEvent);
+                                return Mono.empty();
+                            }
+                            if (method.getName().equals("toString")) {
+                                return "physical-connection";
                             }
                             throw new UnsupportedOperationException(method.getName());
                         });

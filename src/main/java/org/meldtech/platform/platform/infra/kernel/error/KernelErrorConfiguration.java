@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.meldtech.platform.platform.infra.idempotency.IdempotencyUnavailableException;
+import org.meldtech.platform.platform.infra.runtime.RuntimeUnavailableException;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.error.ProblemCodeDefinition;
 import org.meldtech.platform.shared.kernel.error.ProblemDetailMapper;
@@ -35,6 +36,7 @@ class KernelErrorConfiguration {
                 .forEach((code, definition) -> catalogue.put(code, toKernelDefinition(definition)));
         Map<Class<? extends Throwable>, String> mappings = new LinkedHashMap<>();
         mappings.put(IdempotencyUnavailableException.class, "CBT-PLAT-IDEMPOTENCY-UNAVAILABLE");
+        mappings.put(RuntimeUnavailableException.class, "CBT-PLAT-UNAVAILABLE");
         mappings.put(AuthenticationException.class, "CBT-PLAT-UNAUTHORISED");
         mappings.put(AccessDeniedException.class, "CBT-PLAT-FORBIDDEN");
         mappings.put(IllegalArgumentException.class, "CBT-PLAT-VALIDATION");
