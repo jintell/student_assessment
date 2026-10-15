@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,6 +30,7 @@ import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.CorrelationIdGenerator;
 import org.meldtech.platform.shared.kernel.context.SystemActor;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import reactor.core.publisher.Mono;
@@ -83,6 +87,53 @@ class SweepRunnerTest {
         } finally {
             runner.stop();
             meters.close();
+        }
+    }
+
+    @Test
+    void sweepFailuresDoNotLogPayloadDriverTextOrTenantIdentifiers() {
+        String sensitive =
+                "org.postgresql.Driver password=driver-secret tenant=01950f47-6000-7000-8000-000000000001";
+        Logger logger = (Logger) LoggerFactory.getLogger(SweepRunner.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        var scheduler = VirtualTimeScheduler.create();
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner =
+                runner(
+                        List.of(),
+                        name -> Mono.just(handle(Mono.empty(), Mono.empty())),
+                        scheduler,
+                        shutdown);
+        try {
+            runner.start();
+            StepVerifier.create(
+                            runner.runTick(
+                                    sweep(
+                                            "reference",
+                                            stop ->
+                                                    Mono.error(
+                                                            new IllegalStateException(sensitive)))))
+                    .verifyComplete();
+
+            assertThat(appender.list)
+                    .singleElement()
+                    .satisfies(
+                            event -> {
+                                assertThat(event.getFormattedMessage())
+                                        .isEqualTo("sweep_tick_failed sweep_name=reference")
+                                        .doesNotContain(
+                                                "org.postgresql.Driver",
+                                                "driver-secret",
+                                                "01950f47-6000-7000-8000-000000000001");
+                                assertThat(event.getThrowableProxy()).isNull();
+                            });
+        } finally {
+            runner.stop();
+            shutdown.stop();
+            logger.detachAppender(appender);
+            appender.stop();
         }
     }
 

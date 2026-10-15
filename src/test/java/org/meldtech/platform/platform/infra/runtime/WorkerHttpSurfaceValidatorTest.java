@@ -57,6 +57,26 @@ class WorkerHttpSurfaceValidatorTest {
                                                     .getProperty(
                                                             "management.endpoints.web.exposure.include"))
                                     .isEqualTo("health");
+                            assertThat(
+                                            context.getEnvironment()
+                                                    .getProperty(
+                                                            "management.endpoint.health.show-details"))
+                                    .isEqualTo("never");
+                            assertThat(
+                                            context.getEnvironment()
+                                                    .getProperty(
+                                                            "management.endpoint.health.show-components"))
+                                    .isEqualTo("never");
+                            assertThat(
+                                            context.getEnvironment()
+                                                    .getProperty(
+                                                            "management.endpoint.health.group.live.include"))
+                                    .isEqualTo("livenessState,ping,runtimeMemory");
+                            assertThat(
+                                            context.getEnvironment()
+                                                    .getProperty(
+                                                            "management.endpoint.health.group.ready.include"))
+                                    .isEqualTo("readinessState,ping,runtimeDrain");
                         });
     }
 

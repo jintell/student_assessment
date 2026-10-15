@@ -43,7 +43,7 @@ final class SweepTelemetry {
             var timestamp = new AtomicLong();
             lastSuccess.put(sweep, timestamp);
             Gauge.builder("sweep.last.success.timestamp", timestamp, AtomicLong::doubleValue)
-                    .tag("sweep", sweep)
+                    .tag(SweepLogPolicy.SWEEP, sweep)
                     .register(meters);
         }
         return new Tick(sweep, java.util.Objects.requireNonNull(lastSuccess.get(sweep)));
@@ -66,7 +66,7 @@ final class SweepTelemetry {
         }
 
         void batch(int count) {
-            meters.summary("sweep.batch.size", "sweep", sweep).record(count);
+            meters.summary("sweep.batch.size", SweepLogPolicy.SWEEP, sweep).record(count);
         }
 
         synchronized void failed(Throwable failure) {
@@ -90,9 +90,19 @@ final class SweepTelemetry {
             if (signal == SignalType.CANCEL || (interrupted && outcome == Outcome.SUCCESS)) {
                 outcome = Outcome.INTERRUPTED;
             }
-            meters.counter("sweep.tick.outcome", "sweep", sweep, "outcome", outcome.name())
+            meters.counter(
+                            "sweep.tick.outcome",
+                            SweepLogPolicy.SWEEP,
+                            sweep,
+                            SweepLogPolicy.OUTCOME,
+                            outcome.name())
                     .increment();
-            meters.timer("sweep.tick.duration", "sweep", sweep, "outcome", outcome.name())
+            meters.timer(
+                            "sweep.tick.duration",
+                            SweepLogPolicy.SWEEP,
+                            sweep,
+                            SweepLogPolicy.OUTCOME,
+                            outcome.name())
                     .record(
                             meters.config().clock().monotonicTime() - started,
                             TimeUnit.NANOSECONDS);

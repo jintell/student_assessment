@@ -206,8 +206,9 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
                 .onErrorResume(
                         failure -> {
                             LOGGER.warn(
-                                    "sweep_tick_failed sweep_name={}",
-                                    sweep.definition().metadata().name());
+                                    "sweep_tick_failed " + SweepLogPolicy.SWEEP_NAME + "={}",
+                                    SweepLogPolicy.safeSweepName(
+                                            sweep.definition().metadata().name()));
                             return Mono.empty();
                         });
     }

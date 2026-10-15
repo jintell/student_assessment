@@ -240,9 +240,12 @@ public final class SessionSweepLock implements SweepLock {
                     .onErrorResume(
                             failure -> {
                                 LOGGER.warn(
-                                        "sweep_lock_release_failed sweep_name={} action=discard_connection",
-                                        sweepName,
-                                        failure);
+                                        "sweep_lock_release_failed "
+                                                + SweepLogPolicy.SWEEP_NAME
+                                                + "={} "
+                                                + SweepLogPolicy.ACTION
+                                                + "=discard_connection",
+                                        SweepLogPolicy.safeSweepName(sweepName));
                                 return discard(connection, failure).then(Mono.error(failure));
                             });
         }

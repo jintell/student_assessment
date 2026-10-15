@@ -86,7 +86,7 @@ public final class SweepLockShutdown implements SmartLifecycle {
         shutdown.subscribe(
                 ignored -> {},
                 failure -> {
-                    LOGGER.error("sweep_lock_drain_failed", failure);
+                    LOGGER.error("sweep_lock_drain_failed");
                     callback.run();
                 },
                 callback);

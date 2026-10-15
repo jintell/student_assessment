@@ -247,16 +247,39 @@ absence from oversight.
 
 # Phase 6 – Security and Hardening
 
+Initial execution attempt (2026-10-15), `P6.1-P6.10`: **blocked at P6.1**. The
+signed P0.8 request remains `NOT_PROVISIONED`; the accessible `cbt-staging`
+context is a local kind cluster without any of the three runtime ServiceAccounts.
+Real provider-backed federation cannot be established from the existing
+inventory annotation alone. P6.2-P6.10 were not entered during that attempt.
+Evidence and resumption
+requirements: `docs/evidence/FEAT-PLAT-006/phase-6-security-hardening.md`.
+Read-only reinspection confirmed the blocker. The closure checklist uses the
+actual worker ServiceAccount `cbt-platform-worker` and requires three distinct
+provider principals plus verified federation before P6.1 can be completed.
+The separate `P6.2-P6.10` execution completed P6.2, then stopped at P6.3:
+the accessible cluster has no NetworkPolicy or role-specific application pods,
+so it cannot provide the required API/worker-to-pindist network-denial evidence.
+At the user's direction, later independent tasks continue while blocked tasks
+remain open. P6.6 is also blocked because no runtime ingress or Service is
+deployed in the accessible cluster for the required external exposure proof.
+P6.8's history-aware secret scan is green, but the task remains blocked on the
+same missing workloads and provider-backed identities needed to prove live
+external-secret delivery.
+P6.9 is blocked because FEAT-AUD-001's `AuditEmitter` rejects every tenantless
+platform actor, while `platform.sweep_registry` is deliberately non-tenant
+scoped; no conforming same-transaction audit emission can currently be made.
+
 1. [ ] Federate the `cbt-pindist` `ServiceAccount` to a distinct cloud workload identity with Platform Ops. Deliverable: identity provisioning record. Depends on `P0.8`. Acceptance: the identity is distinct from the `cbt-api` and `cbt-worker` identities; this is the control `REQ-SEC-014` demands and a package boundary cannot provide.
-2. [ ] Record the KMS key-policy precondition this feature hands to `FEAT-EXAM-002`: the retrieval KEK names the distribution identity as its only `Encrypt`/`Decrypt` principal, with an explicit deny for the other two. Deliverable: precondition record. Acceptance: states plainly that the grant, its denial attestation (`ARC-VERIFY-025`) and condition **A4** are `FEAT-EXAM-002`'s and are **not** discharged here.
+2. [*] Record the KMS key-policy precondition this feature hands to `FEAT-EXAM-002`: the retrieval KEK names the distribution identity as its only `Encrypt`/`Decrypt` principal, with an explicit deny for the other two. Deliverable: precondition record. Acceptance: states plainly that the grant, its denial attestation (`ARC-VERIFY-025`) and condition **A4** are `FEAT-EXAM-002`'s and are **not** discharged here.
 3. [ ] Verify the `NetworkPolicy` denies `cbt-api` → `cbt-pindist` and `cbt-worker` → `cbt-pindist` by negative test in the target cluster. Deliverable: negative-path evidence. Acceptance: a connection attempt from each of the two identities fails at the network layer, not at the application layer.
-4. [ ] Assert against `pg_roles` that no runtime role holds membership of another's login role. Deliverable: privilege assertion. Acceptance: `app_pindist` can assume nothing `app_api` or `app_worker` can, and the assertion runs in CI rather than at review time.
-5. [ ] Assert that the active role cannot be influenced by request data — no header, query parameter, cookie or body field participates in role or profile resolution. Deliverable: role-selection assertion. Acceptance: the role is a process property fixed at boot; a request cannot escalate into another role's bean set.
+4. [*] Assert against `pg_roles` that no runtime role holds membership of another's login role. Deliverable: privilege assertion. Acceptance: `app_pindist` can assume nothing `app_api` or `app_worker` can, and the assertion runs in CI rather than at review time.
+5. [*] Assert that the active role cannot be influenced by request data — no header, query parameter, cookie or body field participates in role or profile resolution. Deliverable: role-selection assertion. Acceptance: the role is a process property fixed at boot; a request cannot escalate into another role's bean set.
 6. [ ] Confirm the management port is not routed by ingress on any role. Deliverable: exposure evidence carrying `TASK-PLAT6-DEFECT-004`. Acceptance: an external caller reaches no probe; `pindist`'s 404-everything rule holds for every ingress path but the reserved template.
-7. [ ] Confirm probe responses disclose no topology, version detail or credential state to an unauthenticated caller. Deliverable: probe response review. Acceptance: `/health/live` and `/health/ready` return status only; detailed diagnostics require operator authorization, per the plan's `FEAT-OPS-001` expectation.
+7. [*] Confirm probe responses disclose no topology, version detail or credential state to an unauthenticated caller. Deliverable: probe response review. Acceptance: `/health/live` and `/health/ready` return status only; detailed diagnostics require operator authorization, per the plan's `FEAT-OPS-001` expectation.
 8. [ ] Confirm every secret this feature's configuration references is fetched from the external secret manager via workload identity, and none exists in the image, source or a committed env file. Deliverable: secret-handling evidence (`ARC-SEC-013`). Acceptance: passes the CI stage 11 history-aware secret scan.
 9. [ ] Emit an audit event for any operator mutation of `platform.sweep_registry` — enabling, disabling or re-tuning a sweep. Deliverable: audit emission in the same transaction as the change. Acceptance: satisfies R8 for the one mutating path this feature owns; the audit port itself remains `FEAT-AUD-001`'s.
-10. [ ] Confirm sweep logs and tick outcomes leak no payload, driver text or tenant identifier. Deliverable: error-hygiene review. Acceptance: reuses `FEAT-PLAT-003`'s `SecretFieldPattern` rather than defining a second pattern.
+10. [*] Confirm sweep logs and tick outcomes leak no payload, driver text or tenant identifier. Deliverable: error-hygiene review. Acceptance: reuses `FEAT-PLAT-003`'s `SecretFieldPattern` rather than defining a second pattern.
 
 ---
 

@@ -101,8 +101,12 @@ public final class TransactionSweepLock implements SweepLock {
                 .onErrorResume(
                         failure -> {
                             LOGGER.warn(
-                                    "sweep_lock_release_failed sweep_name={} action=discard_connection",
-                                    sweepName);
+                                    "sweep_lock_release_failed "
+                                            + SweepLogPolicy.SWEEP_NAME
+                                            + "={} "
+                                            + SweepLogPolicy.ACTION
+                                            + "=discard_connection",
+                                    SweepLogPolicy.safeSweepName(sweepName));
                             return discardConnection(connection)
                                     .onErrorResume(
                                             cleanupFailure -> {
