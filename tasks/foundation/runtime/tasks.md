@@ -285,30 +285,42 @@ scoped; no conforming same-transaction audit emission can currently be made.
 
 # Phase 7 – Testing and Quality Assurance
 
+Execution status (2026-10-15), requested ranges `P7.2-P7.18` and
+`P7.20-P7.24`: `P7.2-P7.16` and `P7.20-P7.24` completed. `P7.17` is blocked
+because the signed P0.8 request remains
+`NOT_PROVISIONED` and the accessible `docker-desktop` cluster has no deployed
+API/worker/pindist ingress or Services whose live affinity values can be read.
+`P7.18` is blocked because that cluster has no multi-replica deployment of the
+conformance-only reference slice behind a Service, so a replica cannot be
+killed mid-request and failed over to another. The blocked tasks were skipped
+and remain open;
+exact inventory and resumption requirements are retained in
+`docs/evidence/FEAT-PLAT-006/phase-7-testing-quality-assurance.md`.
+
 1. [*] Prove exactly-one-sweep: N concurrent runners contending for one sweep name against real PostgreSQL produce exactly one execution per tick. Deliverable: integration test (CI 8). Acceptance: the card's headline acceptance outcome; N ≥ 4; asserted over repeated ticks, not one.
-2. [ ] Prove a lock lost mid-tick stops that sweep rather than letting two proceed. Deliverable: integration test. Acceptance: the losing runner records `skipped-because-lock-lost` and abandons at its batch boundary.
-3. [ ] Prove a loser skips the tick without waiting. Deliverable: integration test. Acceptance: the loser returns within the tick budget; no runner blocks on another's lock, so try-semantics are real.
-4. [ ] Prove the two lock adapters are behaviourally equivalent for acquisition, contention and release. Deliverable: parameterised integration test. Acceptance: `P7.1`–`P7.3` pass against both, so the `T-15` PgBouncer switch is a configuration change.
-5. [ ] Prove per-replica non-overlap: a sweep whose execution exceeds its interval delays its next tick rather than running concurrently with itself. Deliverable: integration test. Acceptance: `concatMap` serialisation demonstrated, not assumed.
-6. [ ] Prove the relay permit is not starved by a long-running sweep. Deliverable: integration test. Acceptance: a sweep occupying the shared permit for longer than the relay's interval does not delay relay ticks — the reason for the second permit.
-7. [ ] Prove a registered sweep bean with no registry row fails the boot. Deliverable: startup test. Acceptance: the message names the sweep; there is no fallback registration.
-8. [ ] Prove two registry rows sharing a lock key fail the boot. Deliverable: startup test. Acceptance: the message names both sweeps.
-9. [ ] Prove an out-of-range sweep interval or shutdown timeout fails the boot. Deliverable: startup test carrying `TASK-PLAT6-DEFECT-007`. Acceptance: the value is rejected, not clamped; no override flag exists.
-10. [ ] Prove each of the three roles produces exactly its manifest bean set. Deliverable: three per-role context tests (CI 7). Acceptance: an added bean fails; this is `ADR-012`'s per-role bean-enablement suite, which the baseline allocated to no stage.
-11. [ ] Prove the request role exposes no scheduler and no broker consumer. Deliverable: role-isolation test. Acceptance: the card's acceptance outcome, asserted over the context rather than by inspection.
-12. [ ] Prove the background role serves no business HTTP. Deliverable: role-isolation test. Acceptance: probes respond on the management port; every business route is absent from the context.
-13. [ ] Prove the isolated role serves at most the reserved route plus its probes. Deliverable: role-isolation test carrying `TASK-PLAT6-DEFECT-004` and `TASK-PLAT6-OBS-002`. Acceptance: any other ingress path returns `404`; the reserved template is the only allowlisted business route.
-14. [ ] Prove graceful shutdown mid-sweep: the in-flight batch commits or rolls back cleanly and no work unit is lost or double-applied. Deliverable: integration test (`NFR-REL-004`). Acceptance: the §19.7 shutdown drill's equivalent at integration level, since CI 18 is scheduled rather than per-commit.
-15. [ ] Prove shutdown releases the advisory lock, and that another replica acquires it on its next tick. Deliverable: integration test. Acceptance: the acquisition delay is bounded by one tick interval, not by the backend's session lifetime.
-16. [ ] Prove the shutdown sequence completes inside the grace-period budget from `P3.9`. Deliverable: timing evidence. Acceptance: the measured total is stated against `terminationGracePeriodSeconds` 60 with margin.
+2. [*] Prove a lock lost mid-tick stops that sweep rather than letting two proceed. Deliverable: integration test. Acceptance: the losing runner records `skipped-because-lock-lost` and abandons at its batch boundary.
+3. [*] Prove a loser skips the tick without waiting. Deliverable: integration test. Acceptance: the loser returns within the tick budget; no runner blocks on another's lock, so try-semantics are real.
+4. [*] Prove the two lock adapters are behaviourally equivalent for acquisition, contention and release. Deliverable: parameterised integration test. Acceptance: `P7.1`–`P7.3` pass against both, so the `T-15` PgBouncer switch is a configuration change.
+5. [*] Prove per-replica non-overlap: a sweep whose execution exceeds its interval delays its next tick rather than running concurrently with itself. Deliverable: integration test. Acceptance: `concatMap` serialisation demonstrated, not assumed.
+6. [*] Prove the relay permit is not starved by a long-running sweep. Deliverable: integration test. Acceptance: a sweep occupying the shared permit for longer than the relay's interval does not delay relay ticks — the reason for the second permit.
+7. [*] Prove a registered sweep bean with no registry row fails the boot. Deliverable: startup test. Acceptance: the message names the sweep; there is no fallback registration.
+8. [*] Prove two registry rows sharing a lock key fail the boot. Deliverable: startup test. Acceptance: the message names both sweeps.
+9. [*] Prove an out-of-range sweep interval or shutdown timeout fails the boot. Deliverable: startup test carrying `TASK-PLAT6-DEFECT-007`. Acceptance: the value is rejected, not clamped; no override flag exists.
+10. [*] Prove each of the three roles produces exactly its manifest bean set. Deliverable: three per-role context tests (CI 7). Acceptance: an added bean fails; this is `ADR-012`'s per-role bean-enablement suite, which the baseline allocated to no stage.
+11. [*] Prove the request role exposes no scheduler and no broker consumer. Deliverable: role-isolation test. Acceptance: the card's acceptance outcome, asserted over the context rather than by inspection.
+12. [*] Prove the background role serves no business HTTP. Deliverable: role-isolation test. Acceptance: probes respond on the management port; every business route is absent from the context.
+13. [*] Prove the isolated role serves at most the reserved route plus its probes. Deliverable: role-isolation test carrying `TASK-PLAT6-DEFECT-004` and `TASK-PLAT6-OBS-002`. Acceptance: any other ingress path returns `404`; the reserved template is the only allowlisted business route.
+14. [*] Prove graceful shutdown mid-sweep: the in-flight batch commits or rolls back cleanly and no work unit is lost or double-applied. Deliverable: integration test (`NFR-REL-004`). Acceptance: the §19.7 shutdown drill's equivalent at integration level, since CI 18 is scheduled rather than per-commit.
+15. [*] Prove shutdown releases the advisory lock, and that another replica acquires it on its next tick. Deliverable: integration test. Acceptance: the acquisition delay is bounded by one tick interval, not by the backend's session lifetime.
+16. [*] Prove the shutdown sequence completes inside the grace-period budget from `P3.9`. Deliverable: timing evidence. Acceptance: the measured total is stated against `terminationGracePeriodSeconds` 60 with margin.
 17. [ ] Assert session affinity is off in the deployed ingress and Service values for all three roles. Deliverable: manifest assertion (`ARC-VERIFY-007` static limb, CI 16). Depends on fulfillment of the `P0.8` Platform Ops provisioning request. Acceptance: the assertion reads the values actually deployed, not a template.
 18. [ ] Run the surrogate statelessness drill: kill a replica mid-request against `FEAT-PLAT-001 tasks.md`'s conformance-only reference slice and confirm the next request succeeds on another replica. Deliverable: drill evidence carrying `TASK-PLAT6-DEFECT-006`. Acceptance: records explicitly that this is **not** `ARC-VERIFY-007`, whose mid-exam scenario requires `FEAT-DLV-001` and a staging environment, and names the scheduled Phase 3/6 re-run.
 19. [*] Close the `TASK-PLAT4-DEFECT-004` seam: replace `FEAT-PLAT-004`'s local `pg_advisory_xact_lock` acquisition with `SweepLock`, then re-run `FEAT-PLAT-004 tasks.md` `P7.6` and this feature's `P7.1`. Deliverable: adoption evidence. Depends on `FEAT-PLAT-004` delivery; counterpart of `FEAT-PLAT-004 tasks.md` `P4.6` and `P7.17`. Acceptance: one lock mechanism remains in the codebase, not two, and `P4.25` now prevents a second.
-20. [ ] Prove a sweep cannot execute a statement before installing its role and platform-scope marker. Deliverable: integration test. Acceptance: R9 holds for a context with no request; a bypass attempt fails rather than reading zero rows.
-21. [ ] Prove each sweep runs under its declared system actor. Deliverable: integration test. Acceptance: the actor is one of `ActorContext`'s enumerated system actors; an undeclared sweep fails at `P4.8`.
-22. [ ] Prove the connection budget holds when every enabled sweep ticks simultaneously. Deliverable: integration test carrying `TASK-PLAT6-DEFECT-003`. Acceptance: at most two lock-holding connections per replica; grading and dispatcher connections remain available.
-23. [ ] Verify each of the card's five acceptance outcomes with one assertion apiece. Deliverable: acceptance-outcome test map. Acceptance: one image produces all three roles; the request role runs no scheduler or consumer; the background role serves no HTTP but health; the isolated role serves one route under its own identity; a sweep runs on exactly one replica per tick.
-24. [ ] Run the unit and slice suites for the runner, the adapters, the validators and the lifecycle beans, and confirm CI stages 5, 6 and 7 thresholds hold for the code added. Deliverable: suite evidence. Acceptance: no state machine added here falls below the stage 6 mutation threshold.
+20. [*] Prove a sweep cannot execute a statement before installing its role and platform-scope marker. Deliverable: integration test. Acceptance: R9 holds for a context with no request; a bypass attempt fails rather than reading zero rows.
+21. [*] Prove each sweep runs under its declared system actor. Deliverable: integration test. Acceptance: the actor is one of `ActorContext`'s enumerated system actors; an undeclared sweep fails at `P4.8`.
+22. [*] Prove the connection budget holds when every enabled sweep ticks simultaneously. Deliverable: integration test carrying `TASK-PLAT6-DEFECT-003`. Acceptance: at most two lock-holding connections per replica; grading and dispatcher connections remain available.
+23. [*] Verify each of the card's five acceptance outcomes with one assertion apiece. Deliverable: acceptance-outcome test map. Acceptance: one image produces all three roles; the request role runs no scheduler or consumer; the background role serves no HTTP but health; the isolated role serves one route under its own identity; a sweep runs on exactly one replica per tick.
+24. [*] Run the unit and slice suites for the runner, the adapters, the validators and the lifecycle beans, and confirm CI stages 5, 6 and 7 thresholds hold for the code added. Deliverable: suite evidence. Acceptance: no state machine added here falls below the stage 6 mutation threshold. Evidence: `docs/evidence/FEAT-PLAT-006/P7.24-suite-and-mutation-gate.md`.
 
 ---
 

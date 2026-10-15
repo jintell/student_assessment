@@ -11,8 +11,26 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class ApiWorkloadExclusionValidatorTest {
     @Test
-    void cleanApiContextStarts() {
-        runner("api").run(context -> assertThat(context).hasNotFailed());
+    void requestRoleContextHasNoSchedulerOrBrokerConsumer() {
+        runner("api")
+                .run(
+                        context -> {
+                            assertThat(context).hasNotFailed();
+                            assertThat(context.getBeansOfType(RuntimeIntervalSource.class))
+                                    .isEmpty();
+                            assertThat(context.getBeansOfType(MessageListenerContainer.class))
+                                    .isEmpty();
+                            assertThat(context.getBeanFactory().getBeanDefinitionNames())
+                                    .noneMatch(
+                                            name -> {
+                                                Class<?> type =
+                                                        context.getBeanFactory()
+                                                                .getType(name, false);
+                                                return type != null
+                                                        && RuntimeManifestVerifier.isBrokerConsumer(
+                                                                type);
+                                            });
+                        });
     }
 
     @Test

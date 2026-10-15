@@ -70,6 +70,7 @@ class SweepRunnerTest {
         var sweep = sweep("reference", stop -> Mono.just(new SweepBatchResult(4, false)));
         try {
             runner.start();
+            assertThat(runner.isRunning()).isTrue();
             for (int tick = 0; tick < 3; tick++) {
                 StepVerifier.create(runner.runTick(sweep)).verifyComplete();
             }
@@ -87,6 +88,33 @@ class SweepRunnerTest {
         } finally {
             runner.stop();
             meters.close();
+        }
+    }
+
+    @Test
+    void completedTickLetsTheFinalLockPhaseFinishImmediately() {
+        var scheduler = VirtualTimeScheduler.create();
+        var callbacks = new AtomicInteger();
+        var shutdown = new SweepLockShutdown(Mono.empty());
+        var runner =
+                runner(
+                        List.of(),
+                        name -> Mono.just(handle(Mono.empty(), Mono.empty())),
+                        scheduler,
+                        shutdown);
+        try {
+            runner.start();
+            StepVerifier.create(
+                            runner.runTick(
+                                    sweep(
+                                            "reference",
+                                            stop -> Mono.just(new SweepBatchResult(1, false)))))
+                    .verifyComplete();
+            shutdown.stop(callbacks::incrementAndGet);
+            assertThat(callbacks).hasValue(1);
+        } finally {
+            runner.stop();
+            shutdown.stop();
         }
     }
 

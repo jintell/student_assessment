@@ -27,8 +27,11 @@ class SweepTelemetryTest {
                 tick.acquired();
             }
             switch (outcome) {
-                case SKIPPED_LOCK_LOST ->
-                        tick.failed(new RuntimeException(new SweepLockLostException()));
+                case SKIPPED_LOCK_LOST -> {
+                    var cleanupFailure = new RuntimeException("cleanup failed");
+                    cleanupFailure.addSuppressed(new SweepLockLostException());
+                    tick.failed(cleanupFailure);
+                }
                 case TIMEOUT -> tick.failed(new TimeoutException());
                 case FAILED -> tick.failed(new IllegalStateException());
                 case SUCCESS -> tick.batch(3);

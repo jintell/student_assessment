@@ -153,6 +153,78 @@ class ReferenceSweepIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
     }
 
     @Test
+    void shutdownReleasesTheLockForAnotherReplicasNextTick() throws Exception {
+        var firstEntered = new CountDownLatch(1);
+        Sinks.Empty<Void> commit = Sinks.empty();
+        var firstSweep =
+                new ReferenceSweep(
+                        pools.transactions(),
+                        observation -> {
+                            firstEntered.countDown();
+                            return commit.asMono();
+                        });
+        var secondEntered = new CountDownLatch(1);
+        var secondSweep =
+                new ReferenceSweep(
+                        pools.transactions(),
+                        observation -> {
+                            secondEntered.countDown();
+                            return Mono.empty();
+                        });
+        try (var first = new SweepRuntime(firstSweep);
+                var second = new SweepRuntime(secondSweep)) {
+            first.start();
+            assertThat(firstEntered.await(5, TimeUnit.SECONDS)).isTrue();
+
+            var drained = first.beginDrain();
+            commit.tryEmitEmpty();
+            drained.get(5, TimeUnit.SECONDS);
+            first.releaseLocks();
+
+            second.runner.start();
+            second.scheduler.advanceTimeBy(Duration.ofMillis(99));
+            assertThat(secondEntered.getCount()).isEqualTo(1);
+            second.scheduler.advanceTimeBy(Duration.ofMillis(1));
+            assertThat(secondEntered.await(5, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            commit.tryEmitEmpty();
+        }
+    }
+
+    @Test
+    void shutdownSequenceCompletesWithinTheGracePeriodWithMargin() throws Exception {
+        var entered = new CountDownLatch(1);
+        Sinks.Empty<Void> commit = Sinks.empty();
+        var sweep =
+                new ReferenceSweep(
+                        pools.transactions(),
+                        observation -> {
+                            entered.countDown();
+                            return commit.asMono();
+                        });
+        try (var runtime = new SweepRuntime(sweep)) {
+            runtime.start();
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+
+            long started = System.nanoTime();
+            var drained = runtime.beginDrain();
+            commit.tryEmitEmpty();
+            drained.get(5, TimeUnit.SECONDS);
+            runtime.releaseLocks();
+            Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
+            long graceMarginMillis = Duration.ofSeconds(30).minus(elapsed).toMillis();
+
+            assertThat(elapsed).isLessThan(Duration.ofSeconds(5));
+            assertThat(graceMarginMillis).isGreaterThanOrEqualTo(25_000);
+            System.out.printf(
+                    "P7.16 shutdown_sequence_ms=%d termination_grace_ms=60000 margin_after_prestop_ms=%d%n",
+                    elapsed.toMillis(), graceMarginMillis);
+        } finally {
+            commit.tryEmitEmpty();
+        }
+    }
+
+    @Test
     void registryAndSecurityContextCannotBeBypassed() throws Exception {
         var sweep = new ReferenceSweep(pools.transactions(), observation -> Mono.empty());
         StepVerifier.create(sweep.runBatch(() -> false))

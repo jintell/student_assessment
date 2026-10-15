@@ -2,10 +2,18 @@ package org.meldtech.platform.platform.infra.runtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +26,14 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 class WorkerHttpSurfaceValidatorTest {
+    private static final String EXCLUDED_AUTO_CONFIGURATIONS =
+            String.join(
+                    ",",
+                    "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration",
+                    "org.springframework.modulith.observability.autoconfigure.ModuleObservabilityAutoConfiguration",
+                    "org.springframework.modulith.actuator.autoconfigure.ApplicationModulesEndpointConfiguration",
+                    "org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration",
+                    "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration");
     private static final List<String> VALID_CONFIGURATION =
             List.of(
                     "spring.profiles.active=worker",
@@ -35,6 +51,46 @@ class WorkerHttpSurfaceValidatorTest {
     @Test
     void workerStartsWithManagementOnlyConfigurationAndNoBusinessRoutes() {
         runner().run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void workerServesProbesOnManagementPortAndNoBusinessHttp() throws Exception {
+        try (var context =
+                new SpringApplicationBuilder(WorkerProbeApplication.class)
+                        .web(WebApplicationType.REACTIVE)
+                        .properties(
+                                "spring.config.location=optional:classpath:/worker-probe-test.properties",
+                                "spring.profiles.active=worker",
+                                "spring.autoconfigure.exclude=" + EXCLUDED_AUTO_CONFIGURATIONS,
+                                "server.port=0",
+                                "spring.web.resources.add-mappings=false",
+                                "management.server.port=9091",
+                                "management.endpoints.enabled-by-default=false",
+                                "management.endpoints.web.base-path=/",
+                                "management.endpoints.web.path-mapping.health=health",
+                                "management.endpoints.web.exposure.include=health",
+                                "management.endpoints.web.discovery.enabled=false",
+                                "management.endpoint.health.enabled=true",
+                                "management.endpoint.health.show-details=never",
+                                "management.endpoint.health.show-components=never",
+                                "management.endpoint.health.group.live.include=ping",
+                                "management.endpoint.health.group.ready.include=ping")
+                        .run()) {
+            assertThat(BusinessRouteInventory.inspect(context)).isEmpty();
+            assertProbeResponds("/health/live");
+            assertProbeResponds("/health/ready");
+        }
+    }
+
+    private static void assertProbeResponds(String path) throws Exception {
+        var request =
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:9091" + path))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET()
+                        .build();
+        var response =
+                HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
+        assertThat(response.statusCode()).isEqualTo(200);
     }
 
     @Test
@@ -131,6 +187,10 @@ class WorkerHttpSurfaceValidatorTest {
     @Configuration(proxyBeanMethods = false)
     @EnableWebFlux
     static class WebConfiguration {}
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAutoConfiguration
+    static class WorkerProbeApplication {}
 
     @Configuration(proxyBeanMethods = false)
     static class UnexpectedRoute {
