@@ -26,6 +26,14 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 class WorkerHttpSurfaceValidatorTest {
+    private static final String EXCLUDED_AUTO_CONFIGURATIONS =
+            String.join(
+                    ",",
+                    "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration",
+                    "org.springframework.modulith.observability.autoconfigure.ModuleObservabilityAutoConfiguration",
+                    "org.springframework.modulith.actuator.autoconfigure.ApplicationModulesEndpointConfiguration",
+                    "org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration",
+                    "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration");
     private static final List<String> VALID_CONFIGURATION =
             List.of(
                     "spring.profiles.active=worker",
@@ -53,12 +61,7 @@ class WorkerHttpSurfaceValidatorTest {
                         .properties(
                                 "spring.config.location=optional:classpath:/worker-probe-test.properties",
                                 "spring.profiles.active=worker",
-                                "spring.autoconfigure.exclude="
-                                        + "org.springframework.modulith.runtime.autoconfigure.SpringModulithRuntimeAutoConfiguration,"
-                                        + "org.springframework.modulith.observability.autoconfigure.ModuleObservabilityAutoConfiguration,"
-                                        + "org.springframework.modulith.actuator.autoconfigure.ApplicationModulesEndpointConfiguration,"
-                                        + "org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration,"
-                                        + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+                                "spring.autoconfigure.exclude=" + EXCLUDED_AUTO_CONFIGURATIONS,
                                 "server.port=0",
                                 "spring.web.resources.add-mappings=false",
                                 "management.server.port=9091",

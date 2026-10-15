@@ -192,7 +192,8 @@ class SweepRegistryLoaderTest {
                             assertThat(context).hasFailed();
                             assertThat(context.getStartupFailure())
                                     .hasMessage(
-                                            "SWEEP_REGISTRY_INVALID: sweep definition has no registry row: [reference]");
+                                            "SWEEP_REGISTRY_INVALID: sweep definition has no registry row: "
+                                                    + "[reference]");
                             assertThat(started).isFalse();
                         } else {
                             assertThat(context).hasNotFailed();
