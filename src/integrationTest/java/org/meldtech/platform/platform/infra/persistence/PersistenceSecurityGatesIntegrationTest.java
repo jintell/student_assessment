@@ -625,6 +625,28 @@ class PersistenceSecurityGatesIntegrationTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void runtimeLoginRolesCannotAssumeOneAnother() throws SQLException {
+        assertThat(
+                        queryIntAsClusterOwner(
+                                """
+                                WITH runtime_role(role_name) AS (
+                                    VALUES ('app_api'), ('app_worker'), ('app_pindist')
+                                )
+                                SELECT count(*)
+                                FROM runtime_role AS member
+                                CROSS JOIN runtime_role AS granted
+                                WHERE member.role_name <> granted.role_name
+                                  AND pg_has_role(
+                                      member.role_name,
+                                      granted.role_name,
+                                      'MEMBER'
+                                  )
+                                """))
+                .as("runtime login roles with direct or inherited cross-membership")
+                .isZero();
+    }
+
     private void executeAsClusterOwner(String sql) throws SQLException {
         try (Connection connection = clusterOwnerConnection();
                 var statement = connection.createStatement()) {
