@@ -8,6 +8,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     id("net.ltgt.errorprone") version "4.3.0"
     id("com.diffplug.spotless") version "8.0.0"
+    id("info.solidsoft.pitest") version "1.19.0"
 }
 
 jacoco {
@@ -305,6 +306,90 @@ tasks.jacocoTestCoverageVerification {
         }
     }
 }
+
+val runtimeStateMachineClasses =
+    setOf(
+        "org.meldtech.platform.platform.infra.runtime.MemoryPressurePolicy",
+        "org.meldtech.platform.platform.infra.runtime.RuntimeDrainState",
+        "org.meldtech.platform.platform.infra.runtime.RuntimeMemoryMonitor",
+        "org.meldtech.platform.platform.infra.runtime.SweepLockShutdown",
+        "org.meldtech.platform.platform.infra.runtime.SweepRunner",
+    )
+
+pitest {
+    junit5PluginVersion.set("1.2.3")
+    targetClasses.set(
+        setOf(
+            "org.meldtech.platform.platform.infra.runtime.ApiWorkloadExclusionValidator",
+            "org.meldtech.platform.platform.infra.runtime.MemoryPressurePolicy",
+            "org.meldtech.platform.platform.infra.runtime.PindistRouteValidator",
+            "org.meldtech.platform.platform.infra.runtime.RuntimeDrainState",
+            "org.meldtech.platform.platform.infra.runtime.RuntimeManifestVerifier",
+            "org.meldtech.platform.platform.infra.runtime.RuntimeMemoryMonitor",
+            "org.meldtech.platform.platform.infra.runtime.SessionSweepLock",
+            "org.meldtech.platform.platform.infra.runtime.SweepLockShutdown",
+            "org.meldtech.platform.platform.infra.runtime.SweepRegistryLoader",
+            "org.meldtech.platform.platform.infra.runtime.SweepRunner",
+            "org.meldtech.platform.platform.infra.runtime.TransactionSweepLock",
+            "org.meldtech.platform.platform.infra.runtime.WorkerHttpSurfaceValidator",
+        ),
+    )
+    targetTests.set(setOf("org.meldtech.platform.platform.infra.runtime.*Test"))
+    threads.set(4)
+    jvmArgs.set(listOf("-Xmx256m", "-XX:MaxDirectMemorySize=128m"))
+    mutationThreshold.set(80)
+    outputFormats.set(setOf("XML", "HTML"))
+    timestampedReports.set(false)
+    failWhenNoMutations.set(true)
+}
+
+val verifyRuntimeStateMachineMutationThreshold =
+    tasks.register("verifyRuntimeStateMachineMutationThreshold") {
+        description = "Enforces the Stage 6 mutation threshold for every runtime state machine."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        dependsOn("pitest")
+        val report = layout.buildDirectory.file("reports/pitest/mutations.xml")
+        inputs.file(report)
+        doLast {
+            val factory =
+                javax.xml.parsers.DocumentBuilderFactory
+                    .newInstance()
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            factory.isXIncludeAware = false
+            factory.setExpandEntityReferences(false)
+            val mutations =
+                factory
+                    .newDocumentBuilder()
+                    .parse(report.get().asFile)
+                    .getElementsByTagName("mutation")
+            val counts = runtimeStateMachineClasses.associateWith { intArrayOf(0, 0) }
+            for (index in 0 until mutations.length) {
+                val mutation = mutations.item(index) as org.w3c.dom.Element
+                val mutatedClass =
+                    mutation.getElementsByTagName("mutatedClass").item(0).textContent
+                counts[mutatedClass]?.let { score ->
+                    score[0]++
+                    if (mutation.getAttribute("detected").toBoolean()) {
+                        score[1]++
+                    }
+                }
+            }
+            val failures = mutableListOf<String>()
+            counts.forEach { (className, score) ->
+                check(score[0] > 0) { "No mutations generated for $className" }
+                val percentage = score[1] * 100 / score[0]
+                logger.lifecycle("$className mutation score: $percentage% (${score[1]}/${score[0]})")
+                if (score[1] * 100 < score[0] * 80) {
+                    failures += "$className=$percentage%"
+                }
+            }
+            check(failures.isEmpty()) {
+                "Runtime state-machine mutation threshold is 80%; below threshold: ${failures.joinToString()}"
+            }
+        }
+    }
 
 val conformanceTest =
     tasks.register<Test>("conformanceTest") {
@@ -882,6 +967,12 @@ tasks.register("ciStage5") {
     description = "CI stage 5: runs unit tests and their coverage gate."
     group = "ci"
     dependsOn("jacocoTestReport", "jacocoTestCoverageVerification", metricCardinalityGate)
+}
+
+tasks.register("ciStage6") {
+    description = "CI stage 6: runs blocking mutation tests for runtime state machines."
+    group = "ci"
+    dependsOn(verifyRuntimeStateMachineMutationThreshold)
 }
 
 tasks.register("ciStage7") {

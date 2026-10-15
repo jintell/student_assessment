@@ -124,6 +124,45 @@ class SweepRegistryLoaderTest {
     }
 
     @Test
+    void outOfRangeIntervalOrShutdownTimeoutFailsBootWithoutClamping() {
+        for (SweepMetadata metadata :
+                List.of(
+                        metadata(
+                                Duration.ofMillis(99),
+                                Duration.ofMillis(200),
+                                Duration.ofSeconds(1),
+                                Duration.ofSeconds(5)),
+                        metadata(
+                                Duration.ofMillis(100),
+                                Duration.ofMillis(200),
+                                Duration.ofSeconds(1),
+                                Duration.ofSeconds(301)))) {
+            AtomicBoolean started = new AtomicBoolean();
+            SweepDefinition definition = mock(SweepDefinition.class);
+            when(definition.metadata()).thenReturn(metadata);
+
+            new ApplicationContextRunner()
+                    .withUserConfiguration(SweepRegistryLoader.class)
+                    .withPropertyValues("spring.profiles.active=worker")
+                    .withBean(
+                            "workerConnectionFactory",
+                            ConnectionFactory.class,
+                            () -> registryFactory(List.of(row("reference", 100, true))))
+                    .withBean(SweepDefinition.class, () -> definition)
+                    .withBean(
+                            "listener", SmartLifecycle.class, () -> new RecordingLifecycle(started))
+                    .run(
+                            context -> {
+                                assertThat(context).hasFailed();
+                                assertThat(context.getStartupFailure())
+                                        .hasMessageContaining("SWEEP_REGISTRY_INVALID")
+                                        .hasMessageContaining("runtime bounds");
+                                assertThat(started).isFalse();
+                            });
+        }
+    }
+
+    @Test
     void missingRowAbortsContextBeforeLifecycleStartsAndUsesTheWorkerQualifier() {
         for (boolean missingDefinitionRow : List.of(false, true)) {
             AtomicBoolean started = new AtomicBoolean();
@@ -151,6 +190,9 @@ class SweepRegistryLoaderTest {
                     context -> {
                         if (missingDefinitionRow) {
                             assertThat(context).hasFailed();
+                            assertThat(context.getStartupFailure())
+                                    .hasMessage(
+                                            "SWEEP_REGISTRY_INVALID: sweep definition has no registry row: [reference]");
                             assertThat(started).isFalse();
                         } else {
                             assertThat(context).hasNotFailed();

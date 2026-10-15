@@ -7,6 +7,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
@@ -18,6 +20,45 @@ import org.springframework.mock.env.MockEnvironment;
 import reactor.test.StepVerifier;
 
 class RuntimeMemoryMonitorTest {
+    @Test
+    void lifecycleSamplesImmediatelyAndFailsClosedOnMeasurementError(@TempDir Path root)
+            throws Exception {
+        Files.writeString(root.resolve("memory.max"), "1073741824");
+        Files.writeString(root.resolve("memory.current"), "0");
+        var meters = new SimpleMeterRegistry();
+        try (var context = new GenericApplicationContext()) {
+            var broken = new CountDownLatch(1);
+            context.addApplicationListener(
+                    event -> {
+                        if (event instanceof AvailabilityChangeEvent<?> change
+                                && change.getState() == LivenessState.BROKEN) {
+                            broken.countDown();
+                        }
+                    });
+            context.refresh();
+            var environment =
+                    new MockEnvironment().withProperty("cbt.runtime.cgroup-root", root.toString());
+            var drain = new RuntimeDrainState(context, environment);
+            var monitor = new RuntimeMemoryMonitor(environment, drain, context, meters);
+            try {
+                Files.writeString(root.resolve("memory.current"), "invalid");
+                assertThat(monitor.isRunning()).isFalse();
+                monitor.start();
+                assertThat(monitor.isRunning()).isTrue();
+                assertThat(broken.await(2, TimeUnit.SECONDS)).isTrue();
+                assertThat(drain.isDraining()).isTrue();
+                monitor.stop();
+                assertThat(monitor.isRunning()).isFalse();
+                monitor.start();
+                assertThat(monitor.isRunning()).isFalse();
+            } finally {
+                monitor.stop();
+                drain.destroy();
+                meters.close();
+            }
+        }
+    }
+
     @Test
     void latchingFailsProbesDrainsAdmissionAndRecordsOneRestart(@TempDir Path root)
             throws Exception {

@@ -2,7 +2,6 @@ package org.meldtech.platform.platform.infra.runtime;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.platform.api.SweepBatchResult;
@@ -147,8 +146,7 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
                                     telemetry.start(definition.metadata().name());
                             SweepLockShutdown.Tick tick = lockShutdown.beginTick();
                             var cleanup = new TransactionCleanup();
-                            var stopped = new AtomicBoolean();
-                            SweepStopSignal stop = () -> !running || stopped.get();
+                            SweepStopSignal stop = () -> !running;
                             ActorContext actor =
                                     ActorContext.platformSystem(
                                             definition.metadata().systemActor(),
@@ -192,7 +190,6 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
                                     .doFinally(
                                             ignored -> {
                                                 observation.finish(ignored, stop.isStopRequested());
-                                                stopped.set(true);
                                                 tick.finished();
                                             })
                                     .contextWrite(

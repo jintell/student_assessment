@@ -2,8 +2,11 @@ package org.meldtech.platform.platform.infra.runtime;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,16 +74,33 @@ final class SweepTelemetry {
 
         synchronized void failed(Throwable failure) {
             outcome = Outcome.FAILED;
-            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
-                if (cause instanceof SweepLockLostException) {
-                    outcome = Outcome.SKIPPED_LOCK_LOST;
-                    break;
-                }
-                if (cause instanceof TimeoutException) {
-                    outcome = Outcome.TIMEOUT;
-                    break;
+            if (contains(failure, SweepLockLostException.class)) {
+                outcome = Outcome.SKIPPED_LOCK_LOST;
+            } else if (contains(failure, TimeoutException.class)) {
+                outcome = Outcome.TIMEOUT;
+            }
+        }
+
+        private boolean contains(Throwable failure, Class<? extends Throwable> type) {
+            Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            return contains(failure, type, visited);
+        }
+
+        private boolean contains(
+                Throwable failure, Class<? extends Throwable> type, Set<Throwable> visited) {
+            if (failure == null || !visited.add(failure)) {
+                return false;
+            }
+            Throwable cause = failure.getCause();
+            if (type.isInstance(failure) || (cause != null && contains(cause, type, visited))) {
+                return true;
+            }
+            for (Throwable suppressed : failure.getSuppressed()) {
+                if (contains(suppressed, type, visited)) {
+                    return true;
                 }
             }
+            return false;
         }
 
         synchronized void finish(SignalType signal, boolean interrupted) {

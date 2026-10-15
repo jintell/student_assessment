@@ -20,6 +20,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 public final class ReferenceSweepPools implements AutoCloseable {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final ConnectionFactory worker;
+    private final ConnectionFactory grading;
     private final ConnectionFactory locks;
 
     public ReferenceSweepPools(PostgreSQLContainer postgres) throws SQLException {
@@ -55,6 +56,13 @@ public final class ReferenceSweepPools implements AutoCloseable {
                         OpenTelemetry.noop(),
                         DatabaseQueryTelemetry.NOOP,
                         Instant::now);
+        grading =
+                configuration.gradingConnectionFactory(
+                        properties,
+                        meters,
+                        OpenTelemetry.noop(),
+                        DatabaseQueryTelemetry.NOOP,
+                        Instant::now);
         locks =
                 configuration.sweepLockConnectionFactory(
                         properties,
@@ -72,6 +80,10 @@ public final class ReferenceSweepPools implements AutoCloseable {
         return locks;
     }
 
+    public ConnectionFactory grading() {
+        return grading;
+    }
+
     public SweepTransactions transactions() {
         return new DefaultSweepTransactions(worker, new RequestContextPropagation());
     }
@@ -81,9 +93,22 @@ public final class ReferenceSweepPools implements AutoCloseable {
                 + physical(locks).getMetrics().orElseThrow().acquiredSize();
     }
 
+    public int workerAcquiredConnections() {
+        return physical(worker).getMetrics().orElseThrow().acquiredSize();
+    }
+
+    public int gradingAcquiredConnections() {
+        return physical(grading).getMetrics().orElseThrow().acquiredSize();
+    }
+
+    public int lockAcquiredConnections() {
+        return physical(locks).getMetrics().orElseThrow().acquiredSize();
+    }
+
     @Override
     public void close() {
         physical(worker).dispose();
+        physical(grading).dispose();
         physical(locks).dispose();
         meters.close();
     }

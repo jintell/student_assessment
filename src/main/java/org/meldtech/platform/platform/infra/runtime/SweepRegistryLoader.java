@@ -174,7 +174,12 @@ public final class SweepRegistryLoader implements SmartInitializingSingleton {
             }
         }
         if (!names.containsAll(declared.keySet())) {
-            throw invalid("sweep definition has no registry row");
+            List<String> missing =
+                    declared.keySet().stream()
+                            .filter(name -> !names.contains(name))
+                            .sorted()
+                            .toList();
+            throw invalid("sweep definition has no registry row: " + missing);
         }
         return List.copyOf(enabled);
     }

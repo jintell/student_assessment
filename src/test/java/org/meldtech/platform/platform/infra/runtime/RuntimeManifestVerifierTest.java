@@ -42,29 +42,42 @@ import tools.jackson.databind.json.JsonMapper;
 
 class RuntimeManifestVerifierTest {
     @Test
-    void committedManifestsMatchAllThreeIsolatedContexts() throws ClassNotFoundException {
+    void apiContextMatchesItsExactManifestBeanSet() throws ClassNotFoundException {
+        assertContextMatchesManifest(RuntimeRole.API);
+    }
+
+    @Test
+    void workerContextMatchesItsExactManifestBeanSet() throws ClassNotFoundException {
+        assertContextMatchesManifest(RuntimeRole.WORKER);
+    }
+
+    @Test
+    void pindistContextMatchesItsExactManifestBeanSet() throws ClassNotFoundException {
+        assertContextMatchesManifest(RuntimeRole.PINDIST);
+    }
+
+    private static void assertContextMatchesManifest(RuntimeRole role)
+            throws ClassNotFoundException {
         Class<?> endpoint =
                 Class.forName(
                         "org.meldtech.platform.platform.slice.getConformanceReference.Endpoint");
         Class<?> handler =
                 Class.forName(
                         "org.meldtech.platform.platform.slice.getConformanceReference.Handler");
-        for (RuntimeRole role : RuntimeRole.values()) {
-            withMock(runner(role), handler)
-                    .withUserConfiguration(endpoint, WebConfiguration.class)
-                    .withBean(PolicyResolver.class, () -> mock(PolicyResolver.class))
-                    .withBean(RequestTelemetry.class, () -> mock(RequestTelemetry.class))
-                    .run(
-                            context -> {
-                                assertThat(context).hasNotFailed();
-                                assertThat(context.getBeansOfType(PolicyProtectedRoute.class))
-                                        .hasSize(role == RuntimeRole.API ? 1 : 0);
-                                writeCandidate(
-                                        role,
-                                        context.getBean(RuntimeManifestVerifier.class)
-                                                .verifiedEntries());
-                            });
-        }
+        withMock(runner(role), handler)
+                .withUserConfiguration(endpoint, WebConfiguration.class)
+                .withBean(PolicyResolver.class, () -> mock(PolicyResolver.class))
+                .withBean(RequestTelemetry.class, () -> mock(RequestTelemetry.class))
+                .run(
+                        context -> {
+                            assertThat(context).hasNotFailed();
+                            assertThat(context.getBeansOfType(PolicyProtectedRoute.class))
+                                    .hasSize(role == RuntimeRole.API ? 1 : 0);
+                            writeCandidate(
+                                    role,
+                                    context.getBean(RuntimeManifestVerifier.class)
+                                            .verifiedEntries());
+                        });
     }
 
     @Test
