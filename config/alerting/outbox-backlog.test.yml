@@ -1,0 +1,63 @@
+rule_files:
+  - outbox-backlog.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: strict boundaries and independent age trigger
+    interval: 1m
+    input_series:
+      - series: 'outbox_backlog_depth{state="PENDING",cluster="staging",namespace="cbt",job="worker",instance="one"}'
+        values: 5000 5001 0 0 0
+      - series: 'outbox_oldest_pending_age_seconds{cluster="staging",namespace="cbt",job="worker",instance="one"}'
+        values: 300 0 300 301 0
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: OutboxBacklog
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: OutboxBacklog
+        exp_alerts:
+          - exp_labels: {cluster: staging, namespace: cbt, job: worker, severity: p2, owner: platform}
+            exp_annotations:
+              summary: Outbox pending backlog exceeds 5000 rows or five minutes
+              runbook: docs/runbooks/outbox-backlog.md
+      - eval_time: 2m
+        alertname: OutboxBacklog
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: OutboxBacklog
+        exp_alerts:
+          - exp_labels: {cluster: staging, namespace: cbt, job: worker, severity: p2, owner: platform}
+            exp_annotations:
+              summary: Outbox pending backlog exceeds 5000 rows or five minutes
+              runbook: docs/runbooks/outbox-backlog.md
+      - eval_time: 4m
+        alertname: OutboxBacklog
+        exp_alerts: []
+  - name: replicas do not double count and only pending depth triggers
+    interval: 1m
+    input_series:
+      - series: 'outbox_backlog_depth{state="PENDING",job="worker",instance="one"}'
+        values: 3000
+      - series: 'outbox_backlog_depth{state="PENDING",job="worker",instance="two"}'
+        values: 3000
+      - series: 'outbox_backlog_depth{state="FAILED",job="worker",instance="one"}'
+        values: 10000
+      - series: 'outbox_backlog_depth{state="PUBLISHED",job="worker",instance="one"}'
+        values: 10000
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: OutboxBacklog
+        exp_alerts: []
+  - name: unsampled data is not a backlog threshold breach
+    interval: 1m
+    input_series:
+      - series: 'outbox_backlog_depth{state="PENDING",job="worker"}'
+        values: NaN
+      - series: 'outbox_oldest_pending_age_seconds{job="worker"}'
+        values: NaN
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: OutboxBacklog
+        exp_alerts: []
