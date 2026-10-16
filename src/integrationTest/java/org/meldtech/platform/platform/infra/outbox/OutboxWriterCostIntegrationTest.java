@@ -100,7 +100,9 @@ class OutboxWriterCostIntegrationTest extends OutboxPostgreSqlIntegrationTestSup
                             1,
                             1,
                             0,
-                            "Local sequential PostgreSQL reference operation; no approved latency threshold in P1.8; delivery answer handler is not implemented");
+                            "Local sequential PostgreSQL reference operation; "
+                                    + "no approved latency threshold in P1.8; "
+                                    + "delivery answer handler is not implemented");
             Path output = Path.of("build/reports/outbox-writer-cost.json");
             Files.createDirectories(output.getParent());
             Files.writeString(
@@ -222,7 +224,8 @@ class OutboxWriterCostIntegrationTest extends OutboxPostgreSqlIntegrationTestSup
                                                                                     0);
                                                                     if (sql.stripLeading()
                                                                             .startsWith(
-                                                                                    "INSERT INTO outbox.outbox_event")) {
+                                                                                    "INSERT INTO outbox."
+                                                                                            + "outbox_event")) {
                                                                         outboxInserts
                                                                                 .incrementAndGet();
                                                                     }
