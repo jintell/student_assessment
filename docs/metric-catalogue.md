@@ -23,6 +23,12 @@ dimension. Raw URI, exception text, SQL, personal data, identifiers, and
 credentials are never labels. `maxSeries` is a hard registration budget, not
 an operational target.
 
+Every Micrometer meter also carries the common `runtime_role` dimension from
+runtime bootstrap. Its closed values are `api`, `worker`, and `pindist`; it is
+not repeated in each row's feature-owned label list. The same identity is the
+OTLP resource attribute `service.runtime.role`, so logs, metrics, and spans can
+be joined without maintaining three exporter configurations.
+
 ## Registered Metrics
 
 | Metric | Kind | Owning feature | Permitted labels | `maxSeries` |
@@ -60,6 +66,14 @@ an operational target.
 | `telemetry_export_queue_capacity` | Gauge | `FEAT-OBS-001` | `signal` | 3 |
 | `rabbitmq_queue_depth` | Gauge | Broker-owning capability; common contract owned by `FEAT-OBS-001` | `queue` | 32 |
 | `queue_consumer_utilisation` | Gauge | Broker-owning capability; common contract owned by `FEAT-OBS-001` | `queue` | 32 |
+| `sweep_tick_total` | Counter | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `sweep`, `outcome` | 768 |
+| `sweep_duration_seconds` | Timer | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `sweep`, `outcome` | 768 |
+| `sweep_last_success_timestamp_seconds` | Gauge | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `sweep` | 128 |
+| `sweep_lock_acquire_total` | Counter | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `sweep`, `result` | 256 |
+| `sweep_batch_rows_total` | Counter | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `sweep` | 128 |
+| `shutdown_phase_duration_seconds` | Timer | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `phase` | 1 |
+| `shutdown_abandoned_units_total` | Counter | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `phase` | 1 |
+| `runtime_heap_threshold_restart_total` | Counter | `FEAT-PLAT-006`; catalogue governed by `FEAT-OBS-001` | `reason` | 3 |
 
 The six business counters are a closed `NFR-OBS-001` set. Their event code is
 selected by the owning capability and recorded through `BusinessEventRecorder`;
@@ -70,6 +84,19 @@ The self-observability `signal` catalogue is `trace`, `metric`, and `log`.
 Drop reasons are `overflow`, `expiry`, `rejection`, and `export-failure`.
 Redaction surfaces are `log`, `span`, `metric`, and `event`; reasons are
 `prohibited-field` and `serialization-failure`.
+
+Sweep names come from the validated registry catalogue and are capped at 128.
+Sweep outcomes are `success`, `skipped_lock_not_acquired`,
+`skipped_lock_lost`, `timeout`, `failed`, and `interrupted`; lock-acquisition
+results are `acquired` and `not_acquired`. No sweep metric carries a tenant
+identifier. `auto_submit_sweep_backlog` remains owned by `FEAT-DLV-004` and is
+not registered by the runtime-role feature.
+
+The runtime feature currently owns the `sweep` shutdown phase. Its abandoned
+unit count is the number of queued ticks discarded when interval sources stop;
+an active batch is not abandoned because shutdown waits for its transaction
+boundary. Heap restart reasons are the closed `heap`, `container`, and
+`measurement_failed` catalogue.
 
 ## Capability-Owned Expansion
 

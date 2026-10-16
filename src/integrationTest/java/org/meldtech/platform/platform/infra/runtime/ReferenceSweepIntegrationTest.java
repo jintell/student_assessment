@@ -132,8 +132,8 @@ class ReferenceSweepIntegrationTest extends OutboxPostgreSqlIntegrationTestSuppo
             assertThat(pools.acquiredConnections()).isZero();
             assertThat(
                             runtime.meters
-                                    .get("sweep.tick.outcome")
-                                    .tag("outcome", "TIMEOUT")
+                                    .get("sweep_tick_total")
+                                    .tag("outcome", "timeout")
                                     .counter()
                                     .count())
                     .isEqualTo(1);

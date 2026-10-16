@@ -89,8 +89,9 @@ The full-context smoke test also passed with the initial P4.22 wiring.
 
 ### P4.23 Completed
 
-The runner records `sweep.tick.outcome`, `sweep.tick.duration`,
-`sweep.last.success.timestamp`, and `sweep.batch.size`. Outcomes distinguish
+The runner records `sweep_tick_total`, `sweep_duration_seconds`,
+`sweep_last_success_timestamp_seconds`, `sweep_lock_acquire_total`, and
+`sweep_batch_rows_total`. Outcomes distinguish
 success, contention, lost ownership, timeout, failure, and interruption. Duration
 ends after lock cleanup; successful timestamps use the injected kernel clock.
 Adapters report typed ownership loss, including inability to verify a retained

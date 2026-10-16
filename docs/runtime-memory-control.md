@@ -22,8 +22,8 @@ The latch refuses new admission, changes readiness to refusing traffic, and
 fails `/health/live`. Kubernetes must configure that liveness endpoint and
 the existing preStop/SIGTERM drain policy to restart the container. The process
 does not clear its latch after memory recovers. Outside an orchestrator, an
-operator must restart it. `runtime.memory.restart` counts the bounded reasons
-`HEAP`, `CONTAINER`, and `MEASUREMENT_FAILED`; an ERROR log records the same
+operator must restart it. `runtime_heap_threshold_restart_total` counts the
+bounded reasons `heap`, `container`, and `measurement_failed`; an ERROR log records the same
 reason without memory contents or request identifiers. P9.2 consumes this
 event for restart alerts. Deployed restart timing and native-headroom load
 tests remain P7.16/capacity verification, not a unit-test claim.

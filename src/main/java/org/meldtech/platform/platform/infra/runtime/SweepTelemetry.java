@@ -29,6 +29,11 @@ final class SweepTelemetry {
         INTERRUPTED
     }
 
+    enum LockResult {
+        ACQUIRED,
+        NOT_ACQUIRED
+    }
+
     private final MeterRegistry meters;
     private final Clock clock;
     private final Map<String, AtomicLong> lastSuccess = new HashMap<>();
@@ -45,11 +50,34 @@ final class SweepTelemetry {
             }
             var timestamp = new AtomicLong();
             lastSuccess.put(sweep, timestamp);
-            Gauge.builder("sweep.last.success.timestamp", timestamp, AtomicLong::doubleValue)
+            Gauge.builder(
+                            "sweep_last_success_timestamp_seconds",
+                            timestamp,
+                            AtomicLong::doubleValue)
                     .tag(SweepLogPolicy.SWEEP, sweep)
                     .register(meters);
         }
         return new Tick(sweep, java.util.Objects.requireNonNull(lastSuccess.get(sweep)));
+    }
+
+    Shutdown startShutdown(long abandonedUnits) {
+        meters.counter("shutdown_abandoned_units_total", "phase", "sweep")
+                .increment((double) abandonedUnits);
+        return new Shutdown();
+    }
+
+    final class Shutdown {
+        private final long started = meters.config().clock().monotonicTime();
+        private final AtomicBoolean recorded = new AtomicBoolean();
+
+        void finish() {
+            if (recorded.compareAndSet(false, true)) {
+                meters.timer("shutdown_phase_duration_seconds", "phase", "sweep")
+                        .record(
+                                meters.config().clock().monotonicTime() - started,
+                                TimeUnit.NANOSECONDS);
+            }
+        }
     }
 
     final class Tick {
@@ -57,6 +85,7 @@ final class SweepTelemetry {
         private final AtomicLong timestamp;
         private final long started = meters.config().clock().monotonicTime();
         private final AtomicBoolean recorded = new AtomicBoolean();
+        private boolean lockAcquired;
         private Outcome outcome = Outcome.SKIPPED_LOCK_NOT_ACQUIRED;
 
         private Tick(String sweep, AtomicLong timestamp) {
@@ -65,11 +94,12 @@ final class SweepTelemetry {
         }
 
         synchronized void acquired() {
+            lockAcquired = true;
             outcome = Outcome.SUCCESS;
         }
 
         void batch(int count) {
-            meters.summary("sweep.batch.size", SweepLogPolicy.SWEEP, sweep).record(count);
+            meters.counter("sweep_batch_rows_total", SweepLogPolicy.SWEEP, sweep).increment(count);
         }
 
         synchronized void failed(Throwable failure) {
@@ -111,24 +141,35 @@ final class SweepTelemetry {
                 outcome = Outcome.INTERRUPTED;
             }
             meters.counter(
-                            "sweep.tick.outcome",
+                            "sweep_tick_total",
                             SweepLogPolicy.SWEEP,
                             sweep,
                             SweepLogPolicy.OUTCOME,
-                            outcome.name())
+                            tag(outcome))
                     .increment();
             meters.timer(
-                            "sweep.tick.duration",
+                            "sweep_duration_seconds",
                             SweepLogPolicy.SWEEP,
                             sweep,
                             SweepLogPolicy.OUTCOME,
-                            outcome.name())
+                            tag(outcome))
                     .record(
                             meters.config().clock().monotonicTime() - started,
                             TimeUnit.NANOSECONDS);
+            meters.counter(
+                            "sweep_lock_acquire_total",
+                            SweepLogPolicy.SWEEP,
+                            sweep,
+                            "result",
+                            tag(lockAcquired ? LockResult.ACQUIRED : LockResult.NOT_ACQUIRED))
+                    .increment();
             if (outcome == Outcome.SUCCESS) {
                 timestamp.set(clock.now().getEpochSecond());
             }
+        }
+
+        private String tag(Enum<?> value) {
+            return value.name().toLowerCase(java.util.Locale.ROOT);
         }
     }
 }

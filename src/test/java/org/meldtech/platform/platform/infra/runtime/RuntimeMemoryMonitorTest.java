@@ -93,8 +93,8 @@ class RuntimeMemoryMonitorTest {
                                 })
                         .verifyComplete();
                 assertThat(
-                                meters.get("runtime.memory.restart")
-                                        .tag("reason", "HEAP")
+                                meters.get("runtime_heap_threshold_restart_total")
+                                        .tag("reason", "heap")
                                         .counter()
                                         .count())
                         .isEqualTo(1);

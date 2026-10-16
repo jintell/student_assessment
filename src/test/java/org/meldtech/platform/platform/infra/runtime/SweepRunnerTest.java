@@ -75,16 +75,13 @@ class SweepRunnerTest {
                 StepVerifier.create(runner.runTick(sweep)).verifyComplete();
             }
             for (String outcome :
-                    List.of("SUCCESS", "SKIPPED_LOCK_NOT_ACQUIRED", "SKIPPED_LOCK_LOST")) {
-                assertThat(
-                                meters.get("sweep.tick.outcome")
-                                        .tag("outcome", outcome)
-                                        .counter()
-                                        .count())
+                    List.of("success", "skipped_lock_not_acquired", "skipped_lock_lost")) {
+                assertThat(meters.get("sweep_tick_total").tag("outcome", outcome).counter().count())
                         .isEqualTo(1);
             }
-            assertThat(meters.get("sweep.batch.size").summary().totalAmount()).isEqualTo(4);
-            assertThat(meters.get("sweep.last.success.timestamp").gauge().value()).isEqualTo(123);
+            assertThat(meters.get("sweep_batch_rows_total").counter().count()).isEqualTo(4);
+            assertThat(meters.get("sweep_last_success_timestamp_seconds").gauge().value())
+                    .isEqualTo(123);
         } finally {
             runner.stop();
             meters.close();
