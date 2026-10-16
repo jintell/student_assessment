@@ -84,7 +84,11 @@ final class RuntimeMemoryMonitor implements SmartLifecycle, ReactiveHealthIndica
             reason = next;
             drain.requestDrain();
             AvailabilityChangeEvent.publish(context, LivenessState.BROKEN);
-            meters.counter("runtime.memory.restart", "reason", next.name()).increment();
+            meters.counter(
+                            "runtime_heap_threshold_restart_total",
+                            "reason",
+                            next.name().toLowerCase(java.util.Locale.ROOT))
+                    .increment();
             LOGGER.error("Runtime memory restart requested: reason={}", next);
         }
     }

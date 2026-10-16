@@ -2,7 +2,7 @@
 
 Every role requires an explicit `-Xmx` and `-XX:MaxDirectMemorySize`, with
 native headroom below its container limit. The approved deployment values are
-in `deploy/runtime/values.yaml`. Percentage-based heap overrides are rejected.
+in `../../deploy/runtime/values.yaml`. Percentage-based heap overrides are rejected.
 
 The container must expose its own cgroup at `/sys/fs/cgroup`: v2 `memory.max`
 and `memory.current`, or v1 `memory/memory.limit_in_bytes` and
@@ -22,8 +22,8 @@ The latch refuses new admission, changes readiness to refusing traffic, and
 fails `/health/live`. Kubernetes must configure that liveness endpoint and
 the existing preStop/SIGTERM drain policy to restart the container. The process
 does not clear its latch after memory recovers. Outside an orchestrator, an
-operator must restart it. `runtime.memory.restart` counts the bounded reasons
-`HEAP`, `CONTAINER`, and `MEASUREMENT_FAILED`; an ERROR log records the same
+operator must restart it. `runtime_heap_threshold_restart_total` counts the
+bounded reasons `heap`, `container`, and `measurement_failed`; an ERROR log records the same
 reason without memory contents or request identifiers. P9.2 consumes this
 event for restart alerts. Deployed restart timing and native-headroom load
 tests remain P7.16/capacity verification, not a unit-test claim.

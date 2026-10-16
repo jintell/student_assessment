@@ -3,6 +3,7 @@ package org.meldtech.platform.platform.infra.runtime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.meldtech.platform.platform.api.RoleScoped;
 import org.meldtech.platform.platform.api.SweepBatchResult;
 import org.meldtech.platform.platform.api.SweepDefinition;
@@ -42,6 +43,7 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
     private final SweepLockShutdown lockShutdown;
     private final SweepTelemetry telemetry;
     private final List<Lane> lanes = new ArrayList<>();
+    private SweepTelemetry.@Nullable Shutdown shutdownTelemetry = null;
     private boolean stopping;
     private volatile boolean running;
 
@@ -259,6 +261,7 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
             return;
         }
         stopping = true;
+        shutdownTelemetry = telemetry.startShutdown(pendingSignals());
         for (Lane lane : lanes) {
             lane.source().dispose();
             lane.pending().clear();
@@ -271,6 +274,10 @@ public final class SweepRunner implements SmartLifecycle, RuntimeIntervalSource 
     private synchronized void finishStop() {
         lanes.clear();
         scheduler.dispose();
+        if (shutdownTelemetry != null) {
+            shutdownTelemetry.finish();
+            shutdownTelemetry = null;
+        }
     }
 
     @Override

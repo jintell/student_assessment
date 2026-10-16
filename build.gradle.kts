@@ -413,6 +413,25 @@ val sliceTest =
         shouldRunAfter(tasks.test)
     }
 
+val runtimeRoleContextTest =
+    tasks.register<Test>("runtimeRoleContextTest") {
+        description = "Verifies the exact bean and route surface of every runtime role."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs =
+            sourceSets.test
+                .get()
+                .output.classesDirs
+        classpath = sourceSets.test.get().runtimeClasspath
+        include(
+            "**/RuntimeManifestVerifierTest.class",
+            "**/ApiWorkloadExclusionValidatorTest.class",
+            "**/WorkerHttpSurfaceValidatorTest.class",
+            "**/PindistRouteValidatorTest.class",
+        )
+        dependsOn(tasks.testClasses)
+        shouldRunAfter(tasks.test)
+    }
+
 val integrationTest =
     tasks.register<Test>("integrationTest") {
         description = "Runs integration tests against real infrastructure."
@@ -978,7 +997,7 @@ tasks.register("ciStage6") {
 tasks.register("ciStage7") {
     description = "CI stage 7: runs slice tests and verifies every slice is covered."
     group = "ci"
-    dependsOn(sliceTest, verifySliceTests)
+    dependsOn(sliceTest, runtimeRoleContextTest, verifySliceTests)
 }
 
 tasks.register("ciStage8") {

@@ -55,7 +55,7 @@ Add an **Error contract** group to the platform-health dashboard:
 | Unmapped error rate | `sum by (reason) (rate(problem_detail_unmapped_total[$__rate_interval]))` | Detect unanticipated failure paths and mapper fallback modes |
 | Top emitted error codes | `topk(10, sum by (code) (rate(problem_detail_emitted_total[$__rate_interval])))` | Show the stable client-visible codes currently dominating failures |
 
-The panel links to `docs/runbook-problem-detail-unmapped.md`, the error
+The panel links to `../runbooks/runbook-problem-detail-unmapped.md`, the error
 catalogue, and the P9.4 diagnosability evidence.
 
 ## Closure criteria

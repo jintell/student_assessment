@@ -169,6 +169,46 @@
       "name": "queue_consumer_utilisation",
       "labels": ["queue"],
       "maxSeries": 32
+    },
+    {
+      "name": "sweep_tick_total",
+      "labels": ["sweep", "outcome"],
+      "maxSeries": 768
+    },
+    {
+      "name": "sweep_duration_seconds",
+      "labels": ["sweep", "outcome"],
+      "maxSeries": 768
+    },
+    {
+      "name": "sweep_last_success_timestamp_seconds",
+      "labels": ["sweep"],
+      "maxSeries": 128
+    },
+    {
+      "name": "sweep_lock_acquire_total",
+      "labels": ["sweep", "result"],
+      "maxSeries": 256
+    },
+    {
+      "name": "sweep_batch_rows_total",
+      "labels": ["sweep"],
+      "maxSeries": 128
+    },
+    {
+      "name": "shutdown_phase_duration_seconds",
+      "labels": ["phase"],
+      "maxSeries": 1
+    },
+    {
+      "name": "shutdown_abandoned_units_total",
+      "labels": ["phase"],
+      "maxSeries": 1
+    },
+    {
+      "name": "runtime_heap_threshold_restart_total",
+      "labels": ["reason"],
+      "maxSeries": 3
     }
   ]
 }

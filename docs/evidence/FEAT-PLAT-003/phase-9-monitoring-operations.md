@@ -114,14 +114,14 @@ render, and exercise the definitions.
 
 ## P9.6 - Unmapped-Exception Operations Runbook
 
-`docs/runbook-problem-detail-unmapped.md` explains the generic client response,
+`../../runbooks/runbook-problem-detail-unmapped.md` explains the generic client response,
 uses metric exemplar to trace to correlation identifier and protected logs,
 separates internal-path fixes from intentional public mappings, and defines the
 allowlist, leak, generated-artifact, compatibility, release, and closure steps.
 
 ## P9.7 - Redis-Unavailability Operations Runbook
 
-`docs/runbook-redis-idempotency-unavailable.md` defines the expected counter
+`../../runbooks/runbook-redis-idempotency-unavailable.md` defines the expected counter
 and response symptoms, proof that the refused chain produced no business,
 outbox, or audit side effect, and a candidate-path synthetic check. It forbids
 disabling the filter or substituting an in-memory store and requires

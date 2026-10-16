@@ -2,7 +2,7 @@
 
 Status: operational runbook for the architecture-ratification limb of CI stage
 4a (`P10.5`). Normative authority: architecture section 18.3 and
-`ARC-CICD-020` through `ARC-CICD-024`. The executable is `ci/stage-4a`.
+`ARC-CICD-020` through `ARC-CICD-024`. The executable is `../../ci/stage-4a`.
 
 ## Outcome Meaning
 
@@ -42,14 +42,14 @@ Useful focused diagnostics are:
 ./gradlew stage4aBypassTest
 ```
 
-Do not edit generated reports under `build/`. The repository-retained evidence
+Do not edit generated reports under `../../build`. The repository-retained evidence
 register identifies the reviewed summaries that are committed intentionally.
 
 ## First-Failure Triage
 
 | Step | Reported condition | Classification | Resolution |
 |---|---|---|---|
-| 1 | Ratification artifact absent | `BLOCKED` | Restore `ci/architecture-ratification.json` from an approved ratification process. The maintainer cannot invent or self-approve it. |
+| 1 | Ratification artifact absent | `BLOCKED` | Restore `../../ci/architecture-ratification.json` from an approved ratification process. The maintainer cannot invent or self-approve it. |
 | 2 | JSON shape invalid or template placeholders remain | `FAIL` | Correct the artifact construction, then obtain new signatures because signatures cover the exact JSON bytes. |
 | 3 | Status missing/`PENDING`, temporary gate active/expired, or approval not final | `BLOCKED` | Architecture Owner and Engineering Lead complete ratification. A temporary gate permits preparatory work only and never permits implementation. |
 | 3 | Unknown status or malformed temporary gate | `FAIL` | Restore the allowed schema and re-sign the changed artifact. |
@@ -92,12 +92,12 @@ changes.
    ```
 
    On macOS, use `shasum -a 256`. A 40-hex Git object ID is not this digest.
-5. Build a final `ci/architecture-ratification.json` from the template with the
+5. Build a final `../../ci/architecture-ratification.json` from the template with the
    new immutable pins, all required ADR dispositions, both approver identities
    and timestamps, detached-signature filenames, and the Engineering Lead
    `countersignedBy` value. Remove template comments/placeholders and omit the
    temporary-gate block for a ratified baseline.
-6. Update `ci/architecture-ratification.expected-decisions.json` to the approved
+6. Update `../../ci/architecture-ratification.expected-decisions.json` to the approved
    decision set. Confirm it contains the complete closed enumeration required by
    the updated gate.
 7. Have the distinct Architecture Owner and Engineering Lead sign the exact
@@ -105,7 +105,7 @@ changes.
    at the filenames recorded in the artifact. Any later byte change invalidates
    both signatures and requires signing again.
 8. Run `./gradlew stage4aUnitTest stage4aSelfTest stage4aBypassTest`, then run the
-   live `ci/stage-4a` against the architecture checkout. Review the first-failure
+   live `../../ci/stage-4a` against the architecture checkout. Review the first-failure
    reason rather than editing around it.
 9. Commit the ratification artifact, detached signatures, expected decision
    reference, reviewed gate changes, and retained evidence together. Require the
@@ -121,4 +121,4 @@ Engineering Lead; build mechanics go to the repository maintainer, but no
 maintainer action substitutes for either required approval.
 
 Implementation details and the exact twelve-step contract are documented in
-[`architecture/stage-4a-gate.md`](architecture/stage-4a-gate.md).
+[`../architecture/stage-4a-gate.md`](../architecture/stage-4a-gate.md).

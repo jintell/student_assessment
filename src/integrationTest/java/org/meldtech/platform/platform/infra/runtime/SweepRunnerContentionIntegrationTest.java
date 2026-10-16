@@ -76,8 +76,8 @@ class SweepRunnerContentionIntegrationTest extends OutboxPostgreSqlIntegrationTe
                     leader.get(5, TimeUnit.SECONDS);
                 }
             }
-            assertOutcomeEventually(meters, "SUCCESS", 4);
-            assertOutcomeEventually(meters, "SKIPPED_LOCK_NOT_ACQUIRED", 12);
+            assertOutcomeEventually(meters, "success", 4);
+            assertOutcomeEventually(meters, "skipped_lock_not_acquired", 12);
         } finally {
             runners.forEach(SweepRunner::stop);
             meters.close();
@@ -116,7 +116,7 @@ class SweepRunnerContentionIntegrationTest extends OutboxPostgreSqlIntegrationTe
             losingTick.get(5, TimeUnit.SECONDS);
 
             assertThat(executions).hasValue(1);
-            assertOutcomeEventually(meters, "SKIPPED_LOCK_LOST", 1);
+            assertOutcomeEventually(meters, "skipped_lock_lost", 1);
 
             nextRunner.runTick(sweep).toFuture().get(5, TimeUnit.SECONDS);
             assertThat(executions).hasValue(2);
@@ -153,7 +153,7 @@ class SweepRunnerContentionIntegrationTest extends OutboxPostgreSqlIntegrationTe
             assertThat(Duration.between(started, Instant.now())).isLessThan(Duration.ofSeconds(10));
             assertThat(executions).hasValue(0);
             winner.assertHeld().block(Duration.ofSeconds(5));
-            assertOutcomeEventually(meters, "SKIPPED_LOCK_NOT_ACQUIRED", 1);
+            assertOutcomeEventually(meters, "skipped_lock_not_acquired", 1);
         } finally {
             runner.stop();
             winner.close().block(Duration.ofSeconds(5));
@@ -173,7 +173,7 @@ class SweepRunnerContentionIntegrationTest extends OutboxPostgreSqlIntegrationTe
                 .untilAsserted(
                         () ->
                                 assertThat(
-                                                meters.find("sweep.tick.outcome")
+                                                meters.find("sweep_tick_total")
                                                         .tag("outcome", outcome)
                                                         .counter())
                                         .isNotNull()

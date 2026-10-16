@@ -52,7 +52,7 @@ labels such as error code or outcome. A sampled Prometheus exemplar carries
    errors intentionally disclose only the fixed catalogue text.
 
 For a rising `problem_detail_unmapped_total` rate, continue with
-[`runbook-problem-detail-unmapped.md`](runbook-problem-detail-unmapped.md).
+[`runbooks/runbook-problem-detail-unmapped.md`](runbooks/runbook-problem-detail-unmapped.md).
 
 ## Data Classification
 

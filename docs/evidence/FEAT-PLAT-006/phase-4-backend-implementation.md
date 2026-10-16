@@ -50,7 +50,7 @@ phase begins at P6.1 and requires Platform Ops workload-identity provisioning.
 Added explicit JVM-cap/cgroup validation, bounded one-second operational memory
 sampling, monotonic continuous pressure windows, and a latched drain/liveness
 failure with a bounded restart-reason counter and log. See
-`docs/runtime-memory-control.md` for deployment inputs and restart behavior.
+`../../runbooks/runtime-memory-control.md` for deployment inputs and restart behavior.
 Controlled-time tests cover threshold persistence, reset, and latching;
 monitor tests cover availability events, one-shot metrics, and cgroup v1/v2.
 Actual Kubernetes restart timing remains P7.16, not a unit-test claim.
@@ -89,8 +89,9 @@ The full-context smoke test also passed with the initial P4.22 wiring.
 
 ### P4.23 Completed
 
-The runner records `sweep.tick.outcome`, `sweep.tick.duration`,
-`sweep.last.success.timestamp`, and `sweep.batch.size`. Outcomes distinguish
+The runner records `sweep_tick_total`, `sweep_duration_seconds`,
+`sweep_last_success_timestamp_seconds`, `sweep_lock_acquire_total`, and
+`sweep_batch_rows_total`. Outcomes distinguish
 success, contention, lost ownership, timeout, failure, and interruption. Duration
 ends after lock cleanup; successful timestamps use the injected kernel clock.
 Adapters report typed ownership loss, including inability to verify a retained
@@ -1476,7 +1477,7 @@ Added `SweepLockConfiguration` to validate the closed adapter/pooling settings;
 both adapters now have exclusive property conditions. Session remains the
 default; transaction pooling with session locks fails startup. Reused the
 session adapter's registry/result mapping and ownership query. Documented
-the configuration and T-15 limitations in `docs/runtime-connection-pools.md`;
+the configuration and T-15 limitations in `../../runbooks/runtime-connection-pools.md`;
 P10.6 remains open for the complete adoption guide.
 
 Added `TransactionSweepLockTest` and `SweepLockConfigurationTest`, and extended

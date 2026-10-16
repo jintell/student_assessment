@@ -72,7 +72,7 @@ error code.
   `runbook-problem-detail-unmapped.md` and create or correct the intentional
   catalogue mapping.
 - Elevated `dbQueryCount`: compare the route with
-  `config/observability/query-budgets.json` and escalate the regression to the
+  `../../config/observability/query-budgets.json` and escalate the regression to the
   slice owner and `FEAT-OPS-005`.
 - Missing correlation on any required surface: treat as an observability
   contract defect and retain the response, sanitized log schema, and trace

@@ -249,7 +249,7 @@ roles) and `FEAT-OPS-*` (image signing, SBOM, canary). Only what this feature mu
 2. [*] Publish the R1–R10 rule card from `P1.4`, stating for each rule its enforcement mechanism, owning feature and failure message. Deliverable: `docs/conformance-rules.md`.
 3. [*] Publish the module map: twelve context modules with their schemas, aggregates and permitted dependencies, plus the platform-module category. Deliverable: `docs/module-map.md`.
 4. [*] Publish the API conventions document from `P2.8` as the normative shape for every later feature. Deliverable: `docs/api-conventions.md`.
-5. [*] Write the stage 4a runbook: what BLOCK means, what FAIL means, who resolves each, and how to re-ratify after a baseline change. Deliverable: `docs/runbook-stage-4a.md`.
+5. [*] Write the stage 4a runbook: what BLOCK means, what FAIL means, who resolves each, and how to re-ratify after a baseline change. Deliverable: `../../../docs/runbooks/runbook-stage-4a.md`.
 6. [*] Record the `P1.3` decision note on the twelve-versus-fourteen module count where later features will find it. Deliverable: decision note in `docs/decisions/`.
 7. [*] Raise `TASK-PLAT1-DEFECT-001` — the §18.3 Git-blob-SHA-256 versus SHA-1 discrepancy — to the Architecture Owner as a documentation defect for the next baseline, with the resolution this feature adopted. Deliverable: defect record.
 8. [*] Update the plan §19 traceability matrix with this feature's evidence: task ranges, test ids and retained artifacts. Deliverable: updated matrix rows.

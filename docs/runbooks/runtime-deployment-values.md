@@ -1,6 +1,6 @@
 # Runtime Deployment Values
 
-`deploy/runtime/values.yaml` is the input contract for Platform Ops' deployment
+`../../deploy/runtime/values.yaml` is the input contract for Platform Ops' deployment
 renderer, not a Helm chart or a claim of a deployed environment. It transcribes
 architecture sections 8.2, 15.2 and 17.1. All workloads consume the single
 top-level `image.reference`, supplied as `CBT_PLATFORM_IMAGE_DIGEST` in
@@ -32,7 +32,7 @@ consumer requirement; it does not replace the existing outbox consumer settings.
 The explicit heap/direct-memory caps follow the P2.11 PLAN-RECOMMENDATION and
 require workload validation; they are not additional ratified capacity figures.
 No secrets, KMS grants, private keys or issuer endpoints are supplied here.
-Database connection inputs remain in `docs/runtime-connection-pools.md`.
+Database connection inputs remain in `runtime-connection-pools.md`.
 All Services use `sessionAffinity: None`; ingress must also have cookie/session
 stickiness disabled. Exact rendered manifest verification is P7.17.
 
@@ -43,7 +43,7 @@ FEAT-EXAM-002 owns the retrieval-key grant and real-identity denial evidence.
 
 ## PIN-Distribution Identity
 
-`deploy/kubernetes/pindist-service-account.yaml.template` supplies the distinct
+`../../deploy/kubernetes/pindist-service-account.yaml.template` supplies the distinct
 `cbt-pindist` ServiceAccount. The deployment must set `serviceAccountName` from
 the values contract. The worker retains its existing `cbt-platform-worker`
 ServiceAccount; API uses `cbt-api`. Neither may assume the pindist identity.
@@ -63,7 +63,7 @@ delivers the identity mechanism/values, not that grant or the A4 attestation.
 
 ## PIN-Distribution Network Boundary
 
-`deploy/kubernetes/pindist-network-policy.yaml.template` isolates inbound
+`../../deploy/kubernetes/pindist-network-policy.yaml.template` isolates inbound
 traffic to pods labelled `app.kubernetes.io/name=cbt-platform` and
 `app.kubernetes.io/component=pindist`. Platform Ops must apply both labels to
 the workload. Only TCP 8080 from the named ingress namespace AND the selected
