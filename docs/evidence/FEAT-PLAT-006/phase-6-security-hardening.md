@@ -34,7 +34,7 @@ kubectl --context cbt-staging --request-timeout=15s get deployments \
 
 The existing `deploy/kubernetes/pindist-service-account.yaml.template` contains
 an inventory annotation referencing `CBT_PINDIST_WORKLOAD_IDENTITY`.
-`docs/runtime-deployment-values.md` explicitly requires Platform Ops to supply
+`../../runbooks/runtime-deployment-values.md` explicitly requires Platform Ops to supply
 the provider binding, issuer, audience and projected token configuration.
 Applying the template alone would not satisfy P6.1 or `REQ-SEC-014`.
 

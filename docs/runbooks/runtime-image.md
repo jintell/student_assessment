@@ -21,7 +21,7 @@ No repository files, environment credentials or profile overrides are copied.
 The runtime is UID/GID 10001 and retains the shell utilities needed by preStop.
 The script does not forward shell environment variables as Docker build args.
 
-Generated artifacts under `build/runtime-image/` (not committed):
+Generated artifacts under `../../build/runtime-image` (not committed):
 
 - `oci/`: OCI layout containing one runnable manifest and one SBOM attestation.
 - `metadata.json`: BuildKit's digest metadata.

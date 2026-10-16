@@ -50,7 +50,7 @@ phase begins at P6.1 and requires Platform Ops workload-identity provisioning.
 Added explicit JVM-cap/cgroup validation, bounded one-second operational memory
 sampling, monotonic continuous pressure windows, and a latched drain/liveness
 failure with a bounded restart-reason counter and log. See
-`docs/runtime-memory-control.md` for deployment inputs and restart behavior.
+`../../runbooks/runtime-memory-control.md` for deployment inputs and restart behavior.
 Controlled-time tests cover threshold persistence, reset, and latching;
 monitor tests cover availability events, one-shot metrics, and cgroup v1/v2.
 Actual Kubernetes restart timing remains P7.16, not a unit-test claim.
@@ -1477,7 +1477,7 @@ Added `SweepLockConfiguration` to validate the closed adapter/pooling settings;
 both adapters now have exclusive property conditions. Session remains the
 default; transaction pooling with session locks fails startup. Reused the
 session adapter's registry/result mapping and ownership query. Documented
-the configuration and T-15 limitations in `docs/runtime-connection-pools.md`;
+the configuration and T-15 limitations in `../../runbooks/runtime-connection-pools.md`;
 P10.6 remains open for the complete adoption guide.
 
 Added `TransactionSweepLockTest` and `SweepLockConfigurationTest`, and extended

@@ -48,7 +48,7 @@ exception message and do not mute the metric.
 ## Verify and release
 
 1. Add the exception-to-code mapping at `KernelErrorConfiguration` and the
-   complete declarative entry in `src/main/resources/error-catalogue.yaml`.
+   complete declarative entry in `../../src/main/resources/error-catalogue.yaml`.
 2. Add mapper, HTTP-boundary, allowlist, and leak assertions for the new path.
    Confirm the generated OpenAPI and client catalogue change from the same
    source artifact.

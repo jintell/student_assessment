@@ -63,7 +63,7 @@ shapes fail closed. In particular:
 
 `CONCURRENTLY` is mandatory because a regular PostgreSQL index build blocks
 writes. It must not be wrapped in a Flyway transaction. A failed concurrent
-build can leave an `INVALID` index; follow `docs/runbook-migration-failure.md`
+build can leave an `INVALID` index; follow `runbooks/runbook-migration-failure.md`
 to drop it concurrently and repair Flyway history before retrying.
 
 ## Update Release Inputs

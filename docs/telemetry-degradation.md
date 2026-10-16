@@ -74,7 +74,7 @@ allowing a deployment to hide a malformed or insecure telemetry setup.
 
 ## Operational Response
 
-Use `docs/runbook-telemetry-collector-outage.md`. Confirm liveness, readiness,
+Use `runbooks/runbook-telemetry-collector-outage.md`. Confirm liveness, readiness,
 request success, and latency through a path independent of the telemetry
 backend. Preserve local counter and queue snapshots, restore downstream stores
 before collector exporters and receivers, then confirm fresh exports succeed

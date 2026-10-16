@@ -17,7 +17,7 @@ reused. No physical connections are added to the ten-connection allowance.
 The background factory remains primary, preserving Boot's default worker
 `DatabaseClient`; a regression test proves it never selects a reserved pool.
 
-`docs/runtime-connection-pools.md` registers this allocation for P8.5 and
+`../../runbooks/runtime-connection-pools.md` registers this allocation for P8.5 and
 documents qualifiers and Phase 4 adapter/shutdown obligations. P8.5's envelope
 proof remains its own task.
 
@@ -35,7 +35,7 @@ baseline resources/replicas/HPA bounds, separate pool budgets and session
 affinity None. API scales on CPU and exam-path p95, worker on queue depth,
 and pindist has no HPA. Grading prefetch/concurrency are recorded independently
 of existing outbox consumers. P2.11 heap recommendations are explicitly labelled
-in `docs/runtime-deployment-values.md`; HPA thresholds remain required external
+in `../../runbooks/runtime-deployment-values.md`; HPA thresholds remain required external
 inputs because no numeric targets are specified by the architecture.
 
 `RuntimeDeploymentValuesTest` passed, checking role/profile identity, one shared
@@ -94,7 +94,7 @@ The verifier checks metadata hashes, a single runnable image/SBOM, matching
 attestation subject, non-root entry point and no baked profile/JVM override.
 The contract test passed its positive fixture and six negative cases. The
 deployment contract tests, compileJava, compileTestJava and full root test suite
-also passed. `docs/runtime-image.md` documents reproduction and promotion.
+also passed. `../../runbooks/runtime-image.md` documents reproduction and promotion.
 
 No image was published or signed; those are P8.3. No running three-role system,
 route isolation or completed lifecycle is claimed ahead of Phase 4/P7.10.

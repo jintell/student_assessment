@@ -197,7 +197,7 @@ registry/Actuator read so a broken OTLP path cannot hide its own alert input.
 
 Verdict: **PUBLISHED**
 
-`docs/runbook-correlation-diagnosis.md` gives operators both navigation
+`../../runbooks/runbook-correlation-diagnosis.md` gives operators both navigation
 directions: client response -> exact protected log -> trace -> metric exemplar,
 and alert exemplar -> trace -> correlation identifier -> log -> client-visible
 stable error. It covers scheduler hops, relay/consumer boundaries, linked new
@@ -209,7 +209,7 @@ link.
 
 Verdict: **PUBLISHED**
 
-`docs/runbook-telemetry-collector-outage.md` records the expected local and
+`../../runbooks/runbook-telemetry-collector-outage.md` records the expected local and
 remote symptoms, an availability check independent of telemetry, every queue
 and drop signal to inspect, the shared-versus-single-signal diagnosis, and the
 store -> collector exporter/processor -> receiver/identity -> application

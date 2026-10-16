@@ -98,7 +98,7 @@ proposed panel as an installed launch dashboard.
 
 ## P9.6 Missing-Context P1 Runbook
 
-`docs/runbook-database-security-context-missing.md` defines P1 containment,
+`../../runbooks/runbook-database-security-context-missing.md` defines P1 containment,
 evidence preservation, calling-path diagnosis, companion-signal correlation,
 forbidden mitigations, restoration gates, and closure evidence. It explains
 that the connection guard refused the caller statement before delegation while

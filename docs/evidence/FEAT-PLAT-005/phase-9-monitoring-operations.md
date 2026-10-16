@@ -101,14 +101,14 @@ owners register, route, and exercise the definitions.
 
 ## P9.6 Failed-migration operations runbook
 
-`docs/runbook-migration-failure.md` covers report validation, lock versus
+`../../runbooks/runbook-migration-failure.md` covers report validation, lock versus
 forbidden-operation triage, idempotent `INVALID` index reconciliation, guarded
 Flyway schema-history repair, compatibility failure, and the forward-fix rule.
 It explicitly refuses manual schema-history edits and schema rollback.
 
 ## P9.7 Blocked-deploy operations runbook
 
-`docs/runbook-blocked-deploy.md` covers open-session confirmation, authoritative
+`../../runbooks/runbook-blocked-deploy.md` covers open-session confirmation, authoritative
 window discovery, each unknown-source reason, and the incident-bound emergency
 override. It records the exact two distinct approval roles, audit-before-permit
 rule, scope/expiry checks, and the gates an override can never bypass.

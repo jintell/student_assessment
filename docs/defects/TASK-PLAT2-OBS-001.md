@@ -43,7 +43,7 @@ Add a **Database security-context enforcement** panel group to dashboard 6.
 | Successful role assumptions | `sum by (role) (rate(db_role_assumption_total[$__rate_interval]))` | Time series used as the bounded role-usage baseline |
 | Connection reset failures | `sum(increase(db_connection_reset_failure_total[$__rate_interval]))` | Stat fixed at zero with pool-security diagnostic link |
 
-The panel must link to `docs/runbook-database-security-context-missing.md` and
+The panel must link to `../runbooks/runbook-database-security-context-missing.md` and
 the retained `ARC-VERIFY-024` report. It must not add tenant, actor,
 correlation, connection, SQL, or exception labels.
 

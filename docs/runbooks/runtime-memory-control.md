@@ -2,7 +2,7 @@
 
 Every role requires an explicit `-Xmx` and `-XX:MaxDirectMemorySize`, with
 native headroom below its container limit. The approved deployment values are
-in `deploy/runtime/values.yaml`. Percentage-based heap overrides are rejected.
+in `../../deploy/runtime/values.yaml`. Percentage-based heap overrides are rejected.
 
 The container must expose its own cgroup at `/sys/fs/cgroup`: v2 `memory.max`
 and `memory.current`, or v1 `memory/memory.limit_in_bytes` and
