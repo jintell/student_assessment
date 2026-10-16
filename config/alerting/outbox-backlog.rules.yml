@@ -1,0 +1,14 @@
+groups:
+  - name: outbox-backlog
+    rules:
+      - alert: OutboxBacklog
+        expr: |
+          max by (cluster, namespace, job) (outbox_backlog_depth{state="PENDING"}) > 5000
+          or
+          max by (cluster, namespace, job) (outbox_oldest_pending_age_seconds) > 300
+        labels:
+          severity: p2
+          owner: platform
+        annotations:
+          summary: Outbox pending backlog exceeds 5000 rows or five minutes
+          runbook: docs/runbooks/outbox-backlog.md

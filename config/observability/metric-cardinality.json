@@ -5,6 +5,16 @@
     "correlationId"
   ],
   "metrics": [
+    {"name": "outbox_backlog_depth", "labels": ["state"], "maxSeries": 4},
+    {"name": "outbox_oldest_pending_age_seconds", "labels": [], "maxSeries": 1},
+    {"name": "outbox_relay_published_total", "labels": [], "maxSeries": 1},
+    {"name": "outbox_relay_publish_failure_total", "labels": ["reason"], "maxSeries": 4},
+    {"name": "outbox_relay_tick_total", "labels": [], "maxSeries": 1},
+    {"name": "outbox_relay_tick_duration_seconds", "labels": [], "maxSeries": 3},
+    {"name": "outbox_stale_claim_reclaimed_total", "labels": [], "maxSeries": 1},
+    {"name": "outbox_event_failed_total", "labels": [], "maxSeries": 1},
+    {"name": "outbox_writer_appended_total", "labels": [], "maxSeries": 1},
+    {"name": "outbox_consumer_duplicate_total", "labels": [], "maxSeries": 1},
     {
       "name": "exam_started_total",
       "labels": [],

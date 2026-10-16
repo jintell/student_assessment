@@ -91,7 +91,8 @@ class OutboxBrokerOutageIntegrationTest extends OutboxPostgreSqlIntegrationTestS
                                 new DatabaseOutboxPublicationStore(databaseClient),
                                 (eventId, reason) -> Mono.empty(),
                                 Clock.fixed(OUTAGE_STARTED.plusSeconds(601), ZoneOffset.UTC),
-                                mock(OutboxTelemetry.class));
+                                mock(OutboxTelemetry.class),
+                                io.opentelemetry.api.OpenTelemetry.noop().getTracer("outbox-test"));
                 StepVerifier.create(
                                 relay.publishSequentially(
                                         reactor.core.publisher.Flux.fromIterable(claimed)))

@@ -97,7 +97,8 @@ class ObservabilityPropagationIntegrationTest extends OutboxPostgreSqlIntegratio
                                 new DatabaseOutboxPublicationStore(databaseClient),
                                 (eventId, reason) -> Mono.empty(),
                                 Clock.fixed(NOW.plusSeconds(1), ZoneOffset.UTC),
-                                mock(OutboxTelemetry.class));
+                                mock(OutboxTelemetry.class),
+                                telemetry.tracer());
                 StepVerifier.create(relay.publishOne(claimed)).verifyComplete();
 
                 Message message = Objects.requireNonNull(rabbitTemplate.receive(QUEUE, 5_000));
@@ -190,7 +191,8 @@ class ObservabilityPropagationIntegrationTest extends OutboxPostgreSqlIntegratio
                                 new DatabaseOutboxPublicationStore(databaseClient),
                                 (eventId, reason) -> Mono.empty(),
                                 Clock.fixed(NOW.plusSeconds(1), ZoneOffset.UTC),
-                                mock(OutboxTelemetry.class));
+                                mock(OutboxTelemetry.class),
+                                telemetry.tracer());
                 StepVerifier.create(
                                 relay.publishSequentially(
                                         reactor.core.publisher.Flux.fromIterable(claimed)))
@@ -202,6 +204,10 @@ class ObservabilityPropagationIntegrationTest extends OutboxPostgreSqlIntegratio
                             .containsEntry("correlation_id", CORRELATION.toString())
                             .containsEntry("traceparent", traceCarrier.get("traceparent"));
                 }
+                assertThat(telemetry.finishedSpans())
+                        .extracting(io.opentelemetry.sdk.trace.data.SpanData::getName)
+                        .containsExactlyInAnyOrder(
+                                "platform.httpBatchRequest", "outbox relay batch");
             } finally {
                 connectionFactory.destroy();
             }
