@@ -70,3 +70,12 @@ required by runtime `P0.6`.
 Satisfied. The plan edits are present, the Plan Owner accepted them, and the
 detached signature verifies against the retained public key. No Phase 3 task
 may begin before the recorded persistence dependency is complete.
+
+## P10.8 Baseline Revision Handoff — 2026-10-16
+
+The Plan Owner acknowledgement above remains closed and its verifier passed
+on 2026-10-16. P10.8 additionally routes this resolution to the Architecture
+Owner for the next baseline; that acknowledgement is pending. No new external
+delivery or owner acceptance is represented.
+
+Current implementation: [runtime role contract](../runtime-roles.md).

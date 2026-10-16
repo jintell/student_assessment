@@ -44,8 +44,9 @@ Only one `SweepLock` bean is registered. API and pindist register neither.
 
 Set `cbt.runtime.sweep-lock.pooling-mode=transaction` when the database URL points to PgBouncer
 transaction pooling; it defaults to `direct`. Startup rejects unknown values
-and rejects session locks with transaction pooling. This is the T-15 adapter
-selection mechanism; P10.6 still owns the complete PgBouncer adoption guide.
+and rejects session locks with transaction pooling. The
+[T-15 adoption guide](../runtime-pgbouncer-seam.md) records the required capacity,
+context-isolation and live-pooler evidence before switching.
 
 The transaction adapter holds one initialized lock-only transaction on the
 dedicated pool for the lifetime of its handle. It rolls back on release and

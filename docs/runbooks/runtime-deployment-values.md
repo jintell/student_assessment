@@ -1,5 +1,8 @@
 # Runtime Deployment Values
 
+Start with the living [runtime role matrix](../runtime-roles.md) for architecture
+source lines, current bean inventories and outstanding deployment evidence.
+
 `../../deploy/runtime/values.yaml` is the input contract for Platform Ops' deployment
 renderer, not a Helm chart or a claim of a deployed environment. It transcribes
 architecture sections 8.2, 15.2 and 17.1. All workloads consume the single
@@ -76,7 +79,7 @@ controller pods. These are required deployment inputs, not permissive defaults.
 Use a NetworkPolicy-enforcing CNI; do not add overlapping policies that broaden
 this allowlist (Kubernetes policies are additive), run these workloads with
 host networking, or grant application identities ingress-namespace mutation.
-Management port 9090 is not exposed to ingress; node-local probes remain a
+Management port 9091 is not exposed to ingress; node-local probes remain a
 Platform Ops concern. Monitoring overlays must not reopen the business port.
 
 Ingress still enforces the single route and authentication separately. This

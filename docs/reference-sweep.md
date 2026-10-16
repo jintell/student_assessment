@@ -51,6 +51,6 @@ Run with Docker available:
 ./gradlew integrationTest --tests '*ReferenceSweepIntegrationTest'
 ```
 
-P10.1 remains a separate documentation task. Its author guide should link to
-this executable exemplar and explain feature-owned registry, manifest, identity
-and bounded-batch declarations rather than copy the fixture's test SQL or hooks.
+The [sweep-authoring guide](sweep-authoring.md) defines the production registration,
+manifest, identity and bounded-batch contract. Do not copy this fixture's test SQL
+or interruption hooks into production.
