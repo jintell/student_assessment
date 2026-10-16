@@ -57,33 +57,25 @@ final class OutboxDatabasePrerequisites implements SmartInitializingSingleton {
                         Mono.from(connections.create()),
                         connection ->
                                 DatabaseSecurityScopes.inSweepCoordinationTransaction(
-                                        connection,
-                                        Flux.defer(
-                                                        () ->
-                                                                Flux.from(
-                                                                        connection
-                                                                                .createStatement(
-                                                                                        READINESS_SQL)
-                                                                                .execute()))
-                                                .concatMap(
-                                                        result ->
-                                                                result.map(
-                                                                        (row, metadata) ->
-                                                                                Objects
-                                                                                        .requireNonNull(
-                                                                                                row
-                                                                                                        .get(
-                                                                                                                "ready",
-                                                                                                                Boolean
-                                                                                                                        .class))))
-                                                .single()
-                                                .filter(Boolean::booleanValue)
-                                                .switchIfEmpty(Mono.error(unavailable()))),
+                                        connection, readiness(connection)),
                         connection -> Mono.from(connection.close()),
                         (connection, failure) -> discard(connection),
                         OutboxDatabasePrerequisites::discard)
                 .timeout(Duration.ofSeconds(10))
                 .then();
+    }
+
+    private static Mono<Boolean> readiness(Connection connection) {
+        return Flux.defer(() -> Flux.from(connection.createStatement(READINESS_SQL).execute()))
+                .concatMap(
+                        result ->
+                                result.map(
+                                        (row, metadata) ->
+                                                Objects.requireNonNull(
+                                                        row.get("ready", Boolean.class))))
+                .single()
+                .filter(Boolean::booleanValue)
+                .switchIfEmpty(Mono.error(unavailable()));
     }
 
     private static Mono<Void> discard(Connection connection) {

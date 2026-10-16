@@ -54,7 +54,8 @@ class OutboxDatabasePrerequisitesIntegrationTest extends OutboxPostgreSqlIntegra
             assertWorkerFails();
         } finally {
             executeAsClusterOwner(
-                    "SET ROLE app_migrator; GRANT app_outbox_relay TO app_worker WITH ADMIN FALSE, INHERIT FALSE, SET TRUE; RESET ROLE");
+                    "SET ROLE app_migrator; GRANT app_outbox_relay TO app_worker "
+                            + "WITH ADMIN FALSE, INHERIT FALSE, SET TRUE; RESET ROLE");
         }
     }
 
