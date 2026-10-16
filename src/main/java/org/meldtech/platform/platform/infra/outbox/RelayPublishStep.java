@@ -1,5 +1,8 @@
 package org.meldtech.platform.platform.infra.outbox;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -16,22 +19,37 @@ final class RelayPublishStep {
     private final OutboxAlertSink alerts;
     private final Clock clock;
     private final OutboxTelemetry telemetry;
+    private final Tracer tracer;
 
     RelayPublishStep(
             OutboxBrokerPublisher broker,
             OutboxPublicationStore store,
             OutboxAlertSink alerts,
             Clock clock,
-            OutboxTelemetry telemetry) {
+            OutboxTelemetry telemetry,
+            Tracer tracer) {
         this.broker = Objects.requireNonNull(broker, "broker");
         this.store = Objects.requireNonNull(store, "store");
         this.alerts = Objects.requireNonNull(alerts, "alerts");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
+        this.tracer = Objects.requireNonNull(tracer, "tracer");
     }
 
     Mono<Void> publishSequentially(Flux<ClaimedOutboxEvent> events) {
-        return events.concatMap(this::publishOne).then();
+        return Mono.using(
+                () -> tracer.spanBuilder("outbox relay batch").setNoParent().startSpan(),
+                span ->
+                        events.concatMap(this::publishOne)
+                                .then()
+                                .doOnSuccess(ignored -> span.setAttribute("outcome", "success"))
+                                .doOnError(
+                                        ignored -> {
+                                            span.setAttribute("outcome", "error");
+                                            span.setStatus(StatusCode.ERROR);
+                                        })
+                                .doOnCancel(() -> span.setAttribute("outcome", "cancelled")),
+                Span::end);
     }
 
     Mono<Void> publishOne(ClaimedOutboxEvent event) {

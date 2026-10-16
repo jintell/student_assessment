@@ -31,7 +31,8 @@ class RelayPublishStepTest {
                         store,
                         (eventId, reason) -> Mono.fromRunnable(() -> alerts.add(eventId)),
                         Clock.fixed(NOW, ZoneOffset.UTC),
-                        new RecordingTelemetry());
+                        new RecordingTelemetry(),
+                        io.opentelemetry.api.OpenTelemetry.noop().getTracer("outbox-test"));
 
         StepVerifier.create(step.publishOne(event(7))).verifyComplete();
 
@@ -53,7 +54,8 @@ class RelayPublishStepTest {
                         store,
                         (eventId, reason) -> Mono.empty(),
                         Clock.fixed(NOW, ZoneOffset.UTC),
-                        new RecordingTelemetry());
+                        new RecordingTelemetry(),
+                        io.opentelemetry.api.OpenTelemetry.noop().getTracer("outbox-test"));
 
         StepVerifier.create(step.publishSequentially(Flux.just(event(0), event(0))))
                 .verifyComplete();
@@ -78,7 +80,8 @@ class RelayPublishStepTest {
                         (eventId, reason) ->
                                 Mono.fromRunnable(() -> alerts.add(eventId + ":" + reason)),
                         Clock.fixed(NOW, ZoneOffset.UTC),
-                        new RecordingTelemetry());
+                        new RecordingTelemetry(),
+                        io.opentelemetry.api.OpenTelemetry.noop().getTracer("outbox-test"));
 
         try {
             StepVerifier.create(step.publishOne(event(7))).verifyComplete();

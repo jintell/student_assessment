@@ -31,6 +31,27 @@ be joined without maintaining three exporter configurations.
 
 ## Registered Metrics
 
+### Outbox Addendum — TASK-PLAT4-OBS-001
+
+These FEAT-PLAT-004 definitions fill the omission in architecture §16.2; they are not claimed as existing baseline text. `OutboxTelemetryConfiguration` registers the adapter on `worker`. The production relay assembly and backlog sampling hook remain blocked under outbox P8.5. Registered gauges start as `NaN` (unknown), not a healthy zero; only an explicit empty snapshot sets zero. The adapter rejects invalid negative snapshots without overwriting the last good sample. A live collector must refresh these cluster-wide values and provide freshness evidence before operational acceptance.
+
+| Prometheus name | Kind / unit | Feature labels and values | Series budget |
+|---|---|---|---:|
+| `outbox_backlog_depth` | Gauge, rows | `state`: PENDING, CLAIMED, PUBLISHED, FAILED | 4 |
+| `outbox_oldest_pending_age_seconds` | Gauge, seconds since oldest pending row was created; sampled empty backlog = 0 | None | 1 |
+| `outbox_relay_published_total` | Counter, confirmed publications recorded as published | None | 1 |
+| `outbox_relay_publish_failure_total` | Counter, failed attempts | `reason`: BROKER_NACK, CONFIRM_TIMEOUT, BROKER_UNAVAILABLE, UNCLASSIFIED | 4 |
+| `outbox_relay_tick_total` | Counter, terminated tick attempts including lock losers, errors and cancellation | None | 1 |
+| `outbox_relay_tick_duration_seconds` | Timer, tick attempt including lock acquisition/release; exports count, sum and max | None | 3 |
+| `outbox_stale_claim_reclaimed_total` | Counter, expired claims returned to pending | None | 1 |
+| `outbox_event_failed_total` | Counter, transitions into FAILED after exhausted attempts | None | 1 |
+| `outbox_writer_appended_total` | Counter, successful appends before transaction commit; not committed events | None | 1 |
+| `outbox_consumer_duplicate_total` | Counter, guard-suppressed deliveries | None | 1 |
+
+No feature meter accepts tenant, correlation, event, aggregate, payload or exception labels in any spelling, including `tenant_id`. Runtime identity and infrastructure scrape labels remain the platform's bounded dimensions. Aggregate replica-local counters using `sum(rate(...))`. Cluster-wide backlog/age snapshots are duplicated across workers: use `max`, scoped to one deployment, not `sum`. Tick activity alone does not establish successful lock ownership or publication; correlate it with sweep success and publication progress. Failed sampling must not be presented as an empty backlog; freshness/missing-data alerting remains an Ops prerequisite.
+
+### Baseline Catalogue
+
 | Metric | Kind | Owning feature | Permitted labels | `maxSeries` |
 |---|---|---|---|---:|
 | `exam_started_total` | Counter | Exam lifecycle owner; contract owned by `FEAT-OBS-001` | None | 1 |

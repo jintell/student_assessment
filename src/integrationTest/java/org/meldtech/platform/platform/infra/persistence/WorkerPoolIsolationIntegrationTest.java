@@ -16,21 +16,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.meldtech.platform.PostgreSqlTestContainer;
 import org.meldtech.platform.platform.infra.observability.DatabaseQueryTelemetry;
 import org.meldtech.platform.platform.infra.observability.TracingConnectionFactory;
+import org.meldtech.platform.platform.infra.outbox.OutboxPostgreSqlIntegrationTestSupport;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-class WorkerPoolIsolationIntegrationTest {
+class WorkerPoolIsolationIntegrationTest extends OutboxPostgreSqlIntegrationTestSupport {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
 
     @Test
     void twoHeldLockConnectionsLeaveAllGradingAndBackgroundConnectionsAvailable() throws Exception {
-        var postgres = PostgreSqlTestContainer.instance();
-        postgres.start();
         String password = UUID.randomUUID().toString();
         try (var connection =
                         DriverManager.getConnection(
@@ -38,14 +36,6 @@ class WorkerPoolIsolationIntegrationTest {
                                 postgres.getUsername(),
                                 postgres.getPassword());
                 var statement = connection.createStatement()) {
-            statement.execute(
-                    """
-                    DO $$ BEGIN
-                        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_worker') THEN
-                            CREATE ROLE app_worker LOGIN NOINHERIT;
-                        END IF;
-                    END $$
-                    """);
             statement.execute("ALTER ROLE app_worker PASSWORD '%s'".formatted(password));
         }
         String url =

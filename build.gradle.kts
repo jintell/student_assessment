@@ -977,7 +977,7 @@ val telemetrySchemaGate =
     }
 
 tasks.register("ciStage4") {
-    description = "CI stage 4: runs architecture conformance."
+    description = "CI stage 4: runs architecture, outbox propagation, and answer-path conformance."
     group = "ci"
     dependsOn(conformanceTest, businessEventCompletenessGate, telemetrySchemaGate)
 }
@@ -1001,7 +1001,7 @@ tasks.register("ciStage7") {
 }
 
 tasks.register("ciStage8") {
-    description = "CI stage 8: runs PostgreSQL integration and daily audit-chain verification."
+    description = "CI stage 8: runs PostgreSQL/RabbitMQ integration and daily audit-chain verification."
     group = "ci"
     dependsOn(integrationTest, auditDailyChainVerificationTest, queryBudgetGate)
 }

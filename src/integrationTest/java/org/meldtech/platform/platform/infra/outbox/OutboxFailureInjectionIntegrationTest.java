@@ -424,7 +424,8 @@ class OutboxFailureInjectionIntegrationTest extends OutboxPostgreSqlIntegrationT
                 store,
                 (eventId, reason) -> Mono.fromRunnable(() -> alerts.add(eventId)),
                 CLOCK,
-                mock(OutboxTelemetry.class));
+                mock(OutboxTelemetry.class),
+                io.opentelemetry.api.OpenTelemetry.noop().getTracer("outbox-test"));
     }
 
     private static OutboxMessage message(String eventId) {

@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 final class MicrometerOutboxTelemetry implements OutboxTelemetry {
 
@@ -20,37 +20,81 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
     private final Counter consumerDuplicates;
     private final Counter relayTicks;
     private final Timer relayTickDuration;
-    private final Map<OutboxState, AtomicLong> backlogDepth = new EnumMap<>(OutboxState.class);
-    private final AtomicLong oldestPendingAgeSeconds = new AtomicLong();
+    private final AtomicReference<BacklogSnapshot> backlog = new AtomicReference<>();
 
     MicrometerOutboxTelemetry(MeterRegistry registry) {
         Objects.requireNonNull(registry, "registry");
-        writerAppended = registry.counter("outbox.writer.appended");
-        relayPublished = registry.counter("outbox.relay.published");
-        staleClaimsReclaimed = registry.counter("outbox.stale.claim.reclaimed");
-        eventFailed = registry.counter("outbox.event.failed");
-        consumerDuplicates = registry.counter("outbox.consumer.duplicate");
-        relayTicks = registry.counter("outbox.relay.tick");
-        relayTickDuration = registry.timer("outbox.relay.tick.duration");
+        writerAppended =
+                counter(
+                        registry,
+                        "outbox.writer.appended",
+                        "Successful outbox appends before transaction commit");
+        relayPublished =
+                counter(
+                        registry,
+                        "outbox.relay.published",
+                        "Confirmed publications recorded as published");
+        staleClaimsReclaimed =
+                counter(
+                        registry,
+                        "outbox.stale.claim.reclaimed",
+                        "Expired claims returned to pending");
+        eventFailed =
+                counter(
+                        registry,
+                        "outbox.event.failed",
+                        "Events entering failed state after exhausted publication attempts");
+        consumerDuplicates =
+                counter(
+                        registry,
+                        "outbox.consumer.duplicate",
+                        "Deliveries suppressed by the consumer guard");
+        relayTicks =
+                counter(
+                        registry,
+                        "outbox.relay.tick",
+                        "Terminated relay tick attempts including lock losers, errors and cancellation");
+        relayTickDuration =
+                Timer.builder("outbox.relay.tick.duration")
+                        .description(
+                                "Relay tick attempt duration including lock acquisition and release")
+                        .register(registry);
         publishFailures = new EnumMap<>(PublicationFailureReason.class);
         for (PublicationFailureReason reason : PublicationFailureReason.values()) {
             publishFailures.put(
                     reason,
                     Counter.builder("outbox.relay.publish.failure")
+                            .description("Publication attempts failed by bounded reason")
                             .tag("reason", reason.name())
                             .register(registry));
         }
         for (OutboxState state : OutboxState.values()) {
-            AtomicLong depth = new AtomicLong();
-            backlogDepth.put(state, depth);
-            Gauge.builder("outbox.backlog.depth", depth, AtomicLong::doubleValue)
+            Gauge.builder(
+                            "outbox.backlog.depth",
+                            backlog,
+                            snapshot -> {
+                                BacklogSnapshot current = snapshot.get();
+                                return current == null
+                                        ? Double.NaN
+                                        : current.depthByState()
+                                                .getOrDefault(state, 0L)
+                                                .doubleValue();
+                            })
+                    .description("Cluster-wide outbox row count by state; unknown until sampled")
                     .tag("state", state.name())
                     .register(registry);
         }
         Gauge.builder(
                         "outbox.oldest.pending.age.seconds",
-                        oldestPendingAgeSeconds,
-                        AtomicLong::doubleValue)
+                        backlog,
+                        snapshot -> {
+                            BacklogSnapshot current = snapshot.get();
+                            return current == null
+                                    ? Double.NaN
+                                    : current.oldestPendingAge().toSeconds();
+                        })
+                .description(
+                        "Age of oldest pending row; zero for a sampled empty backlog, unknown before sampling")
                 .register(registry);
     }
 
@@ -91,16 +135,20 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
     }
 
     void updateBacklog(Map<OutboxState, Long> depthByState, Duration oldestPendingAge) {
-        Objects.requireNonNull(depthByState, "depthByState");
-        for (OutboxState state : OutboxState.values()) {
-            Objects.requireNonNull(backlogDepth.get(state), "backlog gauge")
-                    .set(depthByState.getOrDefault(state, 0L));
+        Map<OutboxState, Long> snapshot = Map.copyOf(depthByState);
+        if (snapshot.values().stream().anyMatch(depth -> depth < 0)
+                || Objects.requireNonNull(oldestPendingAge, "oldestPendingAge").isNegative()) {
+            throw new IllegalArgumentException("Outbox backlog values must be non-negative");
         }
-        oldestPendingAgeSeconds.set(
-                Math.max(
-                        0L,
-                        Objects.requireNonNull(oldestPendingAge, "oldestPendingAge").toSeconds()));
+        backlog.set(new BacklogSnapshot(snapshot, oldestPendingAge));
     }
+
+    private static Counter counter(MeterRegistry registry, String name, String description) {
+        return Counter.builder(name).description(description).register(registry);
+    }
+
+    private record BacklogSnapshot(
+            Map<OutboxState, Long> depthByState, Duration oldestPendingAge) {}
 
     enum OutboxState {
         PENDING,
