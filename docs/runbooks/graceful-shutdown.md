@@ -1,5 +1,7 @@
 # Graceful Shutdown
 
+Feature authors must follow the normative [shutdown contract](../shutdown-contract.md).
+
 Use this runbook for `RuntimeGracePeriodExceeded`, elevated
 `shutdown_phase_duration_seconds`, non-zero
 `shutdown_abandoned_units_total`, or pods stuck terminating.

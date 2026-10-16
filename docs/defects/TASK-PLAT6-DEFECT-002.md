@@ -32,3 +32,11 @@ approved this additive table in
 signatures are verified by `ci/verify-runtime-registry-budget-approval`.
 
 Any wider scope or ownership change requires renewed approval.
+
+## P10.8 Baseline Revision Handoff — 2026-10-16
+
+The original Architecture Owner and FEAT-PLAT-002 Owner approvals above remain
+in force; their verifier passed on 2026-10-16. Publish this adopted resolution
+in the next baseline. No wider scope or new approval is implied.
+
+Current implementation: [registry grant addendum](../grant-matrix.md#scheduler-registry-addendum-feat-plat-006-p104).

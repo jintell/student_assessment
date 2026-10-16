@@ -33,3 +33,11 @@ Architecture Owner Josiah Adetayo and `FEAT-PLAT-002` owner Francis Okechukwu
 approved the arithmetic in
 `ci/dor/FEAT-PLAT-006/P0.6-registry-budget-approval.json`. Their detached
 signatures are verified by `ci/verify-runtime-registry-budget-approval`.
+
+## P10.8 Baseline Revision Handoff — 2026-10-16
+
+The original Architecture Owner and FEAT-PLAT-002 Owner approvals above remain
+in force; their verifier passed on 2026-10-16. Publish this adopted resolution
+in the next baseline. No wider scope or new approval is implied.
+
+Current implementation: [connection-envelope evidence](../evidence/FEAT-PLAT-006/P8.5-connection-envelope.md).

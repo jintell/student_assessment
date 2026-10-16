@@ -47,6 +47,44 @@ business-module SQL; the worker can only read the scheduler registry directly.
 Adding a membership or direct grant outside this table is a grant-matrix and
 architecture change, not runtime configuration.
 
+## Scheduler Registry Addendum (FEAT-PLAT-006 P10.4)
+
+Architecture §9.2's advisory-lock registry is `platform.sweep_registry`, owned
+by `app_migrator` and created by platform `V9__create_sweep_registry.sql`.
+It is platform metadata, not tenant data: no tenant identifier or tenant RLS
+policy applies. Its primary key is `sweep_name`; `lock_key` is a unique stored
+`bigint`. Rows carry module/feature ownership, default interval in milliseconds,
+enabled state, declared system actor and creation/update timestamps.
+`V10__seed_sweep_registry.sql` reserves six disabled names; reserving a name
+does not implement or enable its business sweep.
+
+| Principal | Exact registry access |
+|---|---|
+| `app_worker` | `USAGE ON SCHEMA platform`; `SELECT ON TABLE platform.sweep_registry` |
+| `app_api`, `app_pindist` | No registry access or registry-reader membership |
+| Module roles and `app_readonly_ops` | No added registry privileges |
+| `app_migrator` | Ownership and reviewed migration changes |
+
+`V11__grant_sweep_registry_read.sql` and the executable grant matrix encode the
+closed worker exception to ARC-DATA-026. It grants no `INSERT`, `UPDATE`,
+`DELETE`, `TRUNCATE` or DDL capability and no access to other platform tables.
+No new role was needed: the existing worker login receives these two exact
+read-only facts, and advisory-lock acquisition itself requires no new object
+grant. The proposed `app_sweep_registry_reader` role was rejected; see the
+[resolution record](evidence/FEAT-PLAT-006/proposals/registry-reader-resolution.md).
+
+The runtime still installs the enumerated sweep-coordination platform context
+before registry SQL. This exception does not let a worker execute business SQL
+without its module/tenant context. Registry keys are read, never recomputed per
+tick. Changes follow the [registry runbook](runbooks/sweep-registry.md): the
+audited operator mutation path remains blocked at runtime P6.9, so there is no
+operator write grant or sanctioned ad hoc SQL update.
+
+Verification: `GrantMatrixLoaderTest`, `PersistenceSecurityGatesIntegrationTest`
+and `PersistenceFoundationIntegrationTest` cover the declared/live grants and registry
+constraints. The persistence task list links this addendum as part of its
+durable §9.2 matrix artifact.
+
 ## Exam-Entry Composite Role
 
 `app_txn_examentry` is the single `ADR-023` MVP composite role. It is not a
