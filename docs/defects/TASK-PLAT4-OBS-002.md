@@ -28,3 +28,9 @@ in the existing decision.
 Correct sections 9.1 and 12.1 to major 17 and reference the approved immutable
 image policy. Keep `verifyPostgresqlBaseline` blocking so a conflicting image
 or documented major fails before migrations or integration tests run.
+
+## P10.10 Handoff — 2026-10-16
+
+Republished to the Architecture Owner, persistence owner and Plan Owner. The existing major-17 approval is retained; additional-recipient acknowledgement of the baseline correction is still pending.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

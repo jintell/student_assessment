@@ -36,3 +36,9 @@ Add the maintenance role, guarded-routine authority, membership, and denial
 set to section 9.2 and the durable grant matrix. Preserve `app_migrator` as
 the only DDL-owning identity and require negative tests for payload reads and
 foreign-relation alteration.
+
+## P10.10 Handoff — 2026-10-16
+
+Existing P0.5 Architecture/persistence approval remains scoped to guarded maintenance authority. The grant addendum is published; staging detach remains prohibited until its release evidence is accepted.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

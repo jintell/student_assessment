@@ -8,8 +8,14 @@ and `TASK-PLAT4-DEFECT-006`.
 
 ## Guarantee
 
-The platform provides **at-least-once, no ordering guarantee, idempotent
-apply on the business key, version-guarded** delivery.
+The required delivery semantics are **at-least-once, no ordering guarantee, idempotent apply on the business key, version-guarded**.
+
+This is the normative contract, not a statement that the production relay is
+deployed. Current wiring/staging gates remain in the
+[release record](../../docs/outbox-release.md). Producers follow the
+[event-authoring guide](../../docs/event-authoring.md); consumers follow the
+[consumer-authoring guide](../../docs/consumer-authoring.md) and must satisfy
+the transaction and version rules below before acknowledging a delivery.
 
 - A committed business change and its outbox row are atomic. Publication can
   be delayed, repeated, or observed after later events; it is never coupled to
@@ -59,6 +65,9 @@ up-conversion. Retirement requires 30 consecutive days of zero consumption.
 A RabbitMQ consistent-hash exchange keyed by `aggregate_id` is an available
 but unused seam. It is not part of the MVP topology and its presence must not
 be inferred from the partition-key header.
+
+The [ordering seam decision note](../../docs/architecture/outbox-ordering-seam.md)
+records adoption triggers, costs, migration risks and required evidence.
 
 Adoption requires all of the following: a requirement that cannot be resolved
 by an in-transaction aggregate precedence rule; an approved architecture

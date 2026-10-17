@@ -245,6 +245,8 @@ real RLS (plan §14.1).
 1. [*] Publish the §9.2 ownership table from `P1.1` as the normative module→schema→tables map. Deliverable: `docs/schema-ownership.md`.
 2. [*] Publish the grant matrix from `P1.2` as the feature's durable artifact, including the pool-login-roles-hold-nothing rule. Deliverable: `docs/grant-matrix.md`.
    - Runtime P10.4 addendum: [scheduler registry and exact worker read grant](../../../docs/grant-matrix.md#scheduler-registry-addendum-feat-plat-006-p104). No new role; the closed worker exception is recorded alongside the original denials.
+   - Outbox P10.7 addendum: [relay and guarded maintenance roles](../../../docs/grant-matrix.md#outbox-role-addendum-feat-plat-004-p107). Worker-only explicit role assumption, exact grants, RLS and staging-detach restrictions are recorded alongside the executable matrix.
+   - Outbox P10.8 cross-reference: [shared runtime lock adoption](../../../docs/runtime-relay-adoption.md#phase-0-handoff-map). Existing role/grant isolation remains authoritative; no relay-local acquisition mechanism remains.
 3. [*] Publish the three-layer isolation model from `P1.4` with the failure mode each layer defeats and the feature owning each. Deliverable: `docs/tenant-isolation.md`.
 4. [*] Publish the R9/R10 rule card from `P1.5` with enforcement mechanism and failure message per rule, extending `tasks.md`'s `docs/conformance-rules.md`. Deliverable: updated rule card.
 5. [*] Write the composite-role amendment procedure: adding a flow is an ADR amendment with a Solution Architect, Engineering Lead and Security approval, not a configuration change. Deliverable: `docs/composite-role-amendment.md`. Acceptance: states that a second composite role is a meaningful architectural event.

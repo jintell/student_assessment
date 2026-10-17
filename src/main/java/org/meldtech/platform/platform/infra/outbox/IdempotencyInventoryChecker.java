@@ -105,7 +105,11 @@ public final class IdempotencyInventoryChecker {
         }
         String className = provingTest.substring(0, methodSeparator);
         String methodName = provingTest.substring(methodSeparator + 1);
-        Path source = root.resolve("src/test/java").resolve(className.replace('.', '/') + ".java");
+        String sourcePath = className.replace('.', '/') + ".java";
+        Path source = root.resolve("src/test/java").resolve(sourcePath);
+        if (!Files.isRegularFile(source)) {
+            source = root.resolve("src/integrationTest/java").resolve(sourcePath);
+        }
         if (!Files.isRegularFile(source)) {
             throw invalid(operationId, "proving test class does not exist: " + className);
         }
