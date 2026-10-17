@@ -53,3 +53,9 @@ DLQ runbooks when those sibling deliverables are published.
 - Dashboard 6 contains the proposed panels with working runbook links.
 - Synthetic backlog, failure, liveness, poison, and unsupported-version cases
   retain alert-delivery evidence.
+
+## P10.10 Handoff — 2026-10-16
+
+P9.1 now registers worker meters and publishes the metric catalogue. P9.2 has a locally tested backlog rule but no live staging acceptance; P9.3/P9.4 publish four gap proposals and dashboard requests. P9.6–P9.9 publish runbooks. Production sampling and Ops adoption remain open. Raised to the Architecture Owner with FEAT-OBS-001/FEAT-OPS-004; receipt is pending.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

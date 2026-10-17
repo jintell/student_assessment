@@ -1,6 +1,7 @@
 # Relay Adoption of the Runtime Lock Port
 
 FEAT-PLAT-006 P10.5 publishes the closure of TASK-PLAT4-DEFECT-004.
+FEAT-PLAT-004 P10.8 republishes the same closure, not a second lock design.
 The implementation seam closed on 2026-10-14; this document makes its evidence
 discoverable for the Phase 0 feature owners.
 
@@ -41,6 +42,21 @@ enablement. No individual business sweep is implemented by this document.
   runtime P8.9 and ARC-VERIFY-024 evidence.
 - [Outbox task list](../tasks/foundation/outbox/tasks.md): P4.6 and P7.17.
 - [Runtime task list](../tasks/foundation/runtime/tasks.md): P7.19 and P10.5.
+
+## Phase 0 Handoff Map
+
+| Reader / task list | What remains owned there |
+|---|---|
+| [Persistence](../tasks/foundation/persistence/tasks.md) | Narrow worker-only relay/maintenance grants, forced RLS, runtime connection/role isolation; no local relay lock to preserve |
+| [Kernel](../tasks/foundation/kernel/tasks.md) | Shared `OutboxWriter`, tenant/actor/clock/context contracts remain unchanged; no scheduler or lock port added to the kernel |
+| [Outbox](../tasks/foundation/outbox/tasks.md) | Claim, sequential publish, retry/reclaim and carrier behavior; inject the shared runtime lock boundary |
+| [Runtime](../tasks/foundation/runtime/tasks.md) | Registry key, selected lock adapter, scheduling/ownership monitoring and shutdown contract |
+
+The original [P0.6 seam record](evidence/FEAT-PLAT-004/P0.6-feat-plat-006-adoption-seam.md)
+is now explicitly historical. P8.5 assembly and enablement are not discharged
+by this documentation closure. Database-integrity locks in approved migrations
+are distinct from relay acquisition and must not be deleted to make a textual
+search appear to find just one lock statement.
 
 Resume any later relay change against this port and the
 [sweep-authoring contract](sweep-authoring.md), not the historical local-lock design.

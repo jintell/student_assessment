@@ -41,3 +41,9 @@ contention tests for both adapters passed. Runtime P7.19 and outbox P7.17 are
 complete. The upstream plan dependency amendment remains recorded above;
 this closure describes the implemented adoption, not an edit to that plan.
 See [closure evidence](../evidence/FEAT-PLAT-006/P4.25-containment-closure.md).
+
+## P10.10 Handoff — 2026-10-16
+
+Republished to the Architecture Owner and Plan Owner. The implementation seam is closed, but acknowledgement of the missing dependency correction remains pending; the feature-card dependency row is not silently changed.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

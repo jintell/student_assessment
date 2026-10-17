@@ -39,7 +39,7 @@ no-direct-object-grant denial.
 | Login role | Permitted memberships |
 |---|---|
 | `app_api` | All twelve module roles and `app_txn_examentry` |
-| `app_worker` | All twelve module roles; no composite role |
+| `app_worker` | All twelve module roles plus `app_outbox_relay` and `app_outbox_maintenance`; no composite role |
 | `app_pindist` | `app_examaccess` only |
 
 A missing `SET LOCAL ROLE` therefore leaves the connection unable to execute
@@ -84,6 +84,45 @@ Verification: `GrantMatrixLoaderTest`, `PersistenceSecurityGatesIntegrationTest`
 and `PersistenceFoundationIntegrationTest` cover the declared/live grants and registry
 constraints. The persistence task list links this addendum as part of its
 durable §9.2 matrix artifact.
+
+## Outbox Role Addendum (FEAT-PLAT-004 P10.7)
+
+Architecture §9.2 omitted the relay's read/update identity and partition
+maintenance authority. TASK-PLAT4-DEFECT-001/002 record the additive resolution;
+the executable matrix already contains these grants. Both roles are
+`NOLOGIN`, `NOINHERIT`, `NOCREATEROLE`, non-owning and not RLS-bypass identities.
+Only `app_worker` receives membership, with explicit assumption rather than
+inherited privileges. `app_api`, `app_pindist` and module roles receive no
+membership in either role.
+
+| Role | Exact object authority | Denied authority |
+|---|---|---|
+| `app_outbox_relay` | `USAGE` on `outbox`; `SELECT, UPDATE` on `outbox.outbox_event` | No INSERT, DELETE, ownership, arbitrary DDL, business-schema grant or maintenance function grant |
+| `app_outbox_maintenance` | `USAGE` on `outbox`; `EXECUTE` on `outbox.attach_week_partition(date)` and `outbox.detach_expired_partition(name)` | No direct row/payload access, table ownership, arbitrary DDL or other relation alteration |
+
+The parent retains ENABLE/FORCE RLS. Module/composite writers have only INSERT
+and the strict `app.tenant_id` predicate. Relay policy is role-scoped and also
+requires `app.platform_scope = 'outbox_relay'`; install the approved platform
+security context before assuming the relay role. It permits cross-tenant drain
+without disabling RLS or changing the tenant predicate. Direct partition
+access is locked down by outbox V9; access through the parent remains the
+approved boundary.
+
+Maintenance functions are owner-controlled SECURITY DEFINER routines with
+fixed `search_path = pg_catalog, pg_temp`, validated partition identity,
+serialized maintenance and age/state guards. PUBLIC execution is revoked;
+`app_migrator` retains ownership. This narrowly delegates operations without
+making the worker a DDL owner. The [staging detach release gate](outbox-release.md#partition-detach-release-gate)
+still prohibits scheduling/manual detach until evidence is accepted; an
+existing function grant is not release authorization.
+
+Implementation: outbox migrations V5–V9 and
+`src/main/resources/db/grants/grant-matrix.json`. Verification:
+`OutboxRelayLeastPrivilegeIntegrationTest`, `OutboxRetentionIntegrationTest`,
+`PersistenceSecurityGatesIntegrationTest` and the generated/live grant-diff
+gates. These roles do not grant runtime configuration reads, operator redrive
+access or a general-purpose operations console; those require their own
+approved boundaries. No new grant or migration is introduced by this addendum.
 
 ## Exam-Entry Composite Role
 

@@ -72,8 +72,12 @@ operations:
     store: PostgreSQL outbox and per-consumer processed_event guard
     owningFeature: FEAT-PLAT-004
     collaboratingOwners: consuming-feature-owner
-    provingTest: P7.3
-    proofStatus: planned
+    provingTest: >-
+      org.meldtech.platform.platform.infra.outbox.OutboxFailureInjectionIntegrationTest.consumerCrashAfterCommitAndDuplicateDeliveryDoNotRepeatTheEffect
+    additionalProofs:
+      - org.meldtech.platform.platform.infra.outbox.OutboxFailureInjectionIntegrationTest.consumerCrashBeforeCommitRollsBackBothEffectAndGuard
+      - org.meldtech.platform.platform.infra.outbox.OutboxFailureInjectionIntegrationTest.outOfOrderDeliveryRetainsTheNewestAggregateVersion
+    proofStatus: implemented
   - id: auto-submit-sweep
     operation: Auto-submit sweep
     key: attempt state guard

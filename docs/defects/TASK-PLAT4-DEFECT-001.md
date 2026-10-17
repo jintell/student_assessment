@@ -31,3 +31,9 @@ additive, narrower-than-module-role amendment. The signed acknowledgement is
 Add `app_outbox_relay` and its exact membership and denial set to section 9.2
 and the durable grant matrix. Keep the live grant-diff and negative privilege
 tests blocking.
+
+## P10.10 Handoff — 2026-10-16
+
+Existing P0.5 Architecture/persistence approval remains the acknowledgement for the unchanged narrow role. The implemented grant addendum is now published; next-baseline text adoption remains open.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

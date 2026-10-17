@@ -22,3 +22,9 @@ the existing security-context seam.
 
 The normative SQL, negative guarantees, and catalogue assertions are in
 `docs/architecture/outbox-design.md` P2.4.
+
+## P10.10 Handoff — 2026-10-16
+
+Raised to the Architecture Owner for next-baseline policy wording, with the persistence owner copied. Local resolution and tests are not an owner acknowledgement; receipt is pending.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).

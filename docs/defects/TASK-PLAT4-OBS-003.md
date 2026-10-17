@@ -26,3 +26,9 @@ that the gate blocks without printing the credential value.
 suite. New integration-event paths must contribute a representative payload
 capture, and the security feature must preserve this scanner when it
 consolidates stage 10 controls.
+
+## P10.10 Handoff — 2026-10-16
+
+Raised to the Architecture Owner and FEAT-SEC-001 for next-baseline adoption. The local scanner and capture tests are implemented; recipient acknowledgement remains pending.
+
+See the [nine-record acknowledgement ledger](../evidence/FEAT-PLAT-004/P10.10-baseline-defect-handoff.md).
