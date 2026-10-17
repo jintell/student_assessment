@@ -2,6 +2,11 @@
 
 Execution date: 2026-10-08. Requested range: P6.1 through P6.12.
 
+Latest P6.7–P6.10 recheck: [2026-10-17 execution summary](P6.7-P6.10-execution-summary.md).
+It retains the P6.7/P6.8/P6.9 blockers and supersedes P6.10's historical claim
+that platform actor factories have no production callers; runtime scheduling
+now constructs such an actor without writing a tenantless audit row.
+
 ## P6.1 Privilege-refusal matrix
 
 `AuditStoreHardeningIntegrationTest.everyApplicationRoleLacksMutationPrivileges`

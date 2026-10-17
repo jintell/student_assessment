@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.meldtech.platform.audit.application.PrivilegedReadEventType;
+import org.meldtech.platform.shared.kernel.audit.AuditEmitter;
 import org.meldtech.platform.shared.kernel.audit.AuditEvent;
 import org.meldtech.platform.shared.kernel.context.ActorContext;
 import org.meldtech.platform.shared.kernel.context.ActorId;
@@ -17,6 +18,7 @@ import org.meldtech.platform.shared.kernel.context.CorrelationId;
 import org.meldtech.platform.shared.kernel.context.SourceIp;
 import org.meldtech.platform.shared.kernel.identity.TenantId;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
@@ -56,6 +58,38 @@ class ComplianceReadAuditingTest {
                 .isEqualTo("audit.COMPLIANCE_AUDIT_EVENTS_READ.v1");
         assertThat(java.util.Arrays.stream(PrivilegedReadEventType.values()))
                 .allMatch(value -> value.eventType().contains("_READ.v"));
+    }
+
+    @Test
+    void doesNotReturnThePageUntilReadAuditCompletes() {
+        Sinks.Empty<Void> pendingAudit = Sinks.empty();
+        Handler handler = handler((event, actor, occurredAt) -> pendingAudit.asMono());
+
+        StepVerifier.create(handler.handle(actor(), request()))
+                .expectSubscription()
+                .then(() -> assertThat(pendingAudit.currentSubscriberCount()).isEqualTo(1))
+                .then(() -> assertThat(pendingAudit.tryEmitEmpty()).isEqualTo(Sinks.EmitResult.OK))
+                .assertNext(response -> assertThat(response.items()).isEmpty())
+                .verifyComplete();
+    }
+
+    @Test
+    void readAuditFailurePreventsReturningThePage() {
+        IllegalStateException failure = new IllegalStateException("synthetic append failure");
+        Handler handler = handler((event, actor, occurredAt) -> Mono.error(failure));
+
+        StepVerifier.create(handler.handle(actor(), request()))
+                .expectErrorSatisfies(actual -> assertThat(actual).isSameAs(failure))
+                .verify();
+    }
+
+    private static Handler handler(AuditEmitter emitter) {
+        return new Handler(
+                (tenantId, request, asOf, after, limit) -> Mono.just(List.of()),
+                new HmacAuditCursorCodec(new byte[32], new ObjectMapper()),
+                request -> true,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                emitter);
     }
 
     private static Request request() {

@@ -1,0 +1,18 @@
+{
+  "evidenceId": "FEAT-AUD-001-P7.25-AUDIT-PAYLOAD-SCAN",
+  "executedOn": "2026-10-17",
+  "baseCommit": "45bc3f998cfa6ea366ec46d23ed3280bf8fb72f8",
+  "sourceState": "working tree with pre-existing staged changes",
+  "command": "./gradlew compileJava compileTestJava auditPayloadSecretScan --rerun-tasks --console=plain",
+  "result": "PASS",
+  "blocking": true,
+  "stage": 10,
+  "capturedAuditPayloadFiles": 1,
+  "scannerSelfTests": 3,
+  "integrationTests": 645,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "scope": "Captured integration audit JSON; recursive secret field-name policy, including empty/missing capture rejection. Does not prove arbitrary secret-value detection or future feature payload coverage.",
+  "gate": "ciStage10 depends on auditPayloadSecretScan; scanner failures propagate to the Gradle task and CI job."
+}
