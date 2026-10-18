@@ -35,3 +35,13 @@ store and does not transfer ownership to another module.
 Extend section 9.2 and its grant matrix with the three missing relations and
 the approved per-table privileges. Keep the live grant-diff gate aligned with
 that complete inventory.
+
+## P10.10 Current Inventory Clarification
+
+Recorded for the Architecture Owner on 2026-10-18. The five relations above
+are the original chain/evidence core, not an exhaustive inventory of the later
+implementation. Audit also owns `audit_shard_policy` and
+`audit_disposition_lifecycle` coordination tables and class/month partitions.
+Include them in current ownership/grant review; the original "no sixth data
+store" statement must not conceal them. See the [per-table grant guide](../audit-grants.md)
+and migrations. No new baseline approval is asserted.
