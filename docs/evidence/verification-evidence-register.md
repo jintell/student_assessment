@@ -17,8 +17,18 @@
 | `FEAT-OBS-001-P7.1-PROPAGATION` | `NFR-OBS-002` HTTP-to-consumer correlation and trace propagation, CI stage 8 | PASS, 3 cases on real PostgreSQL and RabbitMQ | `FEAT-OBS-001/P7.1-propagation-test-result.json` | `8c8c1fa3019cd769a25ea5840043a933eb32671b31c928e0bdf74b251e26a846` | Repository history plus release bundle |
 | `FEAT-OBS-001-P7.3-BUSINESS-EVENT-COMPLETENESS` | `NFR-OBS-001` six-event MVP metric completeness, CI stages 4 and 5 | PASS, positive contract and 2 negative cases | `FEAT-OBS-001/P7.3-business-event-completeness-result.json` | `d517d982e6748f997e89de128bf55ab15790a5a291dbd60493baa9b367405ef4` | Repository history plus release bundle |
 | `FEAT-OBS-001-P7.4-LOG-LEAK-SCAN` | Operational-log secret-leak scan, CI stage 10 | PASS, BLOCKING | `FEAT-OBS-001/P7.4-log-leak-scan-result.json` | `f0cd78fc2e0204d66195b08a0a860cef721432ad183713bc906a155a2ee23864` | Repository history plus release bundle |
+| `FEAT-AUD-001-P7.25-AUDIT-PAYLOAD-SCAN` | Audit-payload secret-field scan, CI 10 | PASS, BLOCKING; 1 payload, 3 self-tests, 645 integration cases | [Scan result](FEAT-AUD-001/P7.25-audit-payload-scan-result.json) | `aec1940ec5b2733e667193d99b027561c40da10a106f720d734d9a41d0a33c0f` | Repository history plus release bundle |
+| `FEAT-AUD-001-P7.26-APPEND-ONLY` | Append-only grants/trigger and atomic append | PASS; 520 hardening and 11 append cases | [Retained results](FEAT-AUD-001/P7.26-retained-results.json), [test report](FEAT-AUD-001/phase-7-testing.md) | `13743309ed75914a9418bd46f86fe3a70a5f3afe0c3360e667dd4388689bafa5` (results JSON) | Repository history plus release bundle |
+| `FEAT-AUD-001-P7.26-DISPOSITION` | `ARC-VERIFY-032` integration limb | PASS; 5 disposition and 1 hold cases; A7 remains open | [Retained results](FEAT-AUD-001/P7.26-retained-results.json), [protocol report](FEAT-AUD-001/phase-7-scope-disposition-testing.md) | `13743309ed75914a9418bd46f86fe3a70a5f3afe0c3360e667dd4388689bafa5` (results JSON) | Repository history plus release bundle |
+| `FEAT-AUD-001-P7.26-DAILY` | Daily open-chain verification, CI 8; no `ARC-VERIFY` ID | PASS; 1 local PostgreSQL fixture case | [Retained results](FEAT-AUD-001/P7.26-retained-results.json) | `13743309ed75914a9418bd46f86fe3a70a5f3afe0c3360e667dd4388689bafa5` | Repository history plus release bundle |
+| `FEAT-AUD-001-P7.26-HARNESS-SMOKE` | P7.24 reduced-scale A6/A7 instrumentation | BLOCKED; no smoke artifact exists | [Dependency record only](FEAT-AUD-001/P7.22-P7.28-execution-summary.md#p724--blocked-measured-load-harness) | Not applicable: missing artifact | Retain the smoke report when P7.24 completes |
 
 Release assembly must include both Stage 4a artifacts from the same green CI run. A console observation without the uploaded artifacts does not satisfy launch condition `L11`.
+
+`TASK-AUD1-DEFECT-002`: daily audit-chain verification has no assigned
+`ARC-VERIFY` identifier. The task-owned daily entry records a local fixture
+result, not operational scheduling. P7.26 remains incomplete until the missing
+P7.24 harness smoke artifact is retained; neither A6 nor A7 is discharged.
 
 `TASK-PLAT5-DEFECT-002`: Architecture §19.9 requires the migration
 lock-duration report and the feature rehearsals, but assigns no

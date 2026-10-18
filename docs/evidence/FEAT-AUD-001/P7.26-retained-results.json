@@ -1,0 +1,41 @@
+{
+  "evidenceId": "FEAT-AUD-001-P7.26-RETAINED-RESULTS",
+  "executedOn": "2026-10-17",
+  "baseCommit": "45bc3f998cfa6ea366ec46d23ed3280bf8fb72f8",
+  "sourceState": "working tree with pre-existing staged changes",
+  "integrationCommand": "./gradlew compileJava compileTestJava auditPayloadSecretScan --rerun-tasks --console=plain",
+  "integrationSuites": [
+    {
+      "suite": "AuditStoreHardeningIntegrationTest",
+      "tests": 520
+    },
+    {
+      "suite": "AuditAppendIntegrationTest",
+      "tests": 11
+    },
+    {
+      "suite": "AuditDispositionIntegrationTest",
+      "tests": 5
+    },
+    {
+      "suite": "AuditEpochSealConcurrencyIntegrationTest",
+      "tests": 3
+    },
+    {
+      "suite": "AuditHoldIntegrationTest",
+      "tests": 1
+    }
+  ],
+  "dailyCommand": "./gradlew auditDailyChainVerificationTest --rerun-tasks --console=plain",
+  "dailySuite": "PersistenceFoundationIntegrationTest.dailyAuditChainVerificationWalksEveryOpenFixtureShard",
+  "dailyTests": 1,
+  "result": "PASS",
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "limits": [
+    "Daily result is a local PostgreSQL fixture run, not scheduled production verification; no ARC-VERIFY identifier is assigned (TASK-AUD1-DEFECT-002).",
+    "Disposition and concurrency are integration correctness evidence, not full-load A6/A7 discharge.",
+    "P7.24 harness smoke report is absent; P7.26 remains incomplete."
+  ]
+}

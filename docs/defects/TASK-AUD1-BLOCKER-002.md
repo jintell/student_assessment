@@ -1,6 +1,12 @@
 # TASK-AUD1-BLOCKER-002: Compliance Read Runtime Authority
 
-Status: OPEN. Rechecked 2026-10-10. Blocks P4.29 runtime completion, P6.7 and P6.8.
+Status: OPEN. Rechecked 2026-10-17. Blocks P4.29 runtime completion, P6.7 and P6.8.
+
+The [P6.7–P6.10 recheck](../evidence/FEAT-AUD-001/P6.7-P6.10-execution-summary.md)
+retains green PostgreSQL isolation evidence and adds handler regressions for
+waiting on the read-audit append and returning no page when it fails. The
+authority/grant/transaction/bean-graph prerequisites below remain absent; those
+local tests do not close authorized HTTP or persistent read-audit acceptance.
 
 The recheck found no signed grant amendment, no `FEAT-IAM-003` capability
 authority, and no approved audit-reader transaction boundary. The existing
