@@ -35,3 +35,11 @@ finds the `policy_key` catalogue only in `SecretFieldPattern` production code.
 
 The remaining next-baseline documentation correction in the observability
 record does not block this feature's use of the implemented kernel contract.
+
+## P10.10 Baseline Handover
+
+Raised to the Architecture Owner in the repository packet on 2026-10-18;
+kernel implementation ownership remains FEAT-PLAT-003. Incorporate the exact
+permitted-key catalogue in the next baseline, not a broad exception for `key`.
+The [emission guide](../audit-emission-authoring.md) retains all-environment
+secret rejection. No new owner acknowledgement is asserted.

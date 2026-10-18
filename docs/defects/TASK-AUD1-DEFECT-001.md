@@ -58,3 +58,11 @@ and versioning rule above in:
 the designated trusted signer. Task `P2.4` may now specify the exact version-1
 byte grammar and golden vectors within the approved constraints. It may not
 relax an invariant or rewrite an existing hash.
+
+## P10.10 Baseline Handover
+
+Recorded for the Architecture Owner on 2026-10-18. P2.4 and the v1
+implementation now publish the exact grammar and retained vectors in
+[audit-canonical-json.md](../audit-canonical-json.md). The earlier future-tense
+P2.4 wording is historical. Keep the signed direction and frozen bytes; this
+handover does not assert a new approval or multi-version decoder.
