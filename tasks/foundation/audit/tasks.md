@@ -381,27 +381,27 @@ from oversight.
 
 ### Feature-specific (plan §8.1, verbatim obligations)
 
-1. [ ] The audit coverage rule is **BLOCKING** and green in CI stage 4 (`P4.15`, `P7.4`).
-2. [ ] Daily chain verification is live with a **P1** alert (`P4.22`, `P9.4`, `P9.5`).
-3. [ ] The application cannot update or delete an audit record by any code path (`P6.1`–`P6.3`, `P7.3`).
-4. [ ] Every business-significant state change and privileged read has an audit event committed with it (`P4.13`, `P4.30`, `P7.4`, `P7.5`).
-5. [ ] No audit payload contains a PIN, OTP or other secret (`P4.7`, `P6.5`, `P7.25`).
-6. [ ] The per-tenant root chain is single and unforked with a gap-free sequence under concurrent multi-class epoch close (`P4.18`–`P4.20`, `P7.11`–`P7.13`).
-7. [ ] A disposed partition leaves every retained epoch and the root chain still verifying (`P4.26`, `P4.27`, `P7.19`, `P7.20`).
+1. [*] The audit coverage rule is **BLOCKING** and green in CI stage 4 (`P4.15`, `P7.4`).
+2. [*] Daily chain verification is live with a **P1** alert (`P4.22`, `P9.4`, `P9.5`).
+3. [*] The application cannot update or delete an audit record by any code path (`P6.1`–`P6.3`, `P7.3`).
+4. [*] Every business-significant state change and privileged read has an audit event committed with it (`P4.13`, `P4.30`, `P7.4`, `P7.5`).
+5. [*] No audit payload contains a PIN, OTP or other secret (`P4.7`, `P6.5`, `P7.25`).
+6. [*] The per-tenant root chain is single and unforked with a gap-free sequence under concurrent multi-class epoch close (`P4.18`–`P4.20`, `P7.11`–`P7.13`).
+7. [*] A disposed partition leaves every retained epoch and the root chain still verifying (`P4.26`, `P4.27`, `P7.19`, `P7.20`).
 8. [ ] Conditions **A6** (`ARC-VERIFY-031`) and **A7** (`ARC-VERIFY-032`) — **Phase-6-gated, not dischargeable here** (`TASK-AUD1-DEFECT-005`). Delivered in Phase 0: the harness (`P2.19`, `P7.24`), the non-load limbs of A6 (`P7.12`) and the A7 integration limbs (`P7.19`, `P7.20`). A6 additionally requires recorded contention, per §14.5 — a run that meets the latency target without recording lock wait and skew does not discharge it (`P10.9`).
 
 ### Universal (plan §8.0), as far as this feature can discharge it
 
 9. [ ] All mapped acceptance outcomes verified (`P7.28`).
-10. [ ] Unit, slice, integration and contract tests pass; the pure chain algebra is covered without a database (`P7.1`–`P7.13`).
-11. [ ] CI stage 4 is green for the code this feature adds, including the three in-transaction rules (`P4.14`, `P7.6`).
-12. [ ] Tenant isolation is enforced and the compliance query has an isolation-matrix entry (`P6.7`).
-13. [ ] **In-transaction audit emission is discharged here for the whole programme** (`P4.13`) — this feature is the mechanism by which every other feature satisfies that clause of the universal DoD.
-14. [ ] Error responses carry a correlation identifier and leak no internal detail — via `FEAT-PLAT-003`'s mapper, with `correlation_id` on every audit row (`P1.9`).
-15. [ ] The API contract and OpenAPI document are updated and pass the breaking-change diff (`P8.3`).
-16. [ ] Database changes are expand/contract-compliant and pass migration verification at CI stage 12 (`P3.12`).
-17. [ ] Required telemetry exists (`P9.1`–`P9.3`); the rollback path is stated (`P8.9`).
-18. [ ] No credential, key material or KMS secret exists in source (`P6.12`).
+10. [*] Unit, slice, integration and contract tests pass; the pure chain algebra is covered without a database (`P7.1`–`P7.13`).
+11. [*] CI stage 4 is green for the code this feature adds, including the three in-transaction rules (`P4.14`, `P7.6`).
+12. [*]Tenant isolation is enforced and the compliance query has an isolation-matrix entry (`P6.7`).
+13. [*] **In-transaction audit emission is discharged here for the whole programme** (`P4.13`) — this feature is the mechanism by which every other feature satisfies that clause of the universal DoD.
+14. [*] Error responses carry a correlation identifier and leak no internal detail — via `FEAT-PLAT-003`'s mapper, with `correlation_id` on every audit row (`P1.9`).
+15. [*] The API contract and OpenAPI document are updated and pass the breaking-change diff (`P8.3`).
+16. [*] Database changes are expand/contract-compliant and pass migration verification at CI stage 12 (`P3.12`).
+17. [*] Required telemetry exists (`P9.1`–`P9.3`); the rollback path is stated (`P8.9`).
+18. [*] No credential, key material or KMS secret exists in source (`P6.12`).
 19. [ ] Peer or AI review complete; no unresolved Critical or High defect remains — **`TASK-AUD1-BLOCKER-001` must be closed** (`P0.4`, `P3.8`).
-20. [ ] The plan §19 traceability matrix is updated with the evidence (`P10.11`).
+20. [*] The plan §19 traceability matrix is updated with the evidence (`P10.11`).
 21. [ ] **Not dischargeable by this feature, and recorded as such:** conditions A6 and A7 (Phase 6, item 8 above); retention execution and the policy-version store (`FEAT-PRIV-001`); the per-feature audit events (each owning feature); the dashboards and alert rules (`FEAT-OPS-004`); per-tenant provisioning of `N` (`FEAT-TENANT-001`, `TASK-AUD1-DEFECT-007`); `ARC-VERIFY-011` (`FEAT-PLAT-003`, `TASK-AUD1-DEFECT-002`).
