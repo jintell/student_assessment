@@ -1,5 +1,6 @@
 package org.meldtech.platform.conformance;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -35,6 +36,29 @@ class ObservabilityAuditSeparationTests {
         assertTrue(violations.isEmpty(), () -> String.join(System.lineSeparator(), violations));
     }
 
+    @Test
+    void metricAdapterExceptionDoesNotPermitLoggingTracingOrDomainInstrumentation() {
+        String adapter = "org.meldtech.platform.audit.infra.telemetry";
+        assertFalse(crossesSinkBoundary(adapter, "io.micrometer.core.instrument.Counter"));
+        assertTrue(crossesSinkBoundary(adapter, "org.slf4j.Logger"));
+        assertTrue(crossesSinkBoundary(adapter, "io.opentelemetry.api.trace.Span"));
+        assertTrue(crossesSinkBoundary(adapter, "io.micrometer.tracing.Tracer"));
+        assertTrue(
+                crossesSinkBoundary(
+                        "org.meldtech.platform.audit.domain",
+                        "io.micrometer.core.instrument.Counter"));
+        assertTrue(
+                crossesSinkBoundary(
+                        "org.meldtech.platform.audit.infra",
+                        "io.micrometer.core.instrument.Counter"));
+        assertTrue(
+                crossesSinkBoundary(
+                        "org.meldtech.platform.platform.infra.observability", adapter + ".Meter"));
+        assertTrue(
+                crossesSinkBoundary(
+                        adapter, "org.meldtech.platform.platform.infra.observability.Meter"));
+    }
+
     private static boolean crossesSinkBoundary(String originPackage, String targetClass) {
         if (originPackage.contains(".infra.observability")) {
             return targetClass.startsWith("org.meldtech.platform.audit.");
@@ -43,7 +67,9 @@ class ObservabilityAuditSeparationTests {
             return targetClass.startsWith("org.meldtech.platform.platform.infra.observability.")
                     || targetClass.startsWith("org.slf4j.")
                     || targetClass.startsWith("io.opentelemetry.")
-                    || targetClass.startsWith("io.micrometer.");
+                    || (targetClass.startsWith("io.micrometer.")
+                            && !(originPackage.equals("org.meldtech.platform.audit.infra.telemetry")
+                                    && targetClass.startsWith("io.micrometer.core.instrument.")));
         }
         return false;
     }

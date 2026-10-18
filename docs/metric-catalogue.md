@@ -31,6 +31,49 @@ be joined without maintaining three exporter configurations.
 
 ## Registered Metrics
 
+### Audit integrity — P9.1
+
+`AuditTelemetryConfiguration` registers the Micrometer adapter on `api` and
+`worker`, not `pindist`. These are available meters, not proof of connected
+business producers, a running verifier or deployed alerts. The current audit
+assembly remains blocked under P8.8. The adapter implements the inward
+`AuditIntegrityTelemetry` port, including the existing CAS telemetry seam.
+
+The adapter lives only in `audit.infra.telemetry`. Conformance permits
+Micrometer core instrumentation there while continuing to reject it in audit
+domain/application/persistence code. Operational logging, tracing and imports
+of platform observability internals remain forbidden across that boundary.
+
+| Prometheus name | Kind / semantics | Feature labels | Series budget |
+| --- | --- | --- | ---: |
+| `audit_chain_verification_result` | Gauge: last complete verification, 1 success / 0 failure / NaN unknown | None | 1 |
+| `audit_emit_failure_total` | Counter: emission failures propagated to the caller | None | 1 |
+| `audit_checkpoint_overdue_count` | Gauge: overdue checkpoints in a complete sampled inventory | None | 1 |
+| `audit_epoch_seal_total` | Counter: completed seal attempts | result: SEALED, DEFERRED | 2 |
+| `audit_epoch_disposition_total` | Counter: disposition transitions | outcome: DISPOSED, HOLD_SUSPENDED, VERIFY_FAILED | 3 |
+| `audit_epoch_seal_cas_retry_total` | Counter: lost CAS attempts causing recomputation | None | 1 |
+| `audit_root_chain_fork_detected_total` | Counter: observed forks; initial zero does not prove verifier health | None | 1 |
+| `audit_root_chain_seq` | Gauge: min/max over the complete sampled tenant-root inventory, never a sum | statistic: min, max | 2 |
+
+Budgets follow the existing per-process feature-label convention; the common
+runtime-role dimension and scrape targets must also be accounted for by the
+exporter. No tenant, shard, entity or correlation ID is a metric label.
+Root-range aggregates are an overview, not proof of any tenant's root density;
+protected tenant evidence is still required for incident diagnosis.
+
+Sampled gauges start as NaN. Invalid negative/reversed samples are rejected
+without replacing a good sample. The collector must call `invalidateSamples`
+when coverage/freshness is lost and publish only complete successful samples;
+there is no automatic sampling or expiry scheduler in this adapter. Do not
+publish a successful empty/incomplete verification as a healthy inventory.
+Disposition completion must be recorded only after its required state is
+persisted; failure classifications must not hide a possible post-detach failure.
+
+P9.1's Prometheus tests prove all eight names, bounded outcome increments,
+unknown/invalidation semantics and 12 series matching the registry budget.
+Lock-wait/shard-skew measurement and exemplar resolution remain P9.2; live
+fork paging and daily verification publication remain P9.3/P9.4.
+
 ### Outbox Addendum — TASK-PLAT4-OBS-001
 
 These FEAT-PLAT-004 definitions fill the omission in architecture §16.2; they are not claimed as existing baseline text. `OutboxTelemetryConfiguration` registers the adapter on `worker`. The production relay assembly and backlog sampling hook remain blocked under outbox P8.5. Registered gauges start as `NaN` (unknown), not a healthy zero; only an explicit empty snapshot sets zero. The adapter rejects invalid negative snapshots without overwriting the last good sample. A live collector must refresh these cluster-wide values and provide freshness evidence before operational acceptance.

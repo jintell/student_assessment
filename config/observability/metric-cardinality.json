@@ -5,6 +5,14 @@
     "correlationId"
   ],
   "metrics": [
+    {"name": "audit_chain_verification_result", "labels": [], "maxSeries": 1},
+    {"name": "audit_emit_failure_total", "labels": [], "maxSeries": 1},
+    {"name": "audit_checkpoint_overdue_count", "labels": [], "maxSeries": 1},
+    {"name": "audit_epoch_seal_total", "labels": ["result"], "maxSeries": 2},
+    {"name": "audit_epoch_disposition_total", "labels": ["outcome"], "maxSeries": 3},
+    {"name": "audit_epoch_seal_cas_retry_total", "labels": [], "maxSeries": 1},
+    {"name": "audit_root_chain_fork_detected_total", "labels": [], "maxSeries": 1},
+    {"name": "audit_root_chain_seq", "labels": ["statistic"], "maxSeries": 2},
     {"name": "outbox_backlog_depth", "labels": ["state"], "maxSeries": 4},
     {"name": "outbox_oldest_pending_age_seconds", "labels": [], "maxSeries": 1},
     {"name": "outbox_relay_published_total", "labels": [], "maxSeries": 1},
