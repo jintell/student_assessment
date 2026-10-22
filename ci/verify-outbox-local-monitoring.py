@@ -35,6 +35,8 @@ def utc():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+<<<<<<< HEAD
+=======
 def new_ulid():
     """Generate a new, non-secret ULID for synthetic correlation data."""
     alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -452,3 +454,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
