@@ -6,6 +6,14 @@ Trigger: `OutboxBacklog`, P2 — PENDING depth > 5,000 **or** oldest pending age
 
 Record environment, deployment, alert start, release and correlation references. Check scrape health and sample freshness. NaN, missing or stale backlog values are unknown, not an empty backlog. Compare worker observations with `max`, scoped to one cluster/namespace/job; do not sum duplicated global snapshots. Confirm the production relay and backlog sampler are deployed and the registry reservation is enabled. P8.5/P8.6 and live P9.2 acceptance are currently open; an intentionally disabled reservation is a release prerequisite, not a crashed relay.
 
+The collector reservation is `outbox-backlog`, separate from `outbox-relay`.
+Check `outbox_backlog_sample_fresh`, `outbox_backlog_last_success_timestamp_seconds`
+and `outbox_backlog_collection_failure_total` alongside `up`. A stopped collector
+exports NaN after its configured expiry; an unreachable target also requires
+scrape-loss detection. Inactive `OutboxBacklog` without fresh successful collection
+does not prove recovery. See [collection configuration](../outbox-backlog-collection.md)
+for owner review, enablement, scrape access and query-cost considerations.
+
 Use the approved restricted diagnostic connection; do not expose worker credentials or grant operator access through an ad hoc role change. Where no such capability is provisioned, escalate to the database/feature owner.
 
 ```sql

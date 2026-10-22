@@ -6,7 +6,15 @@
   "enabledCategories": ["broker-consumer", "sweep"],
   "forbiddenCategories": ["slice-endpoint", "pin-distribution-endpoint"],
   "businessRoutes": {"policy": "none", "maximumCount": 0},
-  "entryPoints": [],
+  "entryPoints": [
+    {
+      "type": "org.meldtech.platform.platform.infra.outbox.OutboxBacklogSweep",
+      "kind": "sweep",
+      "sweepName": "outbox-backlog",
+      "factoryType": "org.meldtech.platform.platform.infra.outbox.OutboxTelemetryConfiguration",
+      "factoryMethod": "outboxBacklogSweep"
+    }
+  ],
   "management": {
     "separatePort": true,
     "ingressRouted": false,

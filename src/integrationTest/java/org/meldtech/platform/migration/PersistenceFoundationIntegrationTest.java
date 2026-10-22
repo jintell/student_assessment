@@ -160,6 +160,7 @@ class PersistenceFoundationIntegrationTest {
                 """
                 auto-submit|8663753269692232313|delivery|FEAT-DLV-004|10000|false|AUTO_SUBMIT_SWEEPER
                 idp-reconciliation|-4891396382355818010|iam|FEAT-IAM-005|60000|false|IDP_RECONCILER
+                outbox-backlog|722004001|outbox|FEAT-PLAT-004|60000|false|OUTBOX_RELAY
                 outbox-relay|-2484966499978243116|outbox|FEAT-PLAT-004|200|false|OUTBOX_RELAY
                 pin-material-destruction|-2916676166989647429|examaccess|FEAT-EXAM-002|60000|false|RETENTION_ENGINE
                 retention|-4505843845379211855|audit|FEAT-PRIV-001|60000|false|RETENTION_ENGINE

@@ -9,8 +9,9 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
-final class MicrometerOutboxTelemetry implements OutboxTelemetry {
+final class MicrometerOutboxTelemetry implements OutboxTelemetry, OutboxBacklogTelemetry {
 
     private final Counter writerAppended;
     private final Counter relayPublished;
@@ -20,10 +21,24 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
     private final Counter consumerDuplicates;
     private final Counter relayTicks;
     private final Timer relayTickDuration;
+    private final Counter collectionFailures;
+    private final long maximumSampleAgeNanos;
+    private final LongSupplier monotonicTime;
     private final AtomicReference<BacklogSnapshot> backlog = new AtomicReference<>();
 
-    MicrometerOutboxTelemetry(MeterRegistry registry) {
+    MicrometerOutboxTelemetry(
+            MeterRegistry registry, Duration maximumSampleAge, LongSupplier monotonicTime) {
         Objects.requireNonNull(registry, "registry");
+        if (maximumSampleAge.isNegative() || maximumSampleAge.isZero()) {
+            throw new IllegalArgumentException("Maximum sample age must be positive");
+        }
+        this.maximumSampleAgeNanos = maximumSampleAge.toNanos();
+        this.monotonicTime = Objects.requireNonNull(monotonicTime, "monotonicTime");
+        collectionFailures =
+                counter(
+                        registry,
+                        "outbox.backlog.collection.failure",
+                        "Failed, timed out or cancelled backlog collections");
         writerAppended =
                 counter(
                         registry,
@@ -74,13 +89,12 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
                             backlog,
                             snapshot -> {
                                 BacklogSnapshot current = snapshot.get();
-                                return current == null
+                                return !isFresh(current)
                                         ? Double.NaN
-                                        : current.depthByState()
-                                                .getOrDefault(state, 0L)
-                                                .doubleValue();
+                                        : depth(Objects.requireNonNull(current).values(), state);
                             })
-                    .description("Cluster-wide outbox row count by state; unknown until sampled")
+                    .description(
+                            "Global outbox row count by state; unknown before collection or after expiry")
                     .tag("state", state.name())
                     .register(registry);
         }
@@ -89,12 +103,32 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
                         backlog,
                         snapshot -> {
                             BacklogSnapshot current = snapshot.get();
-                            return current == null
+                            return !isFresh(current)
                                     ? Double.NaN
-                                    : current.oldestPendingAge().toSeconds();
+                                    : seconds(
+                                            Objects.requireNonNull(current)
+                                                    .values()
+                                                    .oldestPendingAge());
                         })
                 .description(
-                        "Age of oldest pending row; zero for a sampled empty backlog, unknown before sampling")
+                        "Database age of oldest pending row at observation; unknown before collection or after expiry")
+                .register(registry);
+        Gauge.builder(
+                        "outbox.backlog.sample.fresh",
+                        backlog,
+                        snapshot -> isFresh(snapshot.get()) ? 1 : 0)
+                .description("One only while this worker has a fresh complete backlog snapshot")
+                .register(registry);
+        Gauge.builder(
+                        "outbox.backlog.last.success.timestamp.seconds",
+                        backlog,
+                        snapshot -> {
+                            BacklogSnapshot current = snapshot.get();
+                            return current == null
+                                    ? Double.NaN
+                                    : current.values().observedAt().toEpochMilli() / 1000.0;
+                        })
+                .description("Database observation time of last successful backlog collection")
                 .register(registry);
     }
 
@@ -134,21 +168,42 @@ final class MicrometerOutboxTelemetry implements OutboxTelemetry {
         relayTickDuration.record(duration);
     }
 
-    void updateBacklog(Map<OutboxState, Long> depthByState, Duration oldestPendingAge) {
-        Map<OutboxState, Long> snapshot = Map.copyOf(depthByState);
-        if (snapshot.values().stream().anyMatch(depth -> depth < 0)
-                || Objects.requireNonNull(oldestPendingAge, "oldestPendingAge").isNegative()) {
-            throw new IllegalArgumentException("Outbox backlog values must be non-negative");
-        }
-        backlog.set(new BacklogSnapshot(snapshot, oldestPendingAge));
+    @Override
+    public void updateBacklog(OutboxBacklogSnapshot snapshot, long collectionStartedNanos) {
+        backlog.set(
+                new BacklogSnapshot(
+                        Objects.requireNonNull(snapshot, "snapshot"), collectionStartedNanos));
+    }
+
+    @Override
+    public void backlogCollectionFailed() {
+        collectionFailures.increment();
+    }
+
+    private boolean isFresh(@org.jspecify.annotations.Nullable BacklogSnapshot snapshot) {
+        return snapshot != null
+                && monotonicTime.getAsLong() - snapshot.collectionStartedNanos()
+                        < maximumSampleAgeNanos;
+    }
+
+    private static double depth(OutboxBacklogSnapshot snapshot, OutboxState state) {
+        return switch (state) {
+            case PENDING -> snapshot.pending();
+            case CLAIMED -> snapshot.claimed();
+            case PUBLISHED -> snapshot.published();
+            case FAILED -> snapshot.failed();
+        };
+    }
+
+    private static double seconds(Duration duration) {
+        return duration.toSeconds() + duration.toNanosPart() / 1_000_000_000.0;
     }
 
     private static Counter counter(MeterRegistry registry, String name, String description) {
         return Counter.builder(name).description(description).register(registry);
     }
 
-    private record BacklogSnapshot(
-            Map<OutboxState, Long> depthByState, Duration oldestPendingAge) {}
+    private record BacklogSnapshot(OutboxBacklogSnapshot values, long collectionStartedNanos) {}
 
     enum OutboxState {
         PENDING,

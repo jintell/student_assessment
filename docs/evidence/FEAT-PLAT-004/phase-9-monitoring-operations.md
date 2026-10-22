@@ -2,6 +2,14 @@
 
 Date: 2026-10-16. Scope: P9.1–P9.10, sequential execution with blocked work recorded and skipped as requested.
 
+**Superseding implementation update, 2026-10-18:** the production backlog sampler,
+freshness/expiry signals, database-to-exposition tests and pinned blocking CI rule
+check are now delivered; see [local verification](P7.22-backlog-sampler-local-verification.md).
+This historical record's missing-sampler claims no longer describe the checkout.
+The reservation remains disabled pending owner review/enablement. P9.2 still
+requires the staging scrape, rule/routing/dashboard adoption and actual P2
+notification/recovery evidence. P9.1/P9.4 retain their completed deliverable status.
+
 ## P9.1 Metric Contract
 
 Published the TASK-PLAT4-OBS-001 [catalogue addendum](../../metric-catalogue.md#outbox-addendum--task-plat4-obs-001), cardinality budgets and worker-only telemetry bean. Four telemetry tests pass, including actual Prometheus names, bounded labels, registration scope, unknown initial backlog and rejection of invalid snapshots. `metricCardinalityGate` and `telemetrySchemaGate` pass. This defines/registers meters; the production relay/sampling assembly remains missing under P8.5.
