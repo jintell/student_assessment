@@ -35,6 +35,14 @@ def utc():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def new_ulid():
+    """Generate a new, non-secret ULID for synthetic correlation data."""
+    alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+    # ULID: 48-bit millisecond timestamp followed by 80 random bits.
+    value = (int(time.time() * 1000) << 80) | secrets.randbits(80)
+    return "".join(alphabet[(value >> shift) & 31] for shift in range(125, -1, -5))
+
+
 def require(condition, message):
     if not condition:
         raise AssertionError(message)
@@ -43,8 +51,10 @@ def require(condition, message):
 def command(arguments, data=None, sensitive=False):
     result = subprocess.run(arguments, input=data, text=True, capture_output=True, check=False)
     if result.returncode:
-        detail = "Sensitive command output withheld" if sensitive else result.stderr
-        raise RuntimeError(f"Command failed: {arguments[0]} {arguments[1:3]}\n{detail}")
+        if sensitive:
+            # Do not echo stdin, command arguments, or stderr for secret operations.
+            raise RuntimeError(f"Sensitive command failed (exit {result.returncode}); details redacted")
+        raise RuntimeError(f"Command failed: {arguments[0]} {arguments[1:3]}\n{result.stderr}")
     return result.stdout
 
 
@@ -311,6 +321,8 @@ class Drill:
                                                     credentials=("admin", self.credentials["grafana"])))
 
     def seed(self, count):
+        # Each synthetic seed batch gets a fresh correlation ID, not a static token-like literal.
+        correlation_id = new_ulid()
         self.psql(f"""
             BEGIN;
             SET LOCAL ROLE app_delivery;
@@ -322,7 +334,7 @@ class Drill:
             SELECT id, '00000000-0000-0000-0000-000000000722', 'Reference', id::text,
                    'platform.ReferenceEvent.v1',
                    jsonb_build_object('eventType','platform.ReferenceEvent.v1','referenceId',id::text,'revision',1),
-                   '01ARZ3NDEKTSV4RRFFQ69G5FAV', now() FROM events;
+                   '{correlation_id}', now() FROM events;
             COMMIT;
         """)
 
