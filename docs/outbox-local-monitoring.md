@@ -26,29 +26,6 @@ Boot JAR, production manifests and production role inventory. Its relay assembly
 uses existing claim/publication/broker adapters; it is not P8.5 production assembly.
 The test receiver records only alert envelopes and receipt times, never credentials.
 
-Each run generates independent 192-bit random credentials in memory for PostgreSQL,
-the migration role, the worker role, RabbitMQ, the metrics/control endpoint and
-Grafana. They are stored in the owned namespace's `credentials` Kubernetes Secret;
-pods consume Secret references and Prometheus mounts only its metrics credential.
-Secret creation uses stdin without a last-applied configuration annotation. Role
-passwords also travel over stdin, and failures of credential-bearing commands
-withhold subprocess output from logs and evidence files. Do not export the Secret
-or commit generated credentials. No shared or production password is required.
-
-The GitGuardian findings for commit `3f60cc1` reference this script, whose password
-values are generated at runtime. If a run was retained with `--keep`, revoke its
-credentials by deleting that owned namespace using the command below, waiting for
-deletion to complete, then rerunning the drill. This removes the disposable database,
-broker and monitoring services and loses their local data; it also stops that drill's
-clients. Changing only the Kubernetes Secret does not rotate existing database roles,
-broker users or Grafana accounts. No production consumer uses these generated values
-in this repository. Any copies reused outside the drill require separate rotation
-at their actual service. A new commit does not remove findings from the old commit;
-rerun GitGuardian and review the reported matches before resolving the incidents.
-
-Run the Docker-free credential regression checks with
-`python3 -B ci/test-outbox-local-monitoring.py`.
-
 The script reuses the committed alert rule and dashboard. Its rendered rule
 changes only the runbook URL to the local receiver's runbook endpoint. Grafana
 queries its provisioned Prometheus datasource for the dashboard's backlog,
