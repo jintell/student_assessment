@@ -1,0 +1,15 @@
+scrape_configs:
+  - job_name: ${CBT_WORKER_METRICS_JOB}
+    metrics_path: /prometheus
+    scheme: https
+    scrape_interval: ${CBT_WORKER_SCRAPE_INTERVAL}
+    scrape_timeout: ${CBT_WORKER_SCRAPE_TIMEOUT}
+    authorization:
+      credentials_file: /run/secrets/worker-metrics/bearer-token
+    tls_config:
+      ca_file: /run/secrets/worker-metrics/ca.crt
+    static_configs:
+      - targets: [${CBT_WORKER_METRICS_TARGETS}]
+        labels:
+          cluster: ${CBT_CLUSTER}
+          namespace: ${CBT_NAMESPACE}

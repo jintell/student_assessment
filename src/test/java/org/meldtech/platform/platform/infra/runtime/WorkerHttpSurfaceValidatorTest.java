@@ -54,6 +54,18 @@ class WorkerHttpSurfaceValidatorTest {
     }
 
     @Test
+    void explicitlyEnabledScrapeIsTheOnlyAdditionalManagementSurface() {
+        runner().withPropertyValues(
+                        "management.endpoint.prometheus.enabled=true",
+                        "management.endpoints.web.exposure.include=health,prometheus")
+                .run(context -> assertThat(context).hasNotFailed());
+        runner().withPropertyValues(
+                        "management.endpoint.prometheus.enabled=true",
+                        "management.endpoints.web.exposure.include=health,prometheus,env")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void workerServesProbesOnManagementPortAndNoBusinessHttp() throws Exception {
         try (var context =
                 new SpringApplicationBuilder(WorkerProbeApplication.class)
@@ -91,6 +103,63 @@ class WorkerHttpSurfaceValidatorTest {
         var response =
                 HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
         assertThat(response.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void managementScrapeRequiresAuthenticationAndExportsCachedMeters() throws Exception {
+        try (var context =
+                new SpringApplicationBuilder(
+                                WorkerProbeApplication.class, WorkerWebServerConfiguration.class)
+                        .web(WebApplicationType.REACTIVE)
+                        .properties(
+                                "spring.config.location=optional:classpath:/worker-probe-test.properties",
+                                "spring.profiles.active=worker",
+                                "spring.autoconfigure.exclude=" + EXCLUDED_AUTO_CONFIGURATIONS,
+                                "server.port=-1",
+                                "management.server.port=9091",
+                                "spring.web.resources.add-mappings=false",
+                                "management.endpoints.enabled-by-default=false",
+                                "management.endpoints.web.base-path=/",
+                                "management.endpoints.web.exposure.include=health,prometheus",
+                                "management.endpoint.health.enabled=true",
+                                "management.endpoint.prometheus.enabled=true",
+                                "spring.security.user.name=metrics-test",
+                                "spring.security.user.password=local-test-only")
+                        .run()) {
+            var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
+            registry.counter("scrape.test").increment();
+            var uri = URI.create("http://127.0.0.1:9091/prometheus");
+            var client = HttpClient.newHttpClient();
+            assertThat(
+                            client.send(
+                                            HttpRequest.newBuilder(uri).GET().build(),
+                                            HttpResponse.BodyHandlers.ofString())
+                                    .statusCode())
+                    .isEqualTo(401);
+            String credentials =
+                    java.util.Base64.getEncoder()
+                            .encodeToString(
+                                    "metrics-test:local-test-only"
+                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var response =
+                    client.send(
+                            HttpRequest.newBuilder(uri)
+                                    .header("Authorization", "Basic " + credentials)
+                                    .GET()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).contains("scrape_test_total 1.0");
+            assertThat(BusinessRouteInventory.inspect(context)).isEmpty();
+            assertThat(
+                            java.util.Objects.requireNonNull(
+                                            ((org.springframework.boot.web.server.context
+                                                                    .WebServerApplicationContext)
+                                                            context)
+                                                    .getWebServer())
+                                    .getPort())
+                    .isEqualTo(-1);
+        }
     }
 
     @Test

@@ -34,7 +34,7 @@ class RuntimeAdmissionConfiguration {
         return (exchange, chain) ->
                 Mono.defer(
                         () -> {
-                            if (exchange.getRequest().getPath().value().startsWith("/health/")) {
+                            if (ManagementRequest.isProbeOrScrape(exchange)) {
                                 return chain.filter(exchange);
                             }
                             var request = new RequestAdmission(admission);
@@ -102,7 +102,7 @@ class RuntimeAdmissionConfiguration {
 
         @Override
         public Mono<HandlerResult> handle(ServerWebExchange exchange, Object handler) {
-            if (exchange.getRequest().getPath().value().startsWith("/health/")) {
+            if (ManagementRequest.isProbeOrScrape(exchange)) {
                 return delegate.handle(exchange, handler);
             }
             return Mono.deferContextual(

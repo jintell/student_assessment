@@ -21,8 +21,7 @@ final class DrainAdmissionFilter implements WebFilter {
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         return Mono.defer(
                 () -> {
-                    if (state.isDraining()
-                            && !exchange.getRequest().getPath().value().startsWith("/health/")) {
+                    if (state.isDraining() && !ManagementRequest.isProbeOrScrape(exchange)) {
                         exchange.getResponse().getHeaders().set("Retry-After", "1");
                         return Mono.error(new RuntimeUnavailableException());
                     }

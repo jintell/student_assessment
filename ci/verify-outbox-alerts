@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repository=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+promtool_image='prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9'
+docker run --rm --entrypoint /bin/promtool \
+  --mount "type=bind,source=${repository}/config/alerting,target=/rules,readonly" \
+  "$promtool_image" check rules /rules/outbox-backlog.rules.yml
+docker run --rm --entrypoint /bin/promtool \
+  --mount "type=bind,source=${repository}/config/alerting,target=/rules,readonly" \
+  "$promtool_image" test rules /rules/outbox-backlog.test.yml
