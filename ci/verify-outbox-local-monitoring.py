@@ -40,6 +40,7 @@ def require(condition, message):
         raise AssertionError(message)
 
 
+def command(arguments, data=None):
     result = subprocess.run(arguments, input=data, text=True, capture_output=True, check=False)
     if result.returncode:
         raise RuntimeError(f"Command failed: {arguments[0]} {arguments[1:3]}\n{result.stderr}")
@@ -75,6 +76,8 @@ class Drill:
         self.started = utc()
         self.created = False
 
+    def kubectl(self, *arguments, data=None):
+        return command(self.kube + list(arguments), data)
 
     def record(self, name, value):
         (self.output / f"{name}.json").write_text(json.dumps(value, indent=2) + "\n")
@@ -89,6 +92,7 @@ class Drill:
         resource = {"apiVersion": "apps/v1" if kind == "Deployment" else "v1",
                     "kind": kind, "metadata": {"name": name, "namespace": self.namespace,
                     "labels": {"cbt.meldtech.org/drill": "p722-local", "app": name}}, **specification}
+        self.kubectl("apply", "-f", "-", data=json.dumps(resource))
 
     def config(self, name, data):
         self.apply("ConfigMap", name, data=data)
@@ -151,6 +155,7 @@ class Drill:
     def http(self, name, path, payload=None, credentials=None):
         headers = {}
         if credentials:
+            headers["Authorization"] = "Basic " + base64.b64encode(credentials.encode()).decode()
         data = None if payload is None else json.dumps(payload).encode()
         if data:
             headers["Content-Type"] = "application/json"
@@ -164,6 +169,7 @@ class Drill:
         path = "/api/v1/query?" + urllib.parse.urlencode({"query": expression})
         response = self.http("grafana" if grafana else "prometheus",
                              "/api/datasources/proxy/uid/p722" + path if grafana else path,
+                             credentials="admin:" + self.credentials["grafana"] if grafana else None)
         if response.get("status") != "success":
             raise RuntimeError("Prometheus query failed")
         return response["data"]["result"]
@@ -172,7 +178,9 @@ class Drill:
         values = self.query(expression)
         return float(values[0]["value"][1]) if values else None
 
+    def psql(self, sql):
         return self.kubectl("exec", "-i", "deployment/postgres", "--", "psql", "-X", "-A", "-t",
+                            "-U", "postgres", "-d", "p722", "-v", "ON_ERROR_STOP=1", data=sql)
 
     def fixture_pod(self, name, mode, env):
         launch = "while [ ! -f /application/ready ]; do sleep 1; done; exec java -Xmx384m -jar /application/drill.jar " + mode
@@ -214,6 +222,7 @@ class Drill:
                       env=[{"name": "RABBITMQ_DEFAULT_USER", "value": "p722"}, self.secret_env("RABBITMQ_DEFAULT_PASS", "broker")])
         wait_for("database ready", lambda: self.ready("postgres"))
         self.psql((ROOT / "src/main/resources/db/provisioning/V1__create_migration_role.sql").read_text())
+        self.psql(f"ALTER ROLE app_migrator PASSWORD '{self.credentials['migrator']}';")
         migrator = self.fixture_pod("migrator", "--migrate-only", [
             {"name": "CBT_MIGRATION_JDBC_URL", "value": "jdbc:postgresql://postgres:5432/p722"},
             {"name": "CBT_MIGRATION_USERNAME", "value": "app_migrator"},
@@ -222,6 +231,8 @@ class Drill:
         self.kubectl("exec", migrator, "--", "touch", "/application/ready")
         wait_for("migration completion", lambda: self.migration_complete(migrator))
         self.checkpoint("production migrations applied to isolated database")
+        self.psql(f"ALTER ROLE app_worker PASSWORD '{self.credentials['worker']}';\n"
+                  "UPDATE platform.sweep_registry SET enabled=true, default_interval_ms=5000 WHERE sweep_name='outbox-backlog';\n"
                   "UPDATE platform.sweep_registry SET enabled=true WHERE sweep_name='outbox-relay';")
         wait_for("broker ready", lambda: self.ready("rabbitmq"))
         receiver = self.fixture_pod("receiver", "--receiver", [])
@@ -288,6 +299,7 @@ class Drill:
         self.record("rendered-monitoring", {"prometheus": prometheus, "alertmanager": alertmanager, "rule": rule})
         wait_for("fresh baseline", lambda: self.scalar("outbox_backlog_sample_fresh") == 1)
         self.record("installed-dashboard", self.http("grafana", "/api/dashboards/uid/outbox-backlog",
+                                                    credentials="admin:" + self.credentials["grafana"]))
 
     def seed(self, count):
         self.psql(f"""
@@ -301,10 +313,12 @@ class Drill:
             SELECT id, '00000000-0000-0000-0000-000000000722', 'Reference', id::text,
                    'platform.ReferenceEvent.v1',
                    jsonb_build_object('eventType','platform.ReferenceEvent.v1','referenceId',id::text,'revision',1),
+                   '01ARZ3NDEKTSV4RRFFQ69G5FAV', now() FROM events;
             COMMIT;
         """)
 
     def control(self, hold):
+        self.http("worker", "/drill", {"hold": hold}, "metrics:" + self.credentials["metrics"])
 
     def receipt(self, after, status, started_at=None):
         receipts = self.http("receiver", "/")
