@@ -305,11 +305,20 @@ class SessionSweepLockIntegrationTest {
     }
 
     @Test
-    void registryReadsAllSixDisabledRowsThroughTheSecuredConnection() {
+    void registryReadsAllDisabledRowsThroughTheSecuredConnection() {
         StepVerifier.create(registryLoader.load())
                 .assertNext(
                         rows -> {
-                            assertThat(rows).hasSize(6);
+                            assertThat(rows)
+                                    .extracting(SweepRegistryLoader.RegistryRow::name)
+                                    .containsExactlyInAnyOrder(
+                                            "auto-submit",
+                                            "stale-claim-reclaim",
+                                            "pin-material-destruction",
+                                            "retention",
+                                            "idp-reconciliation",
+                                            "outbox-relay",
+                                            "outbox-backlog");
                             assertThat(rows).noneMatch(SweepRegistryLoader.RegistryRow::enabled);
                         })
                 .expectComplete()

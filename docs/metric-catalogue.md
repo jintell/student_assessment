@@ -76,12 +76,15 @@ fork paging and daily verification publication remain P9.3/P9.4.
 
 ### Outbox Addendum — TASK-PLAT4-OBS-001
 
-These FEAT-PLAT-004 definitions fill the omission in architecture §16.2; they are not claimed as existing baseline text. `OutboxTelemetryConfiguration` registers the adapter on `worker`. The production relay assembly and backlog sampling hook remain blocked under outbox P8.5. Registered gauges start as `NaN` (unknown), not a healthy zero; only an explicit empty snapshot sets zero. The adapter rejects invalid negative snapshots without overwriting the last good sample. A live collector must refresh these cluster-wide values and provide freshness evidence before operational acceptance.
+These FEAT-PLAT-004 definitions fill the omission in architecture §16.2; they are not claimed as existing baseline text. `OutboxTelemetryConfiguration` registers the adapter and secured `outbox-backlog` sweep on `worker`. Its registry reservation is disabled pending owner review and deployment; production relay assembly remains under P8.5. Gauges start as `NaN` and expire back to `NaN`; only a successful complete empty database snapshot sets zero. Invalid snapshots and failed/timed-out/cancelled collections cannot replace the last good sample or extend its lifetime. See the [collection contract and deployment handoff](outbox-backlog-collection.md).
 
 | Prometheus name | Kind / unit | Feature labels and values | Series budget |
 |---|---|---|---:|
 | `outbox_backlog_depth` | Gauge, rows | `state`: PENDING, CLAIMED, PUBLISHED, FAILED | 4 |
 | `outbox_oldest_pending_age_seconds` | Gauge, seconds since oldest pending row was created; sampled empty backlog = 0 | None | 1 |
+| `outbox_backlog_sample_fresh` | Gauge, 1 while a complete snapshot remains fresh; 0 before sampling/after expiry | None | 1 |
+| `outbox_backlog_last_success_timestamp_seconds` | Gauge, database observation epoch seconds of last successful collection; NaN before sampling, retained after expiry | None | 1 |
+| `outbox_backlog_collection_failure_total` | Counter, collection errors, timeouts and cancellations; no exception labels | None | 1 |
 | `outbox_relay_published_total` | Counter, confirmed publications recorded as published | None | 1 |
 | `outbox_relay_publish_failure_total` | Counter, failed attempts | `reason`: BROKER_NACK, CONFIRM_TIMEOUT, BROKER_UNAVAILABLE, UNCLASSIFIED | 4 |
 | `outbox_relay_tick_total` | Counter, terminated tick attempts including lock losers, errors and cancellation | None | 1 |

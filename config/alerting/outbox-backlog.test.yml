@@ -4,6 +4,48 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
+  - name: deployments are independent and expired owner cannot prevent recovery
+    interval: 1m
+    input_series:
+      - series: 'outbox_backlog_depth{state="PENDING",cluster="first",namespace="cbt",job="worker",instance="old"}'
+        values: 5001 NaN stale
+      - series: 'outbox_backlog_depth{state="PENDING",cluster="first",namespace="cbt",job="worker",instance="new"}'
+        values: 0 0 0
+      - series: 'outbox_backlog_depth{state="PENDING",cluster="second",namespace="cbt",job="worker",instance="one"}'
+        values: 4999 4999 4999
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: OutboxBacklog
+        exp_alerts:
+          - exp_labels: {cluster: first, namespace: cbt, job: worker, severity: p2, owner: platform}
+            exp_annotations:
+              summary: Outbox pending backlog exceeds 5000 rows or five minutes
+              runbook: docs/runbooks/outbox-backlog.md
+      - eval_time: 1m
+        alertname: OutboxBacklog
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: OutboxBacklog
+        exp_alerts: []
+  - name: absent collector is unknown rather than a healthy sample
+    interval: 1m
+    input_series:
+      - series: 'outbox_backlog_sample_fresh{cluster="first",namespace="cbt",job="worker",instance="one"}'
+        values: 0 0 stale
+    promql_expr_test:
+      - expr: 'max by (cluster, namespace, job) (outbox_backlog_sample_fresh) == 1'
+        eval_time: 0m
+        exp_samples: []
+      - expr: 'max by (cluster, namespace, job) (outbox_backlog_sample_fresh) == 1'
+        eval_time: 2m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: OutboxBacklog
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: OutboxBacklog
+        exp_alerts: []
   - name: strict boundaries and independent age trigger
     interval: 1m
     input_series:
