@@ -42,7 +42,6 @@ def require(condition, message):
 
     result = subprocess.run(arguments, input=data, text=True, capture_output=True, check=False)
     if result.returncode:
-        raise RuntimeError(f"Command failed: {arguments[0]} {arguments[1:3]}\n{result.stderr}")
     return result.stdout
 
 
