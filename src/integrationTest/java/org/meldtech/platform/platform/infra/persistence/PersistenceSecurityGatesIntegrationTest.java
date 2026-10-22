@@ -187,7 +187,9 @@ class PersistenceSecurityGatesIntegrationTest {
                 .isEqualTo(1);
 
         assertThat(queryIntAsRole("app_worker", "SELECT count(*) FROM platform.sweep_registry"))
-                .isEqualTo(6);
+                .as("worker can read every seeded registry row")
+                .isPositive()
+                .isEqualTo(queryIntAsClusterOwner("SELECT count(*) FROM platform.sweep_registry"));
         assertThat(
                         queryIntAsRole(
                                 "app_worker",
