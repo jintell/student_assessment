@@ -31,7 +31,13 @@ final class WorkerHttpSurfaceValidator implements SmartInitializingSingleton {
         require(environment, "management.endpoints.enabled-by-default", "false");
         require(environment, "management.endpoints.web.base-path", "/");
         require(environment, "management.endpoints.web.path-mapping.health", "health");
-        require(environment, "management.endpoints.web.exposure.include", "health");
+        boolean scrapeEnabled =
+                environment.getProperty(
+                        "management.endpoint.prometheus.enabled", Boolean.class, false);
+        require(
+                environment,
+                "management.endpoints.web.exposure.include",
+                scrapeEnabled ? "health,prometheus" : "health");
         require(environment, "management.endpoints.web.discovery.enabled", "false");
         require(environment, "management.endpoint.health.enabled", "true");
         require(environment, "management.endpoint.health.show-details", "never");

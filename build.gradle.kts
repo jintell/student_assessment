@@ -34,6 +34,24 @@ extra["springModulithVersion"] = "2.1.1"
 val conformanceTestSourceSet = sourceSets.create("conformanceTest")
 val integrationTestSourceSet = sourceSets.create("integrationTest")
 val compatibilityProbeSourceSet = sourceSets.create("compatibilityProbe")
+val monitoringDrillSourceSet = sourceSets.create("monitoringDrill")
+monitoringDrillSourceSet.compileClasspath += sourceSets.main.get().output + configurations.getByName("productionRuntimeClasspath")
+monitoringDrillSourceSet.runtimeClasspath += monitoringDrillSourceSet.output + monitoringDrillSourceSet.compileClasspath
+
+tasks.register<org.springframework.boot.gradle.tasks.bundling.BootJar>("monitoringDrillJar") {
+    description = "Builds the isolated local outbox monitoring fixture; never part of the production image."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    archiveClassifier.set("monitoring-drill")
+    targetJavaVersion.set(JavaVersion.VERSION_21)
+    mainClass.set("org.meldtech.platform.platform.infra.outbox.LocalMonitoringApplication")
+    classpath(monitoringDrillSourceSet.runtimeClasspath)
+}
+
+tasks.named<ProcessResources>(monitoringDrillSourceSet.processResourcesTaskName) {
+    from("docs/runbooks/outbox-backlog.md") {
+        rename { "local-outbox-runbook.md" }
+    }
+}
 val kernelCompileClasspath =
     configurations.create("kernelCompileClasspath") {
         isCanBeConsumed = false
@@ -1000,10 +1018,17 @@ tasks.register("ciStage7") {
     dependsOn(sliceTest, runtimeRoleContextTest, verifySliceTests)
 }
 
+val verifyOutboxAlerts =
+    tasks.register<Exec>("verifyOutboxAlerts") {
+        description = "Checks outbox alert rules with digest-pinned Prometheus 3.10.0."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        commandLine("bash", "ci/verify-outbox-alerts")
+    }
+
 tasks.register("ciStage8") {
     description = "CI stage 8: runs PostgreSQL/RabbitMQ integration and daily audit-chain verification."
     group = "ci"
-    dependsOn(integrationTest, auditDailyChainVerificationTest, queryBudgetGate)
+    dependsOn(integrationTest, auditDailyChainVerificationTest, queryBudgetGate, verifyOutboxAlerts)
 }
 
 tasks.register("ciStage9") {

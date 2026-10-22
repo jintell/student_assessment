@@ -14,6 +14,8 @@ runtime implementation classes or add shared-kernel scheduling types.
 3. Match the reserved row in `platform.sweep_registry`. The six reserved names
    and stored keys are in `V10__seed_sweep_registry.sql`. Derive nothing in the
    sweep: no hash, advisory-lock key, scheduling identity or local interval.
+   V12 additionally reserves the disabled `outbox-backlog` collector; its candidate
+   timing and enablement review are documented in [outbox collection](outbox-backlog-collection.md).
    A new name needs a reviewed additive platform migration with a unique stored
    key, ownership and actor; never rewrite an applied migration.
 4. Keep the row disabled until its implementation and operating prerequisites
