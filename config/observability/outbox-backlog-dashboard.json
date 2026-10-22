@@ -1,0 +1,298 @@
+{
+  "uid": "outbox-backlog",
+  "title": "Outbox backlog collection",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "textbox",
+        "label": "cluster",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "namespace",
+        "type": "textbox",
+        "label": "namespace",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "job",
+        "type": "textbox",
+        "label": "job",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "runbook_url",
+        "type": "textbox",
+        "label": "runbook_url",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Outbox backlog by state",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (state) (outbox_backlog_depth{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+          "legendFormat": "{{state}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "Unknown"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PENDING"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 5000
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+      "links": [
+        {
+          "title": "Outbox backlog runbook",
+          "url": "${runbook_url}",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Oldest pending age",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(outbox_oldest_pending_age_seconds{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+          "legendFormat": "Age at observation"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "Unknown",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+      "links": [
+        {
+          "title": "Outbox backlog runbook",
+          "url": "${runbook_url}",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Collection freshness",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(outbox_backlog_sample_fresh{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "UNKNOWN",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "UNKNOWN — collection required",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "FRESH",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+      "links": [
+        {
+          "title": "Outbox backlog runbook",
+          "url": "${runbook_url}",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Last successful database observation",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * max(outbox_backlog_last_success_timestamp_seconds{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "noValue": "Never sampled"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+      "links": [
+        {
+          "title": "Outbox backlog runbook",
+          "url": "${runbook_url}",
+          "targetBlank": true
+        }
+      ]
+    }
+  ]
+}

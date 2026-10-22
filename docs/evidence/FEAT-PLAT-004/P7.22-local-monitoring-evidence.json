@@ -1,0 +1,1805 @@
+{
+  "age-firing": {
+    "at": "2026-10-19T07:25:01.961029+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394701.965,
+            "1"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394701.97,
+            "307.520933"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394701.977,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394701.983,
+            "1"
+          ]
+        }
+      ],
+      "alert": [
+        {
+          "metric": {
+            "__name__": "ALERTS",
+            "alertname": "OutboxBacklog",
+            "alertstate": "firing",
+            "cluster": "local-kind",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "owner": "platform",
+            "severity": "p2"
+          },
+          "value": [
+            1792394701.99,
+            "1"
+          ]
+        }
+      ]
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394702.024,
+            "1"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394702.036,
+            "307.520933"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394702.049,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394702.062,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PENDING|1\nPUBLISHED|5001\n",
+    "pendingAge": "1|309.327281\n"
+  },
+  "age-recovery": {
+    "at": "2026-10-19T07:25:12.558355+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394712.563,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.569,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.577,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.585,
+            "1"
+          ]
+        }
+      ],
+      "alert": []
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394712.615,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.632,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.65,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394712.663,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PUBLISHED|5002\n",
+    "pendingAge": "0|0\n"
+  },
+  "baseline": {
+    "at": "2026-10-19T07:18:55.978377+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394335.982,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394335.986,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394335.989,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394335.995,
+            "1"
+          ]
+        }
+      ],
+      "alert": []
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394336.012,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394336.024,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394336.04,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394336.051,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "",
+    "pendingAge": "0|0\n"
+  },
+  "collection-disabled": {
+    "at": "2026-10-19T07:25:25.972829+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394725.977,
+            "NaN"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394725.981,
+            "NaN"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394725.984,
+            "0"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394725.99,
+            "1"
+          ]
+        }
+      ],
+      "alert": []
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394726.007,
+            "NaN"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394726.023,
+            "NaN"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394726.04,
+            "0"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394726.052,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PUBLISHED|5002\n",
+    "pendingAge": "0|0\n"
+  },
+  "collection-restored": {
+    "at": "2026-10-19T07:25:56.929073+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394756.93,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394756.936,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394756.941,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394756.947,
+            "1"
+          ]
+        }
+      ],
+      "alert": []
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394756.975,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394756.988,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394757.002,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394757.017,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PUBLISHED|5002\n",
+    "pendingAge": "0|0\n"
+  },
+  "depth-firing": {
+    "at": "2026-10-19T07:19:06.807373+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394346.816,
+            "5001"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.824,
+            "9.015506"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.83,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.84,
+            "1"
+          ]
+        }
+      ],
+      "alert": [
+        {
+          "metric": {
+            "__name__": "ALERTS",
+            "alertname": "OutboxBacklog",
+            "alertstate": "firing",
+            "cluster": "local-kind",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "owner": "platform",
+            "severity": "p2"
+          },
+          "value": [
+            1792394346.846,
+            "1"
+          ]
+        }
+      ]
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394346.862,
+            "5001"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.874,
+            "9.015506"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.889,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394346.904,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PENDING|5001\n",
+    "pendingAge": "5001|10.614033\n"
+  },
+  "depth-recovery": {
+    "at": "2026-10-19T07:19:51.578033+00:00",
+    "queries": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394391.582,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.588,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.596,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.6,
+            "1"
+          ]
+        }
+      ],
+      "alert": []
+    },
+    "grafana": {
+      "depth": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_depth",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4",
+            "state": "PENDING"
+          },
+          "value": [
+            1792394391.622,
+            "0"
+          ]
+        }
+      ],
+      "age": [
+        {
+          "metric": {
+            "__name__": "outbox_oldest_pending_age_seconds",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.635,
+            "0"
+          ]
+        }
+      ],
+      "fresh": [
+        {
+          "metric": {
+            "__name__": "outbox_backlog_sample_fresh",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.648,
+            "1"
+          ]
+        }
+      ],
+      "scrape": [
+        {
+          "metric": {
+            "__name__": "up",
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "value": [
+            1792394391.66,
+            "1"
+          ]
+        }
+      ]
+    },
+    "database": "PUBLISHED|5001\n",
+    "pendingAge": "0|0\n"
+  },
+  "environment": {
+    "context": "docker-desktop",
+    "namespace": "p722-local-r4",
+    "server": "https://127.0.0.1:57872",
+    "images": {
+      "java": "eclipse-temurin:21-jre-noble@sha256:7739f0ffce786528961eea6bf46d9610ee968ac6127c9b2e93494757bdecce9f",
+      "prometheus": "prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9",
+      "alertmanager": "prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba",
+      "grafana": "grafana/grafana@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
+      "postgres": "postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675",
+      "rabbitmq": "rabbitmq:3.13-management-alpine@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281"
+    },
+    "started": "2026-10-19T07:18:14.787770+00:00",
+    "revision": "9707cf5ccd057bf662dc582ef827bb290b6ab2c7",
+    "workingTree": "uncommitted",
+    "artifactSha256": "7a5ed64375948859c389672757e1725de192b131df51243aad8458a01e5f4c7c"
+  },
+  "image-identities": [
+    {
+      "pod": "alertmanager-6fb8ccc64f-ngbxl",
+      "containers": [
+        {
+          "name": "alertmanager",
+          "image": "sha256:d1950c730ae9121fe5ad7b7313be63a26f4a075087d2190a31fd9261f7767a44",
+          "imageID": "docker.io/prom/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba"
+        }
+      ]
+    },
+    {
+      "pod": "grafana-fcb75d4d7-479wg",
+      "containers": [
+        {
+          "name": "grafana",
+          "image": "sha256:dadd5d5d226b158263925982f456c98d6fbe65b1ee57f24aa01845232c2d8be8",
+          "imageID": "docker.io/grafana/grafana@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505"
+        }
+      ]
+    },
+    {
+      "pod": "migrator",
+      "containers": [
+        {
+          "name": "migrator",
+          "image": "sha256:885581f7f3edddfe77c1e8d36cc0ade430107bb98e61f59db0390f7d70133959",
+          "imageID": "docker.io/library/eclipse-temurin@sha256:7739f0ffce786528961eea6bf46d9610ee968ac6127c9b2e93494757bdecce9f"
+        }
+      ]
+    },
+    {
+      "pod": "postgres-74cdd797df-4m455",
+      "containers": [
+        {
+          "name": "postgres",
+          "image": "sha256:651ddcd1c769a6d94cf4aaca9756f2abb6acd65e712f4a386a2ff4e730586d5b",
+          "imageID": "docker.io/library/postgres@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675"
+        }
+      ]
+    },
+    {
+      "pod": "prometheus-794bc6b8b5-5cwwg",
+      "containers": [
+        {
+          "name": "prometheus",
+          "image": "sha256:5ccfaca220fcb8f8144d7eedd9899246f4ad8273ccfe6eb079264a612df15f92",
+          "imageID": "docker.io/prom/prometheus@sha256:4a61322ac1103a0e3aea2a61ef1718422a48fa046441f299d71e660a3bc71ae9"
+        }
+      ]
+    },
+    {
+      "pod": "rabbitmq-5c94476789-tgtbw",
+      "containers": [
+        {
+          "name": "rabbitmq",
+          "image": "sha256:128fa025f555260135cadd602acbc454d65b639ee99a29ff1007244f271196af",
+          "imageID": "docker.io/library/rabbitmq@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281"
+        }
+      ]
+    },
+    {
+      "pod": "receiver-ddbc4bc7c-fqxnb",
+      "containers": [
+        {
+          "name": "receiver",
+          "image": "sha256:885581f7f3edddfe77c1e8d36cc0ade430107bb98e61f59db0390f7d70133959",
+          "imageID": "docker.io/library/eclipse-temurin@sha256:7739f0ffce786528961eea6bf46d9610ee968ac6127c9b2e93494757bdecce9f"
+        }
+      ]
+    },
+    {
+      "pod": "worker-7cfd6cb649-hqck5",
+      "containers": [
+        {
+          "name": "worker",
+          "image": "sha256:885581f7f3edddfe77c1e8d36cc0ade430107bb98e61f59db0390f7d70133959",
+          "imageID": "docker.io/library/eclipse-temurin@sha256:7739f0ffce786528961eea6bf46d9610ee968ac6127c9b2e93494757bdecce9f"
+        }
+      ]
+    }
+  ],
+  "installed-dashboard": {
+    "meta": {
+      "type": "db",
+      "canSave": true,
+      "canEdit": true,
+      "canAdmin": true,
+      "canStar": true,
+      "canDelete": true,
+      "slug": "outbox-backlog-collection",
+      "url": "/d/outbox-backlog/outbox-backlog-collection",
+      "expires": "0001-01-01T00:00:00Z",
+      "created": "2026-10-19T07:18:52Z",
+      "updated": "2026-10-19T07:18:52Z",
+      "updatedBy": "Anonymous",
+      "createdBy": "Anonymous",
+      "version": 1,
+      "hasAcl": false,
+      "isFolder": false,
+      "apiVersion": "v0alpha1",
+      "folderId": 0,
+      "folderUid": "",
+      "folderTitle": "General",
+      "folderUrl": "",
+      "provisioned": true,
+      "provisionedExternalId": "outbox.json",
+      "annotationsPermissions": {
+        "dashboard": {
+          "canAdd": true,
+          "canEdit": true,
+          "canDelete": true
+        },
+        "organization": {
+          "canAdd": true,
+          "canEdit": true,
+          "canDelete": true
+        }
+      }
+    },
+    "dashboard": {
+      "editable": true,
+      "id": 4396401528213504,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "p722"
+          },
+          "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "noValue": "Unknown",
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "PENDING"
+                },
+                "properties": [
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "red",
+                          "value": 5000
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "Outbox backlog runbook",
+              "url": "${runbook_url}"
+            }
+          ],
+          "options": {
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "expr": "max by (state) (outbox_backlog_depth{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+              "legendFormat": "{{state}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Outbox backlog by state",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "p722"
+          },
+          "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "min": 0,
+              "noValue": "Unknown",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 300
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 2,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "Outbox backlog runbook",
+              "url": "${runbook_url}"
+            }
+          ],
+          "targets": [
+            {
+              "expr": "max(outbox_oldest_pending_age_seconds{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+              "legendFormat": "Age at observation",
+              "refId": "A"
+            }
+          ],
+          "title": "Oldest pending age",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "p722"
+          },
+          "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "color": "red",
+                      "text": "UNKNOWN \u2014 collection required"
+                    },
+                    "1": {
+                      "color": "green",
+                      "text": "FRESH"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "UNKNOWN"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 3,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "Outbox backlog runbook",
+              "url": "${runbook_url}"
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "max(outbox_backlog_sample_fresh{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Collection freshness",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "p722"
+          },
+          "description": "Global snapshots use max, never sum. Missing/NaN is unknown. Collection loss requires separate Ops detection; threshold resolution alone is not recovery.",
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "Never sampled",
+              "unit": "dateTimeAsIso"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 8
+          },
+          "id": 4,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "Outbox backlog runbook",
+              "url": "${runbook_url}"
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "1000 * max(outbox_backlog_last_success_timestamp_seconds{cluster=\"$cluster\",namespace=\"$namespace\",job=\"$job\"})",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Last successful database observation",
+          "type": "stat"
+        }
+      ],
+      "schemaVersion": 39,
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "text": "local-kind",
+              "value": "local-kind"
+            },
+            "label": "cluster",
+            "name": "cluster",
+            "options": [],
+            "type": "textbox"
+          },
+          {
+            "current": {
+              "text": "p722-local-r4",
+              "value": "p722-local-r4"
+            },
+            "label": "namespace",
+            "name": "namespace",
+            "options": [],
+            "type": "textbox"
+          },
+          {
+            "current": {
+              "text": "p722-worker",
+              "value": "p722-worker"
+            },
+            "label": "job",
+            "name": "job",
+            "options": [],
+            "type": "textbox"
+          },
+          {
+            "current": {
+              "text": "http://127.0.0.1:63435/runbook",
+              "value": "http://127.0.0.1:63435/runbook"
+            },
+            "label": "runbook_url",
+            "name": "runbook_url",
+            "options": [],
+            "type": "textbox"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timezone": "utc",
+      "title": "Outbox backlog collection",
+      "uid": "outbox-backlog",
+      "version": 1
+    }
+  },
+  "installed-rules": {
+    "status": "success",
+    "data": {
+      "groups": [
+        {
+          "name": "outbox-backlog",
+          "file": "/rules/outbox.yml",
+          "rules": [
+            {
+              "state": "inactive",
+              "name": "OutboxBacklog",
+              "query": "max by (cluster, namespace, job) (outbox_backlog_depth{state=\"PENDING\"}) > 5000 or max by (cluster, namespace, job) (outbox_oldest_pending_age_seconds) > 300",
+              "duration": 0,
+              "keepFiringFor": 0,
+              "labels": {
+                "owner": "platform",
+                "severity": "p2"
+              },
+              "annotations": {
+                "runbook": "http://127.0.0.1:63435/runbook",
+                "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+              },
+              "alerts": [],
+              "health": "ok",
+              "evaluationTime": 0.00040975,
+              "lastEvaluation": "2026-10-19T07:25:55.568468172Z",
+              "type": "alerting"
+            }
+          ],
+          "interval": 5,
+          "limit": 0,
+          "evaluationTime": 0.00051725,
+          "lastEvaluation": "2026-10-19T07:25:55.568378506Z"
+        }
+      ]
+    }
+  },
+  "notifications": [
+    {
+      "receivedAt": "2026-10-19T07:19:06.640999511Z",
+      "notification": {
+        "receiver": "local-p2",
+        "status": "firing",
+        "alerts": [
+          {
+            "status": "firing",
+            "labels": {
+              "alertname": "OutboxBacklog",
+              "cluster": "local-kind",
+              "job": "p722-worker",
+              "namespace": "p722-local-r4",
+              "owner": "platform",
+              "severity": "p2"
+            },
+            "annotations": {
+              "runbook": "http://127.0.0.1:63435/runbook",
+              "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+            },
+            "startsAt": "2026-10-19T07:19:05.609Z",
+            "endsAt": "0001-01-01T00:00:00Z",
+            "generatorURL": "http://prometheus-794bc6b8b5-5cwwg:9090/graph?g0.expr=max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_backlog_depth%7Bstate%3D%22PENDING%22%7D%29+%3E+5000+or+max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_oldest_pending_age_seconds%29+%3E+300&g0.tab=1",
+            "fingerprint": "8182cf75edbc17db"
+          }
+        ],
+        "groupLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4"
+        },
+        "commonLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4",
+          "owner": "platform",
+          "severity": "p2"
+        },
+        "commonAnnotations": {
+          "runbook": "http://127.0.0.1:63435/runbook",
+          "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+        },
+        "externalURL": "http://alertmanager-6fb8ccc64f-ngbxl:9093",
+        "version": "4",
+        "groupKey": "{}:{alertname=\"OutboxBacklog\", cluster=\"local-kind\", job=\"p722-worker\", namespace=\"p722-local-r4\"}",
+        "truncatedAlerts": 0
+      }
+    },
+    {
+      "receivedAt": "2026-10-19T07:19:16.631304793Z",
+      "notification": {
+        "receiver": "local-p2",
+        "status": "resolved",
+        "alerts": [
+          {
+            "status": "resolved",
+            "labels": {
+              "alertname": "OutboxBacklog",
+              "cluster": "local-kind",
+              "job": "p722-worker",
+              "namespace": "p722-local-r4",
+              "owner": "platform",
+              "severity": "p2"
+            },
+            "annotations": {
+              "runbook": "http://127.0.0.1:63435/runbook",
+              "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+            },
+            "startsAt": "2026-10-19T07:19:05.609Z",
+            "endsAt": "2026-10-19T07:19:15.609Z",
+            "generatorURL": "http://prometheus-794bc6b8b5-5cwwg:9090/graph?g0.expr=max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_backlog_depth%7Bstate%3D%22PENDING%22%7D%29+%3E+5000+or+max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_oldest_pending_age_seconds%29+%3E+300&g0.tab=1",
+            "fingerprint": "8182cf75edbc17db"
+          }
+        ],
+        "groupLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4"
+        },
+        "commonLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4",
+          "owner": "platform",
+          "severity": "p2"
+        },
+        "commonAnnotations": {
+          "runbook": "http://127.0.0.1:63435/runbook",
+          "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+        },
+        "externalURL": "http://alertmanager-6fb8ccc64f-ngbxl:9093",
+        "version": "4",
+        "groupKey": "{}:{alertname=\"OutboxBacklog\", cluster=\"local-kind\", job=\"p722-worker\", namespace=\"p722-local-r4\"}",
+        "truncatedAlerts": 0
+      }
+    },
+    {
+      "receivedAt": "2026-10-19T07:25:00.579357633Z",
+      "notification": {
+        "receiver": "local-p2",
+        "status": "firing",
+        "alerts": [
+          {
+            "status": "firing",
+            "labels": {
+              "alertname": "OutboxBacklog",
+              "cluster": "local-kind",
+              "job": "p722-worker",
+              "namespace": "p722-local-r4",
+              "owner": "platform",
+              "severity": "p2"
+            },
+            "annotations": {
+              "runbook": "http://127.0.0.1:63435/runbook",
+              "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+            },
+            "startsAt": "2026-10-19T07:24:55.609Z",
+            "endsAt": "0001-01-01T00:00:00Z",
+            "generatorURL": "http://prometheus-794bc6b8b5-5cwwg:9090/graph?g0.expr=max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_backlog_depth%7Bstate%3D%22PENDING%22%7D%29+%3E+5000+or+max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_oldest_pending_age_seconds%29+%3E+300&g0.tab=1",
+            "fingerprint": "8182cf75edbc17db"
+          }
+        ],
+        "groupLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4"
+        },
+        "commonLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4",
+          "owner": "platform",
+          "severity": "p2"
+        },
+        "commonAnnotations": {
+          "runbook": "http://127.0.0.1:63435/runbook",
+          "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+        },
+        "externalURL": "http://alertmanager-6fb8ccc64f-ngbxl:9093",
+        "version": "4",
+        "groupKey": "{}:{alertname=\"OutboxBacklog\", cluster=\"local-kind\", job=\"p722-worker\", namespace=\"p722-local-r4\"}",
+        "truncatedAlerts": 0
+      }
+    },
+    {
+      "receivedAt": "2026-10-19T07:25:10.578455388Z",
+      "notification": {
+        "receiver": "local-p2",
+        "status": "resolved",
+        "alerts": [
+          {
+            "status": "resolved",
+            "labels": {
+              "alertname": "OutboxBacklog",
+              "cluster": "local-kind",
+              "job": "p722-worker",
+              "namespace": "p722-local-r4",
+              "owner": "platform",
+              "severity": "p2"
+            },
+            "annotations": {
+              "runbook": "http://127.0.0.1:63435/runbook",
+              "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+            },
+            "startsAt": "2026-10-19T07:24:55.609Z",
+            "endsAt": "2026-10-19T07:25:05.609Z",
+            "generatorURL": "http://prometheus-794bc6b8b5-5cwwg:9090/graph?g0.expr=max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_backlog_depth%7Bstate%3D%22PENDING%22%7D%29+%3E+5000+or+max+by+%28cluster%2C+namespace%2C+job%29+%28outbox_oldest_pending_age_seconds%29+%3E+300&g0.tab=1",
+            "fingerprint": "8182cf75edbc17db"
+          }
+        ],
+        "groupLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4"
+        },
+        "commonLabels": {
+          "alertname": "OutboxBacklog",
+          "cluster": "local-kind",
+          "job": "p722-worker",
+          "namespace": "p722-local-r4",
+          "owner": "platform",
+          "severity": "p2"
+        },
+        "commonAnnotations": {
+          "runbook": "http://127.0.0.1:63435/runbook",
+          "summary": "Outbox pending backlog exceeds 5000 rows or five minutes"
+        },
+        "externalURL": "http://alertmanager-6fb8ccc64f-ngbxl:9093",
+        "version": "4",
+        "groupKey": "{}:{alertname=\"OutboxBacklog\", cluster=\"local-kind\", job=\"p722-worker\", namespace=\"p722-local-r4\"}",
+        "truncatedAlerts": 0
+      }
+    }
+  ],
+  "rendered-monitoring": {
+    "prometheus": {
+      "global": {
+        "scrape_interval": "5s",
+        "evaluation_interval": "5s"
+      },
+      "rule_files": [
+        "/rules/outbox.yml"
+      ],
+      "alerting": {
+        "alertmanagers": [
+          {
+            "static_configs": [
+              {
+                "targets": [
+                  "alertmanager:9093"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "scrape_configs": [
+        {
+          "job_name": "p722-worker",
+          "metrics_path": "/prometheus",
+          "basic_auth": {
+            "username": "metrics",
+            "password_file": "/credentials/metrics"
+          },
+          "static_configs": [
+            {
+              "targets": [
+                "worker:9091"
+              ],
+              "labels": {
+                "cluster": "local-kind",
+                "namespace": "p722-local-r4"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "alertmanager": {
+      "route": {
+        "receiver": "local-p2",
+        "group_by": [
+          "alertname",
+          "cluster",
+          "namespace",
+          "job"
+        ],
+        "group_wait": "1s",
+        "group_interval": "5s",
+        "repeat_interval": "1m"
+      },
+      "receivers": [
+        {
+          "name": "local-p2",
+          "webhook_configs": [
+            {
+              "url": "http://receiver:8080/",
+              "send_resolved": true
+            }
+          ]
+        }
+      ]
+    },
+    "rule": "groups:\n  - name: outbox-backlog\n    rules:\n      - alert: OutboxBacklog\n        expr: |\n          max by (cluster, namespace, job) (outbox_backlog_depth{state=\"PENDING\"}) > 5000\n          or\n          max by (cluster, namespace, job) (outbox_oldest_pending_age_seconds) > 300\n        labels:\n          severity: p2\n          owner: platform\n        annotations:\n          summary: Outbox pending backlog exceeds 5000 rows or five minutes\n          runbook: http://127.0.0.1:63435/runbook\n"
+  },
+  "result": {
+    "result": "PASS_LOCAL_ONLY",
+    "started": "2026-10-19T07:18:14.787770+00:00",
+    "finished": "2026-10-19T07:25:57.366663+00:00",
+    "staging": "NOT_VERIFIED",
+    "approval": "PENDING",
+    "publishedAndDelivered": 5002,
+    "scope": "production sampler/runtime and relay adapters with a local-only assembly; not P8.5 production enablement"
+  },
+  "targets": {
+    "status": "success",
+    "data": {
+      "activeTargets": [
+        {
+          "discoveredLabels": {
+            "__address__": "worker:9091",
+            "__metrics_path__": "/prometheus",
+            "__scheme__": "http",
+            "__scrape_interval__": "5s",
+            "__scrape_timeout__": "5s",
+            "cluster": "local-kind",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "labels": {
+            "cluster": "local-kind",
+            "instance": "worker:9091",
+            "job": "p722-worker",
+            "namespace": "p722-local-r4"
+          },
+          "scrapePool": "p722-worker",
+          "scrapeUrl": "http://worker:9091/prometheus",
+          "globalUrl": "http://worker:9091/prometheus",
+          "lastError": "",
+          "lastScrape": "2026-10-19T07:25:55.505351047Z",
+          "lastScrapeDuration": 0.27532825,
+          "health": "up",
+          "scrapeInterval": "5s",
+          "scrapeTimeout": "5s"
+        }
+      ],
+      "droppedTargets": [],
+      "droppedTargetCounts": {
+        "p722-worker": 0
+      }
+    }
+  },
+  "timeline": [
+    {
+      "at": "2026-10-19T07:18:14.904347+00:00",
+      "step": "isolated local namespace created",
+      "context": "docker-desktop",
+      "namespace": "p722-local-r4"
+    },
+    {
+      "at": "2026-10-19T07:18:29.599950+00:00",
+      "step": "production migrations applied to isolated database"
+    },
+    {
+      "at": "2026-10-19T07:18:56.304027+00:00",
+      "step": "baseline verified"
+    },
+    {
+      "at": "2026-10-19T07:18:56.723192+00:00",
+      "step": "depth backlog committed",
+      "count": 5001
+    },
+    {
+      "at": "2026-10-19T07:19:07.195719+00:00",
+      "step": "depth P2 received",
+      "receipt": "2026-10-19T07:19:06.640999511Z",
+      "depth": 5001.0,
+      "age": 9.015506
+    },
+    {
+      "at": "2026-10-19T07:19:52.780433+00:00",
+      "step": "depth recovery received",
+      "receipt": "2026-10-19T07:19:16.631304793Z",
+      "published": 5001
+    },
+    {
+      "at": "2026-10-19T07:19:53.020279+00:00",
+      "step": "age backlog committed",
+      "count": 1
+    },
+    {
+      "at": "2026-10-19T07:25:02.347851+00:00",
+      "step": "age P2 received",
+      "receipt": "2026-10-19T07:25:00.579357633Z",
+      "depth": 1.0,
+      "age": 307.520933
+    },
+    {
+      "at": "2026-10-19T07:25:13.671489+00:00",
+      "step": "age recovery received",
+      "receipt": "2026-10-19T07:25:10.578455388Z",
+      "published": 5002
+    },
+    {
+      "at": "2026-10-19T07:25:26.315949+00:00",
+      "step": "collection loss is unknown, not healthy"
+    },
+    {
+      "at": "2026-10-19T07:25:57.366821+00:00",
+      "step": "local drill passed; staging remains unverified"
+    }
+  ]
+}

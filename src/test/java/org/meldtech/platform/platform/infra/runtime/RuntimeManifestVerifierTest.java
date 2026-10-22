@@ -65,7 +65,17 @@ class RuntimeManifestVerifierTest {
                 Class.forName(
                         "org.meldtech.platform.platform.slice.getConformanceReference.Handler");
         withMock(runner(role), handler)
-                .withUserConfiguration(endpoint, WebConfiguration.class)
+                .withUserConfiguration(
+                        endpoint,
+                        WebConfiguration.class,
+                        Class.forName(
+                                "org.meldtech.platform.platform.infra.outbox.OutboxTelemetryConfiguration"))
+                .withBean(
+                        io.micrometer.core.instrument.MeterRegistry.class,
+                        io.micrometer.core.instrument.simple.SimpleMeterRegistry::new)
+                .withBean(
+                        org.meldtech.platform.platform.api.SweepTransactions.class,
+                        () -> mock(org.meldtech.platform.platform.api.SweepTransactions.class))
                 .withBean(PolicyResolver.class, () -> mock(PolicyResolver.class))
                 .withBean(RequestTelemetry.class, () -> mock(RequestTelemetry.class))
                 .run(
